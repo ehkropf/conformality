@@ -1,3 +1,4 @@
 *.swp
-design/
 .DS_Store
+build/
+design/
