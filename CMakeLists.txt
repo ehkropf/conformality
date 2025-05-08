@@ -44,31 +44,29 @@ add_library(imobjects
     ${CMAKE_SOURCE_DIR}/external/implot/implot.cpp
     ${CMAKE_SOURCE_DIR}/external/implot/implot_items.cpp
 )
+set_property(TARGET imobjects
+    PROPERTY INCLUDE_DIRECTORIES ${IM_INCLUDE_DIRS}
+)
 
-#add_executable(fftcheck
-#    oned_fft.cpp
-#)
-#
-#set_target_properties(fftcheck
-#    PROPERTIES INCLUDE_DIRECTORIES "${INCLUDE_DIRS}"
-#)
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/90a41521142c978131f38c6da07b4eb96a9f1ff6.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+# For Windows: Prevent overriding the parent project's compiler/linker settings
+#set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
 
-#add_executable(gtest                                                                       target_link_libraries(fftcheck PRIVATE ${FFTW_LIB})
-#     main.mm
-#     external/imgui/imgui_demo.cpp
-#)
-#add_executable(pdemo
-#    pltdemo.mm
-#    external/imgui/imgui_demo.cpp
-#    external/implot/implot_demo.cpp
-#)
-#
-## Add Objective-C++ flags where needed.
-#set_source_files_properties(main.mm pltdemo.mm external/imgui/backends/imgui_impl_metal.mm
-#    PROPERTIES COMPILE_FLAGS "-ObjC++ -fobjc-weak -fobjc-arc"
-#)
-#set_target_properties(imobjects gtest pdemo
-#    PROPERTIES INCLUDE_DIRECTORIES "${IM_INCLUDE_DIRS}"
-#)
-#target_link_libraries(gtest PRIVATE ${IM_LINK_LIBS} imobjects)
-#target_link_libraries(pdemo PRIVATE ${IM_LINK_LIBS} imobjects)
+enable_testing()
+
+add_executable(ttest
+    tests/complex_rep.cpp
+    #tests/boundary_components.cpp
+    #tests/starlike_domain.cpp
+    #tests/elliptical_domain.cpp
+)
+target_link_libraries(ttest GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(ttest)
