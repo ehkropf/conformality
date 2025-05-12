@@ -62,9 +62,9 @@ enable_testing()
 
 add_executable(ttest
     tests/complex_rep.cpp
-    #tests/boundary_components.cpp
-    #tests/starlike_domain.cpp
-    #tests/elliptical_domain.cpp
+    tests/boundary_components.cpp
+    tests/starlike_domain.cpp
+    tests/elliptical_domain.cpp
 )
 target_link_libraries(ttest GTest::gtest_main)
 
