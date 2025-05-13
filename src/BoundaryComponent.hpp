@@ -33,7 +33,8 @@ enum class InterpolationMethod {
 /**
  * @brief Abstract base class for boundary components
  */
-class BoundaryComponent {
+class BoundaryComponent
+{
 protected:
     int index = 0;
 
@@ -72,19 +73,26 @@ public:
      * @brief Get the index of this boundary component
      * @return Component index
      */
-    int getIndex() const { return index; }
+    int getIndex() const
+    {
+        return index;
+    }
 
     /**
      * @brief Set the index of this boundary component
      * @param idx New index value
      */
-    void setIndex(int idx) { index = idx; }
+    void setIndex(int idx)
+    {
+        index = idx;
+    }
 };
 
 /**
  * @brief Boundary component defined by analytic functions
  */
-class AnalyticBoundaryComponent : public BoundaryComponent {
+class AnalyticBoundaryComponent : public BoundaryComponent
+{
 private:
     std::function<ComplexDouble(double)> parameterization;
     std::function<ComplexDouble(double)> derivative;
@@ -95,17 +103,19 @@ public:
      * @param paramFunc Function mapping parameter t to complex point
      * @param derivFunc Function providing the derivative
      */
-    AnalyticBoundaryComponent(
-        std::function<ComplexDouble(double)> paramFunc,
-        std::function<ComplexDouble(double)> derivFunc
-    ) : parameterization(paramFunc), derivative(derivFunc) {}
+    AnalyticBoundaryComponent(std::function<ComplexDouble(double)> paramFunc,
+                              std::function<ComplexDouble(double)> derivFunc)
+        : parameterization(paramFunc)
+        , derivative(derivFunc)
+    {}
 
     /**
      * @brief Evaluate the boundary at parameter t
      * @param t Parameter value
      * @return ComplexDouble point on the boundary
      */
-    ComplexDouble evaluate(double t) const override {
+    ComplexDouble evaluate(double t) const override
+    {
         return parameterization(t);
     }
 
@@ -114,7 +124,8 @@ public:
      * @param t Parameter value
      * @return ComplexDouble derivative
      */
-    ComplexDouble evaluateDerivative(double t) const override {
+    ComplexDouble evaluateDerivative(double t) const override
+    {
         return derivative(t);
     }
 
@@ -123,11 +134,13 @@ public:
      * @param numPoints Number of points to sample
      * @return Vector of complex points on the boundary
      */
-    std::vector<ComplexDouble> sample(size_t numPoints) const override {
+    std::vector<ComplexDouble> sample(size_t numPoints) const override
+    {
         std::vector<ComplexDouble> samples;
         samples.reserve(numPoints);
 
-        for (size_t i = 0; i < numPoints; ++i) {
+        for (size_t i = 0; i < numPoints; ++i)
+        {
             double t = 2.0 * M_PI * i / numPoints;
             samples.push_back(evaluate(t));
         }
@@ -140,7 +153,8 @@ public:
      * @param z ComplexDouble point on or near the boundary
      * @return Parameter value t such that evaluate(t) ≈ z
      */
-    double findParameterization(const ComplexDouble& z) const override {
+    double findParameterization(const ComplexDouble& z) const override
+    {
         // Simple implementation for test passing
         // In a real implementation, this would use numerical methods
         // like Newton's method to find the parameter more accurately
@@ -156,7 +170,8 @@ public:
 /**
  * @brief Boundary component defined by discrete points
  */
-class DiscreteBoundaryComponent : public BoundaryComponent {
+class DiscreteBoundaryComponent : public BoundaryComponent
+{
 private:
     std::vector<ComplexDouble> points;
     // FIXME: Uncomment this when implementing evaluation via method.
@@ -168,15 +183,21 @@ public:
      * @param pts Vector of points defining the boundary
      * @param interpolationMethod Method used for interpolation
      */
+    DiscreteBoundaryComponent(const std::vector<ComplexDouble>& pts)
+        : points(pts)
+    {}
 
-    DiscreteBoundaryComponent(const std::vector<ComplexDouble>& pts) : points(pts) {}
     // FIXME: Implementation method.
     //DiscreteBoundaryComponent(
     //    std::vector<ComplexDouble> pts,
     //    InterpolationMethod interpolationMethod = InterpolationMethod::LINEAR
-    //) : points(pts), method(interpolationMethod) {}
+    //)
+    //    : points(pts)
+    //    , method(interpolationMethod)
+    //{}
 
-    ComplexDouble evaluate(double t) const override {
+    ComplexDouble evaluate(double t) const override
+    {
         // Implementation depends on interpolation method
         // For test passing, we'll use a simple linear interpolation
         if (points.empty())
@@ -196,7 +217,8 @@ public:
         return result;
     }
 
-    ComplexDouble evaluateDerivative(double t) const override {
+    ComplexDouble evaluateDerivative(double t) const override
+    {
         // Simple finite difference approximation
         const double h = 1e-6;
         ComplexDouble fwd = evaluate(t + h);
@@ -205,19 +227,22 @@ public:
         return diff / ComplexDouble(2.0 * h);
     }
 
-    std::vector<ComplexDouble> sample(size_t numPoints) const override {
+    std::vector<ComplexDouble> sample(size_t numPoints) const override
+    {
         if (numPoints <= 0)
             return {};
 
         std::vector<ComplexDouble> samples;
         samples.reserve(numPoints);
 
-        if (points.size() == numPoints) {
+        if (points.size() == numPoints)
+        {
             return points; // Already have the right number of points
         }
 
         // Resample to the requested number of points
-        for (size_t i = 0; i < numPoints; ++i) {
+        for (size_t i = 0; i < numPoints; ++i)
+        {
             double t = 2.0 * M_PI * i / numPoints;
             samples.push_back(evaluate(t));
         }
@@ -225,7 +250,8 @@ public:
         return samples;
     }
 
-    double findParameterization(const ComplexDouble& z) const override {
+    double findParameterization(const ComplexDouble& z) const override
+    {
         // Find closest point and interpolate parameter
         if (points.empty())
             return 0.0;
@@ -235,9 +261,11 @@ public:
         // FIXME: Complex class should implement a norm.
         double minDist = std::norm(z.getValue() - points[0].getValue());
 
-        for (size_t i = 1; i < points.size(); ++i) {
+        for (size_t i = 1; i < points.size(); ++i)
+        {
             double dist = std::norm(z.getValue() - points[i].getValue());
-            if (dist < minDist) {
+            if (dist < minDist)
+            {
                 minDist = dist;
                 closestIdx = i;
             }
@@ -247,18 +275,21 @@ public:
         return 2.0 * M_PI * closestIdx / points.size();
     }
 
-    void resample(int numPoints) {
+    void resample(int numPoints)
+    {
         points = sample(numPoints);
     }
 
-    void smooth(double factor) {
+    void smooth(double factor)
+    {
         // Simple smoothing by averaging with neighbors
         if (points.size() < 3 || factor <= 0.0 || factor >= 1.0)
             return;
 
         std::vector<ComplexDouble> smoothedPoints = points;
 
-        for (size_t i = 0; i < points.size(); ++i) {
+        for (size_t i = 0; i < points.size(); ++i)
+        {
             size_t prev = (i + points.size() - 1) % points.size();
             size_t next = (i + 1) % points.size();
 

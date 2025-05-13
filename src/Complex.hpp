@@ -31,7 +31,8 @@
  * @tparam T The underlying complex type (default: std::complex<double>)
  */
 template <typename T = std::complex<double>>
-class Complex {
+class Complex
+{
 private:
     T value;
 
@@ -61,7 +62,8 @@ public:
      *
      * @return The real part
      */
-    double real() const {
+    double real() const
+    {
         return std::real(value);
     }
 
@@ -70,7 +72,8 @@ public:
      *
      * @return The imaginary part
      */
-    double imag() const {
+    double imag() const
+    {
         return std::imag(value);
     }
 
@@ -79,7 +82,8 @@ public:
      *
      * @return The modulus
      */
-    double abs() const {
+    double abs() const
+    {
         return std::abs(value);
     }
 
@@ -88,7 +92,8 @@ public:
      *
      * @return The argument in radians
      */
-    double arg() const {
+    double arg() const
+    {
         return std::arg(value);
     }
 
@@ -97,7 +102,8 @@ public:
      *
      * @return The underlying complex value
      */
-    const T& getValue() const {
+    const T& getValue() const
+    {
         return value;
     }
 
@@ -106,7 +112,8 @@ public:
      *
      * @return The underlying complex value
      */
-    T& getValue() {
+    T& getValue()
+    {
         return value;
     }
 
@@ -116,7 +123,8 @@ public:
      * @param other The complex number to add
      * @return The sum
      */
-    Complex operator+(const Complex& other) const {
+    Complex operator+(const Complex& other) const
+    {
         return Complex(value + other.value);
     }
 
@@ -126,7 +134,8 @@ public:
      * @param other The complex number to subtract
      * @return The difference
      */
-    Complex operator-(const Complex& other) const {
+    Complex operator-(const Complex& other) const
+    {
         return Complex(value - other.value);
     }
 
@@ -136,7 +145,8 @@ public:
      * @param other The complex number to multiply by
      * @return The product
      */
-    Complex operator*(const Complex& other) const {
+    Complex operator*(const Complex& other) const
+    {
         return Complex(value * other.value);
     }
 
@@ -146,7 +156,8 @@ public:
      * @param other The complex number to divide by
      * @return The quotient
      */
-    Complex operator/(const Complex& other) const {
+    Complex operator/(const Complex& other) const
+    {
         return Complex(value / other.value);
     }
 
@@ -156,7 +167,8 @@ public:
      * @param other The complex number to compare with
      * @return true if the two complex numbers are equal, false otherwise
      */
-    bool operator==(const Complex& other) const {
+    bool operator==(const Complex& other) const
+    {
         return value == other.value;
     }
 
@@ -167,7 +179,8 @@ public:
      * @param argument The argument (phase angle) in radians
      * @return The complex number
      */
-    static Complex fromPolar(double modulus, double argument) {
+    static Complex fromPolar(double modulus, double argument)
+    {
         return Complex(std::polar(modulus, argument));
     }
 };

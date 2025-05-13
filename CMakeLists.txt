@@ -60,13 +60,13 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(ttest
+add_executable(test_exec
     tests/complex_rep.cpp
     tests/boundary_components.cpp
     tests/starlike_domain.cpp
     tests/elliptical_domain.cpp
 )
-target_link_libraries(ttest GTest::gtest_main)
+target_link_libraries(test_exec GTest::gtest_main)
 
 include(GoogleTest)
-gtest_discover_tests(ttest)
+gtest_discover_tests(test_exec)

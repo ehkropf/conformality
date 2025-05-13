@@ -12,8 +12,8 @@
  * FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
  * details.
  *
- * You should have received a copy of the GNU Affero General Public License along with
- * Conformality. If not, see <https://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Affero General Public License along
+ * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include <gtest/gtest.h>
@@ -21,6 +21,7 @@
 
 TEST(StarlikeDomainTest, Construction) {
     Complex center(0.0, 0.0);
+    // FIXME This is clearly the wrong radius function.
     auto radiusFunc = [](double _) -> double { return 1.0; }; // Constant radius = circle
 
     StarlikeDomain domain(center, radiusFunc, false); // Internal domain
@@ -32,6 +33,7 @@ TEST(StarlikeDomainTest, Construction) {
 
 TEST(StarlikeDomainTest, ContainsPoint) {
     Complex center(0.0, 0.0);
+    // FIXME This is clearly the wrong radius function.
     auto radiusFunc = [](double _) -> double { return 1.0; }; // Circle of radius 1
 
     StarlikeDomain internalDomain(center, radiusFunc, false);

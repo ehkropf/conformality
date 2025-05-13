@@ -27,7 +27,8 @@
 /**
  * @brief Abstract base class for domains
  */
-class Domain {
+class Domain
+{
 protected:
     bool isExternal;
     int connectivity;
@@ -39,7 +40,9 @@ public:
      * @param domainConnectivity Connectivity of the domain
      */
     Domain(bool isExternalDomain = false, int domainConnectivity = 1)
-        : isExternal(isExternalDomain), connectivity(domainConnectivity) {}
+        : isExternal(isExternalDomain)
+        , connectivity(domainConnectivity)
+    {}
 
     virtual ~Domain() = default;
 
@@ -47,7 +50,8 @@ public:
      * @brief Check if this is an external domain
      * @return true if external, false if internal
      */
-    bool isExternalDomain() const {
+    bool isExternalDomain() const
+    {
         return isExternal;
     }
 
@@ -55,7 +59,8 @@ public:
      * @brief Get the connectivity of the domain
      * @return Connectivity (number of boundary components)
      */
-    int getConnectivity() const {
+    int getConnectivity() const
+    {
         return connectivity;
     }
 
@@ -76,7 +81,8 @@ public:
 /**
  * @brief Simply connected domain (connectivity = 1)
  */
-class SimplyConnectedDomain : public Domain {
+class SimplyConnectedDomain : public Domain
+{
 protected:
     std::shared_ptr<Boundary> boundary;
 
@@ -87,63 +93,79 @@ public:
      * @param isExternalDomain Whether this is an external domain
      */
     SimplyConnectedDomain(std::shared_ptr<Boundary> domainBoundary, bool isExternalDomain = false)
-        : Domain(isExternalDomain, 1), boundary(domainBoundary) {}
+        : Domain(isExternalDomain, 1)
+        , boundary(domainBoundary)
+    {}
 
-    Boundary& getBoundary() {
+    Boundary& getBoundary()
+    {
         return *boundary;
     }
 
-    const Boundary& getBoundary() const {
+    const Boundary& getBoundary() const
+    {
         return *boundary;
     }
 
-    bool contains(const ComplexDouble& z) const override {
-        if (isExternal) {
+    bool contains(const ComplexDouble& z) const override
+    {
+        if (isExternal)
+        {
             // For external domain, point is considered "inside" if outside the boundary
             auto samples = boundary->sample(100);
             if (samples.empty()) return false;
 
             // Simple winding number algorithm
             int winding = 0;
-            for (size_t i = 0; i < samples.size(); ++i) {
+            for (size_t i = 0; i < samples.size(); ++i)
+            {
                 ComplexDouble p1 = samples[i];
                 ComplexDouble p2 = samples[(i + 1) % samples.size()];
 
                 if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag())) {
-
+                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+                {
                     double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
                                           (z.real() - p1.real()) * (p2.imag() - p1.imag());
 
-                    if (p1.imag() < p2.imag()) {
+                    if (p1.imag() < p2.imag())
+                    {
                         winding += (crossProduct > 0) ? 1 : 0;
-                    } else {
+                    }
+                    else
+                    {
                         winding -= (crossProduct < 0) ? 1 : 0;
                     }
                 }
             }
 
             return (winding == 0);  // Outside the boundary if winding number is 0
-        } else {
+        }
+        else
+        {
             // For internal domain, point is considered "inside" if inside the boundary
             auto samples = boundary->sample(100);
             if (samples.empty()) return false;
 
             // Simple winding number algorithm
             int winding = 0;
-            for (size_t i = 0; i < samples.size(); ++i) {
+            for (size_t i = 0; i < samples.size(); ++i)
+            {
                 ComplexDouble p1 = samples[i];
                 ComplexDouble p2 = samples[(i + 1) % samples.size()];
 
                 if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag())) {
-
+                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+                {
                     double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
                                           (z.real() - p1.real()) * (p2.imag() - p1.imag());
 
-                    if (p1.imag() < p2.imag()) {
+                    if (p1.imag() < p2.imag())
+                    {
                         winding += (crossProduct > 0) ? 1 : 0;
-                    } else {
+                    }
+                    else
+                    {
                         winding -= (crossProduct < 0) ? 1 : 0;
                     }
                 }
@@ -153,14 +175,16 @@ public:
         }
     }
 
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override {
+    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
+    {
         // We would need to create a new transformed boundary
         // This is a simplified implementation for demonstration
         auto samples = boundary->sample(1000);
         std::vector<ComplexDouble> transformedSamples;
         transformedSamples.reserve(samples.size());
 
-        for (const auto& point : samples) {
+        for (const auto& point : samples)
+        {
             transformedSamples.push_back(transform(point));
         }
 
@@ -175,7 +199,8 @@ public:
 /**
  * @brief Starlike domain (simply connected domain that is star-shaped with respect to a center point)
  */
-class StarlikeDomain : public SimplyConnectedDomain {
+class StarlikeDomain : public SimplyConnectedDomain
+{
 protected:
     ComplexDouble center;
     std::function<double(double)> radiusFunction;
@@ -191,15 +216,18 @@ public:
         const ComplexDouble& domainCenter,
         std::function<double(double)> radiusFunc,
         bool isExternalDomain = false
-    ) : SimplyConnectedDomain(createBoundary(domainCenter, radiusFunc), isExternalDomain),
-        center(domainCenter),
-        radiusFunction(radiusFunc) {}
+    )
+        : SimplyConnectedDomain(createBoundary(domainCenter, radiusFunc), isExternalDomain)
+        , center(domainCenter)
+        , radiusFunction(radiusFunc)
+    {}
 
     /**
      * @brief Get the center of the domain
      * @return Center point
      */
-    ComplexDouble getCenter() const {
+    ComplexDouble getCenter() const
+    {
         return center;
     }
 
@@ -208,18 +236,23 @@ public:
      * @param angle Angle in radians
      * @return Radius at the given angle
      */
-    double getRadius(double angle) const {
+    double getRadius(double angle) const
+    {
         return radiusFunction(angle);
     }
 
-    bool contains(const ComplexDouble& z) const override {
-        if (isExternal) {
+    bool contains(const ComplexDouble& z) const override
+    {
+        if (isExternal)
+        {
             // FIXME: Need to implement `arg` and `abs` inside `Complex` class.
             // For external domain, point is inside if it's outside the boundary
             double angle = std::arg(z.getValue() - center.getValue());
             double radius = std::abs(z.getValue() - center.getValue());
             return radius > radiusFunction(angle);
-        } else {
+        }
+        else
+        {
             // For internal domain, point is inside if it's inside the boundary
             double angle = std::arg(z.getValue() - center.getValue());
             double radius = std::abs(z.getValue() - center.getValue());
@@ -231,15 +264,18 @@ private:
     static std::shared_ptr<Boundary> createBoundary(
         const ComplexDouble& center,
         std::function<double(double)> radiusFunc
-    ) {
+    )
+    {
         // Create a parameterization from the radius function
-        auto paramFunc = [center, radiusFunc](double t) -> ComplexDouble {
+        auto paramFunc = [center, radiusFunc](double t) -> ComplexDouble
+        {
             double r = radiusFunc(t);
             return center + ComplexDouble(r * std::cos(t), r * std::sin(t));
         };
 
         // Compute the derivative of the parameterization
-        auto derivFunc = [radiusFunc](double t) -> ComplexDouble {
+        auto derivFunc = [radiusFunc](double t) -> ComplexDouble
+        {
             // For a radius function r(θ), the derivative of r(θ)e^(iθ) is:
             // r'(θ)e^(iθ) + ir(θ)e^(iθ)
             double r = radiusFunc(t);
@@ -262,7 +298,8 @@ private:
 /**
  * @brief Elliptical domain
  */
-class EllipticalDomain : public StarlikeDomain {
+class EllipticalDomain : public StarlikeDomain
+{
 private:
     double a;  // Semi-major axis
     double b;  // Semi-minor axis
@@ -277,40 +314,37 @@ public:
      * @param domainCenter Center of the ellipse
      * @param isExternalDomain Whether this is an external domain
      */
-    EllipticalDomain(
-        double semiMajorAxis,
-        double semiMinorAxis,
-        double rotationAngle = 0.0,
-        const ComplexDouble& domainCenter = ComplexDouble(0.0, 0.0),
-        bool isExternalDomain = false
-    ) : StarlikeDomain(
-            domainCenter,
-            [semiMajorAxis, semiMinorAxis, rotationAngle](double angle) -> double {
-                // Adjust angle by rotation
-                double adjustedAngle = angle - rotationAngle;
+    EllipticalDomain(double semiMajorAxis, double semiMinorAxis, double rotationAngle = 0.0,
+                     const ComplexDouble& domainCenter = ComplexDouble(0.0, 0.0),
+                     bool isExternalDomain = false)
+        : StarlikeDomain(domainCenter,
+                         [semiMajorAxis, semiMinorAxis, rotationAngle, this](double angle) -> double
+                         {
+                             // Adjust angle by rotation.
+                             double adjustedAngle = angle - rotationAngle;
 
-                // Radius of ellipse at given angle using the parametric equation
-                // r(θ) = (ab) / sqrt((b*cos(θ))^2 + (a*sin(θ))^2)
-                double cosTheta = std::cos(adjustedAngle);
-                double sinTheta = std::sin(adjustedAngle);
-                return (semiMajorAxis * semiMinorAxis) /
-                       std::sqrt(semiMinorAxis * semiMinorAxis * cosTheta * cosTheta +
-                                semiMajorAxis * semiMajorAxis * sinTheta * sinTheta);
-            },
-            isExternalDomain
-        ),
-        a(semiMajorAxis),
-        b(semiMinorAxis),
-        rotation(rotationAngle) {}
+                             const double theta = std::atan((semiMajorAxis*semiMinorAxis)*std::tan(adjustedAngle));
+                             return std::abs(std::complex<double>(a*std::cos(theta), b*std::sin(theta)));
+
+                         },
+            isExternalDomain)
+        , a(semiMajorAxis)
+        , b(semiMinorAxis)
+        , rotation(rotationAngle)
+    {}
 
     /**
      * @brief Get the eccentricity of the ellipse
      * @return Eccentricity
      */
-    double getEccentricity() const {
-        if (a >= b) {
+    double getEccentricity() const
+    {
+        if (a >= b)
+        {
             return std::sqrt(1.0 - (b * b) / (a * a));
-        } else {
+        }
+        else
+        {
             return std::sqrt(1.0 - (a * a) / (b * b));
         }
     }
@@ -319,7 +353,8 @@ public:
      * @brief Get the semi-major axis
      * @return Semi-major axis
      */
-    double getSemiMajorAxis() const {
+    double getSemiMajorAxis() const
+    {
         return a;
     }
 
@@ -327,7 +362,8 @@ public:
      * @brief Get the semi-minor axis
      * @return Semi-minor axis
      */
-    double getSemiMinorAxis() const {
+    double getSemiMinorAxis() const
+    {
         return b;
     }
 
@@ -335,7 +371,8 @@ public:
      * @brief Get the rotation angle
      * @return Rotation angle in radians
      */
-    double getRotation() const {
+    double getRotation() const
+    {
         return rotation;
     }
 };
@@ -343,7 +380,8 @@ public:
 /**
  * @brief Circular domain (special case of elliptical domain with equal axes)
  */
-class CircularDomain : public EllipticalDomain {
+class CircularDomain : public EllipticalDomain
+{
 private:
     double radius;
 
@@ -358,29 +396,36 @@ public:
         const ComplexDouble& domainCenter,
         double circleRadius,
         bool isExternalDomain = false
-    ) : EllipticalDomain(
+    )
+        : EllipticalDomain(
             circleRadius,
             circleRadius,
             0.0,
             domainCenter,
             isExternalDomain
-        ),
-        radius(circleRadius) {}
+        )
+        , radius(circleRadius)
+    {}
 
     /**
      * @brief Get the radius of the circle
      * @return Radius
      */
-    double getRadius() const {
+    double getRadius() const
+    {
         return radius;
     }
 
     // Override contains for efficiency
-    bool contains(const ComplexDouble& z) const override {
+    bool contains(const ComplexDouble& z) const override
+    {
         double dist = std::abs(z.getValue() - getCenter().getValue());
-        if (isExternalDomain()) {
+        if (isExternalDomain())
+        {
             return dist > radius;
-        } else {
+        }
+        else
+        {
             return dist < radius;
         }
     }
@@ -389,7 +434,8 @@ public:
 /**
  * @brief Polygonal domain (domain bounded by a polygon)
  */
-class PolygonalDomain : public SimplyConnectedDomain {
+class PolygonalDomain : public SimplyConnectedDomain
+{
 private:
     std::vector<ComplexDouble> vertices;
 
@@ -402,14 +448,17 @@ public:
     PolygonalDomain(
         const std::vector<ComplexDouble>& domainVertices,
         bool isExternalDomain = false
-    ) : SimplyConnectedDomain(createBoundary(domainVertices), isExternalDomain),
-        vertices(domainVertices) {}
+    )
+        : SimplyConnectedDomain(createBoundary(domainVertices), isExternalDomain)
+        , vertices(domainVertices)
+    {}
 
     /**
      * @brief Get the vertices of the polygon
      * @return Vector of vertices
      */
-    const std::vector<ComplexDouble>& getVertices() const {
+    const std::vector<ComplexDouble>& getVertices() const
+    {
         return vertices;
     }
 
@@ -417,16 +466,22 @@ public:
      * @brief Set the vertices of the polygon
      * @param newVertices New vertices
      */
-    void setVertices(const std::vector<ComplexDouble>& newVertices) {
+    void setVertices(const std::vector<ComplexDouble>& newVertices)
+    {
         vertices = newVertices;
         boundary = createBoundary(vertices);
     }
 
 private:
-    static std::shared_ptr<Boundary> createBoundary(const std::vector<ComplexDouble>& vertices) {
+    static std::shared_ptr<Boundary> createBoundary(
+        const std::vector<ComplexDouble>& vertices
+    )
+    {
         // Create a piecewise linear parameterization from the vertices
-        auto paramFunc = [vertices](double t) -> ComplexDouble {
-            if (vertices.empty()) {
+        auto paramFunc = [vertices](double t) -> ComplexDouble
+        {
+            if (vertices.empty())
+            {
                 return ComplexDouble(0.0, 0.0);
             }
 
@@ -442,8 +497,10 @@ private:
         };
 
         // Compute the derivative of the parameterization
-        auto derivFunc = [vertices](double t) -> ComplexDouble {
-            if (vertices.empty()) {
+        auto derivFunc = [vertices](double t) -> ComplexDouble
+        {
+            if (vertices.empty())
+            {
                 return ComplexDouble(0.0, 0.0);
             }
 
@@ -466,7 +523,8 @@ private:
 /**
  * @brief Multiply connected domain (connectivity >= 2)
  */
-class MultiplyConnectedDomain : public Domain {
+class MultiplyConnectedDomain : public Domain
+{
 protected:
     std::vector<std::shared_ptr<Boundary>> boundaries;
 
@@ -478,25 +536,31 @@ public:
      */
     MultiplyConnectedDomain(
         std::vector<std::shared_ptr<Boundary>> domainBoundaries,
-        bool isExternalDomain = false
-    ) : Domain(isExternalDomain, domainBoundaries.size()),
-        boundaries(domainBoundaries) {}
+        bool isExternalDomain = false)
+        : Domain(isExternalDomain, domainBoundaries.size())
+        , boundaries(domainBoundaries)
+    {}
 
-    void addBoundary(std::shared_ptr<Boundary> boundary) {
+    void addBoundary(std::shared_ptr<Boundary> boundary)
+    {
         boundaries.push_back(boundary);
         connectivity = boundaries.size();
     }
 
-    std::vector<std::shared_ptr<Boundary>>& getBoundaries() {
+    std::vector<std::shared_ptr<Boundary>>& getBoundaries()
+    {
         return boundaries;
     }
 
-    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const {
+    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const
+    {
         return boundaries;
     }
 
-    bool contains(const ComplexDouble& z) const override {
-        if (boundaries.empty()) {
+    bool contains(const ComplexDouble& z) const override
+    {
+        if (boundaries.empty())
+        {
             return false;
         }
 
@@ -510,28 +574,34 @@ public:
         bool insideOuterBoundary = false;
 
         // Check against each boundary
-        for (size_t i = 0; i < boundaries.size(); ++i) {
+        for (size_t i = 0; i < boundaries.size(); ++i)
+        {
             // Sample points to determine containment
             auto samples = boundaries[i]->sample(100);
-            if (samples.empty()) {
+            if (samples.empty())
+            {
                 continue;
             }
 
             // Use winding number algorithm to determine if point is inside boundary
             int winding = 0;
-            for (size_t j = 0; j < samples.size(); ++j) {
+            for (size_t j = 0; j < samples.size(); ++j)
+            {
                 ComplexDouble p1 = samples[j];
                 ComplexDouble p2 = samples[(j + 1) % samples.size()];
 
                 if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag())) {
-
+                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+                {
                     double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
                                           (z.real() - p1.real()) * (p2.imag() - p1.imag());
 
-                    if (p1.imag() < p2.imag()) {
+                    if (p1.imag() < p2.imag())
+                    {
                         winding += (crossProduct > 0) ? 1 : 0;
-                    } else {
+                    }
+                    else
+                    {
                         winding -= (crossProduct < 0) ? 1 : 0;
                     }
                 }
@@ -539,28 +609,35 @@ public:
 
             bool insideThisBoundary = (winding != 0);
 
-            if (i == 0) {
+            if (i == 0)
+            {
                 // Outer boundary
                 insideOuterBoundary = insideThisBoundary;
 
                 // For external domains, being outside the outer boundary counts as "inside" the domain
-                if (isExternal && !insideOuterBoundary) {
+                if (isExternal && !insideOuterBoundary)
+                {
                     return true;
                 }
 
                 // For internal domains, being outside the outer boundary means the point is outside the domain
-                if (!isExternal && !insideOuterBoundary) {
+                if (!isExternal && !insideOuterBoundary)
+                {
                     return false;
                 }
-            } else {
+            }
+            else
+            {
                 // Inner boundary
                 // For internal domains, being inside an inner boundary means the point is outside the domain
-                if (!isExternal && insideThisBoundary) {
+                if (!isExternal && insideThisBoundary)
+                {
                     return false;
                 }
 
                 // For external domains, being inside an inner boundary means the point is inside the domain
-                if (isExternal && insideThisBoundary) {
+                if (isExternal && insideThisBoundary)
+                {
                     return true;
                 }
             }
@@ -568,7 +645,8 @@ public:
 
         // If we get here for an internal domain, the point is inside the outer boundary
         // and outside all inner boundaries, so it's inside the domain
-        if (!isExternal) {
+        if (!isExternal)
+        {
             return true;
         }
 
@@ -577,14 +655,17 @@ public:
         return false;
     }
 
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override {
+    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
+    {
         // Transform each boundary
-        for (auto& boundary : boundaries) {
+        for (auto& boundary : boundaries)
+        {
             auto samples = boundary->sample(1000);
             std::vector<ComplexDouble> transformedSamples;
             transformedSamples.reserve(samples.size());
 
-            for (const auto& point : samples) {
+            for (const auto& point : samples)
+            {
                 transformedSamples.push_back(transform(point));
             }
 
