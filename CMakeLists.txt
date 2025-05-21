@@ -74,6 +74,9 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/ConformalMap.cpp
     ${CMAKE_SOURCE_DIR}/src/ConformalMapMethod.cpp
 )
+add_library(util_objects OBJECT
+    ${CMAKE_SOURCE_DIR}/src/Grid.cpp
+)
 
 #####
 # Testing section
@@ -98,6 +101,8 @@ add_executable(test_exec
     $<TARGET_OBJECTS:fftw_wrapper>
     tests/conformal_map_tests.cpp
     $<TARGET_OBJECTS:map_objects>
+    tests/grids.cpp
+    $<TARGET_OBJECTS:util_objects>
 )
 target_link_libraries(test_exec
     GTest::gtest_main
