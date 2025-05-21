@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wformat")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
+#####
+# Libraries, etc.
 set(IM_INCLUDE_DIRS
     /opt/local/include
     ${CMAKE_SOURCE_DIR}/external/imgui
@@ -66,6 +68,15 @@ set_property(TARGET imobjects
     PROPERTY INCLUDE_DIRECTORIES ${IM_INCLUDE_DIRS}
 )
 
+#####
+# Sources
+add_library(map_objects OBJECT
+    ${CMAKE_SOURCE_DIR}/src/ConformalMap.cpp
+    ${CMAKE_SOURCE_DIR}/src/ConformalMapMethod.cpp
+)
+
+#####
+# Testing section
 include(FetchContent)
 FetchContent_Declare(
   googletest
@@ -85,6 +96,8 @@ add_executable(test_exec
     tests/elliptical_domain.cpp
     tests/fftw_wrapper.cpp
     $<TARGET_OBJECTS:fftw_wrapper>
+    tests/conformal_map_tests.cpp
+    $<TARGET_OBJECTS:map_objects>
 )
 target_link_libraries(test_exec
     GTest::gtest_main
