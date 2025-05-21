@@ -16,6 +16,24 @@ set(IM_INCLUDE_DIRS
 )
 
 find_library(FFTW_LIB fftw3 HINTS /opt/local/lib /usr/local/lib REQUIRED)
+if(FFTW_LIB)
+    get_filename_component(LIB_DIR "${FFTW_LIB}" DIRECTORY)
+    get_filename_component(INSTALL_PREFIX "${LIB_DIR}" DIRECTORY)
+    find_path(FFTW_INC_DIR
+        NAMES fftw3.h
+        PATHS "${INSTALL_PREFIX}/include"
+        NO_DEFAULT_PATH
+    )
+    if(FFTW_INC_DIR)
+        include_directories(${FFTW_INC_DIR})
+    else()
+        message(FATAL_ERROR "Unable to find path for fftw3.h")
+    endif()
+endif()
+add_library(fftw_wrapper OBJECT
+    src/FFTWWrapper.cpp
+)
+
 find_library(GLFW_LIB glfw.3 HINTS /opt/local/lib /usr/local/lib REQUIRED)
 find_library(METAL_LIB Metal REQUIRED)
 find_library(METALKIT_LIB MetalKit REQUIRED)
@@ -34,7 +52,7 @@ set(IM_LINK_LIBS
     ${QUARTZ_LIB}
 )
 
-add_library(imobjects
+add_library(imobjects OBJECT
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui_draw.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui_tables.cpp
@@ -65,8 +83,13 @@ add_executable(test_exec
     tests/boundary_components.cpp
     tests/starlike_domain.cpp
     tests/elliptical_domain.cpp
+    tests/fftw_wrapper.cpp
+    $<TARGET_OBJECTS:fftw_wrapper>
 )
-target_link_libraries(test_exec GTest::gtest_main)
+target_link_libraries(test_exec
+    GTest::gtest_main
+    ${FFTW_LIB}
+)
 
 include(GoogleTest)
 gtest_discover_tests(test_exec)

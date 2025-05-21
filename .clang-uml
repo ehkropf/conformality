@@ -1,0 +1,12 @@
+# Diagram file for Conformality
+# vim: ft=yaml
+
+compilation_database_dir: build
+output_directory: .
+diagrams:
+  domain_classes:
+    type: class
+    title: Domain class structure
+    glob:
+      include:
+        - src/*.hpp
