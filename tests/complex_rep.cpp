@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Complex.hpp"
+#include "../src/Complex.h"
 
 TEST(ComplexTest, Construction)
 {

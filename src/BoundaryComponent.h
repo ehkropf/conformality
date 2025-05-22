@@ -19,7 +19,7 @@
 #ifndef BOUNDARY_COMPONENT_HPP
 #define BOUNDARY_COMPONENT_HPP
 
-#include "Complex.hpp"
+#include "Complex.h"
 
 #include <cmath>
 

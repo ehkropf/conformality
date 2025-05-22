@@ -19,7 +19,7 @@
 #ifndef BOUNDARY_HPP
 #define BOUNDARY_HPP
 
-#include "BoundaryComponent.hpp"
+#include "BoundaryComponent.h"
 #include <memory>
 #include <limits>
 #include <stdexcept>

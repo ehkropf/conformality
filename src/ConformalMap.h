@@ -20,8 +20,8 @@
 #define CONFORMAL_MAP_HPP
 
 #include <memory>
-#include "Complex.hpp"
-#include "Domain.hpp"
+#include "Complex.h"
+#include "Domain.h"
 
 // Forward declaration to avoid circular dependency
 class ConformalMapMethod;

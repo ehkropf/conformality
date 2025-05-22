@@ -19,7 +19,7 @@
 #ifndef DOMAIN_HPP
 #define DOMAIN_HPP
 
-#include "Boundary.hpp"
+#include "Boundary.h"
 #include <functional>
 #include <memory>
 #include <cmath>

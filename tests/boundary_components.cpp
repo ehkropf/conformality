@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/BoundaryComponent.hpp"
+#include "../src/BoundaryComponent.h"
 
 TEST(BoundaryComponentTest, AnalyticEvaluation) {
     // Create an analytic boundary component for a circle

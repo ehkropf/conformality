@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Domain.hpp"
+#include "../src/Domain.h"
 
 TEST(StarlikeDomainTest, Construction) {
     Complex center(0.0, 0.0);

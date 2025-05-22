@@ -20,7 +20,7 @@
 #include <memory>
 #include "../src/ConformalMap.h"
 #include "../src/ConformalMapMethod.h"
-#include "../src/Domain.hpp"
+#include "../src/Domain.h"
 
 // Mock implementation of ConformalMapMethod for testing
 class MockMethod : public ConformalMapMethod

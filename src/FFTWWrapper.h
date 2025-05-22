@@ -23,7 +23,7 @@
 #include <vector>
 #include <filesystem>
 
-#include "Complex.hpp"
+#include "Complex.h"
 
 /**
  * @brief A wrapper for the FFTW library that handles 1D FFTs and wisdom management.
