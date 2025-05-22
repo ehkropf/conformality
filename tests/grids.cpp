@@ -159,10 +159,12 @@ TEST(GridTest, CreateParametricGrid)
     EXPECT_NEAR(0.5, points[0].real(), 1e-10);
     EXPECT_NEAR(0.0, points[0].imag(), 1e-10);
 
-    // Last v-constant line should all have radius 2.0
-    for (int i = 24; i < 32; ++i)
+    // Points are stored as [u0,v0], [u0,v1], [u0,v2], [u0,v3], [u1,v0], ...
+    // So points with maximum radius (v=2.0) are at indices: 3, 7, 11, 15, 19, 23, 27, 31
+    std::vector<int> maxRadiusIndices = {3, 7, 11, 15, 19, 23, 27, 31};
+    for (int idx : maxRadiusIndices)
     {
-        EXPECT_NEAR(2.0, points[i].abs(), 1e-10);
+        EXPECT_NEAR(2.0, points[idx].abs(), 1e-10);
     }
 }
 
@@ -356,6 +358,7 @@ TEST(GridTest, Regeneration)
     EXPECT_EQ(12, static_cast<int>(grid.getParameters()["numRadialLines"]));
     EXPECT_EQ(6, static_cast<int>(grid.getParameters()["numAngularLines"]));
 
-    // Number of lines should now be 12 radial + 6 angular = 18
-    EXPECT_EQ(18, grid.getLineCount());
+    // Number of lines should be 12 radial + (6-1) angular = 17 total
+    // (One angular line is skipped because it would be degenerate at r=0)
+    EXPECT_EQ(17, grid.getLineCount());
 }
