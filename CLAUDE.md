@@ -14,6 +14,7 @@ These are guidelines, and can be broken if it improves readability.
 - Continued lines in function definitions should start under the first character of the argment from a previous line. In the case there is no argument after the opening `(` (line space limitations), simply indent the next line by 8 extra spaces instead of 4.
 - For the constructor initialisation list, put the colon and the first member init on a separate line to start the list. Each following member initialisation should start the next line with a `,` under the colon followed by the member init.
 - Function call arguments should follow the same rules as function definitions.
+- For object initialisation, prefer the curly brackets `{}` over parentheses and the assignment operator. The latter two can be used when it makes more sense (readability or technical reasons).
 
 Example:
 
@@ -31,7 +32,7 @@ public:
 ## C++ best practices
 
 - Always include necessary headers.
-- Use `const` and `constexpr` where appropriate.
+- Use `const` and `constexpr` where appropriate (we want const-ness declared on everything, unless of course it is going to be changed after declaration).
 - Prefer `std::vector` over raw arrays.
 - Use smart pointers (`std::unique_ptr`, `std::shared_ptr`) for dynamic memory management.
 - Avoid global variables.

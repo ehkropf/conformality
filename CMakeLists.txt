@@ -95,6 +95,7 @@ enable_testing()
 add_executable(test_exec
     tests/complex_rep.cpp
     tests/boundary_components.cpp
+    tests/simply_connected.cpp
     tests/starlike_domain.cpp
     tests/elliptical_domain.cpp
     tests/fftw_wrapper.cpp

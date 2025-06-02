@@ -33,6 +33,98 @@ protected:
     bool isExternal;
     int connectivity;
 
+    /**
+     * @brief Improved ray-casting algorithm for point-in-polygon testing
+     * @param z Point to test
+     * @param samples Boundary sample points
+     * @param tolerance Tolerance for boundary proximity
+     * @return Winding number
+     */
+    int calculateWindingNumber(const ComplexDouble& z, const std::vector<ComplexDouble>& samples, double tolerance = 1e-12) const
+    {
+        if (samples.empty())
+        {
+            return 0;
+        }
+
+        int winding = 0;
+        double minDistanceToBoundary = std::numeric_limits<double>::max();
+
+        for (size_t i = 0; i < samples.size(); ++i)
+        {
+            ComplexDouble p1 = samples[i];
+            ComplexDouble p2 = samples[(i + 1) % samples.size()];
+
+            // Track minimum distance to boundary for tolerance checking
+            double distToSegment = distanceToLineSegment(z, p1, p2);
+            minDistanceToBoundary = std::min(minDistanceToBoundary, distToSegment);
+
+            // Check if point is very close to boundary
+            if (distToSegment < tolerance)
+            {
+                // Point is on boundary - return special value
+                return std::numeric_limits<int>::max();
+            }
+
+            // Ray casting: check if horizontal ray from z to the right crosses this edge
+            if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
+                (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+            {
+                // Avoid division by zero
+                if (std::abs(p2.imag() - p1.imag()) < 1e-15)
+                {
+                    continue;
+                }
+
+                // Calculate x-coordinate of intersection point
+                double t = (z.imag() - p1.imag()) / (p2.imag() - p1.imag());
+                double x_intersect = p1.real() + t * (p2.real() - p1.real());
+
+                // Count intersection if it's to the right of the point
+                if (x_intersect > z.real())
+                {
+                    if (p2.imag() > p1.imag())
+                    {
+                        winding++;
+                    }
+                    else
+                    {
+                        winding--;
+                    }
+                }
+            }
+        }
+
+        return winding;
+    }
+
+    /**
+     * @brief Calculate distance from point to line segment
+     * @param point Point to measure distance from
+     * @param segmentStart Start of line segment
+     * @param segmentEnd End of line segment
+     * @return Distance to closest point on segment
+     */
+    double distanceToLineSegment(const ComplexDouble& point, const ComplexDouble& segmentStart, const ComplexDouble& segmentEnd) const
+    {
+        ComplexDouble v = segmentEnd - segmentStart;
+        ComplexDouble w = point - segmentStart;
+
+        // If segment has zero length, return distance to start point
+        double segmentLengthSq = std::norm(v.getValue());
+        if (segmentLengthSq < 1e-15)
+        {
+            return std::abs((point - segmentStart).getValue());
+        }
+
+        // Project point onto line segment
+        double t = std::real((w * ComplexDouble(v.real(), -v.imag())).getValue()) / segmentLengthSq;
+        t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
+
+        ComplexDouble projection = segmentStart + v * ComplexDouble(t, 0.0);
+        return std::abs((point - projection).getValue());
+    }
+
 public:
     /**
      * @brief Construct a new Domain
@@ -109,77 +201,44 @@ public:
 
     bool contains(const ComplexDouble& z) const override
     {
+        // Increase sampling resolution for better accuracy (Key Change #3)
+        const int sampleCount = 500; // Increased from 100
+        auto samples = boundary->sample(sampleCount);
+        if (samples.empty())
+        {
+            return false;
+        }
+
+        // Add proper boundary tolerance handling (Key Change #2)
+        const double boundaryTolerance = 1e-12;
+
+        // Fix the ray-casting intersection calculation and ensure correct winding number (Key Changes #1 and #4)
+        int winding = calculateWindingNumber(z, samples, boundaryTolerance);
+
+        // Handle boundary cases (Key Change #2)
+        if (winding == std::numeric_limits<int>::max())
+        {
+            // Point is on or very close to boundary
+            return !isExternal; // Inside for internal domains, outside for external domains
+        }
+
         if (isExternal)
         {
-            // For external domain, point is considered "inside" if outside the boundary
-            auto samples = boundary->sample(100);
-            if (samples.empty()) return false;
-
-            // Simple winding number algorithm
-            int winding = 0;
-            for (size_t i = 0; i < samples.size(); ++i)
-            {
-                ComplexDouble p1 = samples[i];
-                ComplexDouble p2 = samples[(i + 1) % samples.size()];
-
-                if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
-                {
-                    double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
-                                          (z.real() - p1.real()) * (p2.imag() - p1.imag());
-
-                    if (p1.imag() < p2.imag())
-                    {
-                        winding += (crossProduct > 0) ? 1 : 0;
-                    }
-                    else
-                    {
-                        winding -= (crossProduct < 0) ? 1 : 0;
-                    }
-                }
-            }
-
-            return (winding == 0);  // Outside the boundary if winding number is 0
+            // For external domain, point is inside if outside the boundary (winding number = 0)
+            return (winding == 0);
         }
         else
         {
-            // For internal domain, point is considered "inside" if inside the boundary
-            auto samples = boundary->sample(100);
-            if (samples.empty()) return false;
-
-            // Simple winding number algorithm
-            int winding = 0;
-            for (size_t i = 0; i < samples.size(); ++i)
-            {
-                ComplexDouble p1 = samples[i];
-                ComplexDouble p2 = samples[(i + 1) % samples.size()];
-
-                if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
-                {
-                    double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
-                                          (z.real() - p1.real()) * (p2.imag() - p1.imag());
-
-                    if (p1.imag() < p2.imag())
-                    {
-                        winding += (crossProduct > 0) ? 1 : 0;
-                    }
-                    else
-                    {
-                        winding -= (crossProduct < 0) ? 1 : 0;
-                    }
-                }
-            }
-
-            return (winding != 0);  // Inside the boundary if winding number is not 0
+            // For internal domain, point is inside if inside the boundary (winding number != 0)
+            return (winding != 0);
         }
     }
 
     void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
     {
-        // We would need to create a new transformed boundary
-        // This is a simplified implementation for demonstration
-        auto samples = boundary->sample(1000);
+        // Increase sampling resolution for transformed boundaries (Key Change #3)
+        const int transformSampleCount = 2000; // Increased from 1000
+        auto samples = boundary->sample(transformSampleCount);
         std::vector<ComplexDouble> transformedSamples;
         transformedSamples.reserve(samples.size());
 
@@ -243,20 +302,29 @@ public:
 
     bool contains(const ComplexDouble& z) const override
     {
+        // For starlike domains, we can use the more efficient analytical containment test
+        // with improved boundary tolerance handling (Key Change #2)
+        const double boundaryTolerance = 1e-12;
+
+        double angle = std::arg(z.getValue() - center.getValue());
+        double radius = std::abs(z.getValue() - center.getValue());
+        double boundaryRadius = radiusFunction(angle);
+
+        // Handle boundary cases with tolerance
+        if (std::abs(radius - boundaryRadius) < boundaryTolerance)
+        {
+            return !isExternal; // On boundary: inside for internal domains, outside for external domains
+        }
+
         if (isExternal)
         {
-            // FIXME: Need to implement `arg` and `abs` inside `Complex` class.
             // For external domain, point is inside if it's outside the boundary
-            double angle = std::arg(z.getValue() - center.getValue());
-            double radius = std::abs(z.getValue() - center.getValue());
-            return radius > radiusFunction(angle);
+            return radius > boundaryRadius;
         }
         else
         {
             // For internal domain, point is inside if it's inside the boundary
-            double angle = std::arg(z.getValue() - center.getValue());
-            double radius = std::abs(z.getValue() - center.getValue());
-            return radius < radiusFunction(angle);
+            return radius < boundaryRadius;
         }
     }
 
@@ -416,10 +484,18 @@ public:
         return radius;
     }
 
-    // Override contains for efficiency
+    // Override contains for efficiency with improved boundary tolerance (Key Change #2)
     bool contains(const ComplexDouble& z) const override
     {
+        const double boundaryTolerance = 1e-12;
         double dist = std::abs(z.getValue() - getCenter().getValue());
+
+        // Handle boundary cases with tolerance
+        if (std::abs(dist - radius) < boundaryTolerance)
+        {
+            return !isExternalDomain(); // On boundary: inside for internal domains, outside for external domains
+        }
+
         if (isExternalDomain())
         {
             return dist > radius;
@@ -572,38 +648,34 @@ public:
         // - Point is inside if it's outside all boundaries
 
         bool insideOuterBoundary = false;
+        const double boundaryTolerance = 1e-12;
 
         // Check against each boundary
         for (size_t i = 0; i < boundaries.size(); ++i)
         {
-            // Sample points to determine containment
-            auto samples = boundaries[i]->sample(100);
+            // Increase sampling resolution for better accuracy (Key Change #3)
+            auto samples = boundaries[i]->sample(500);
             if (samples.empty())
             {
                 continue;
             }
 
-            // Use winding number algorithm to determine if point is inside boundary
-            int winding = 0;
-            for (size_t j = 0; j < samples.size(); ++j)
+            // Use improved winding number calculation (Key Changes #1 and #4)
+            int winding = calculateWindingNumber(z, samples, boundaryTolerance);
+
+            // Handle boundary cases (Key Change #2)
+            if (winding == std::numeric_limits<int>::max())
             {
-                ComplexDouble p1 = samples[j];
-                ComplexDouble p2 = samples[(j + 1) % samples.size()];
-
-                if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                    (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+                // Point is on boundary
+                if (i == 0)
                 {
-                    double crossProduct = (p2.real() - p1.real()) * (z.imag() - p1.imag()) -
-                                          (z.real() - p1.real()) * (p2.imag() - p1.imag());
-
-                    if (p1.imag() < p2.imag())
-                    {
-                        winding += (crossProduct > 0) ? 1 : 0;
-                    }
-                    else
-                    {
-                        winding -= (crossProduct < 0) ? 1 : 0;
-                    }
+                    // On outer boundary
+                    return !isExternal;
+                }
+                else
+                {
+                    // On inner boundary
+                    return isExternal;
                 }
             }
 
@@ -657,10 +729,12 @@ public:
 
     void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
     {
-        // Transform each boundary
+        // Transform each boundary with increased sampling resolution (Key Change #3)
+        const int transformSampleCount = 2000;
+
         for (auto& boundary : boundaries)
         {
-            auto samples = boundary->sample(1000);
+            auto samples = boundary->sample(transformSampleCount);
             std::vector<ComplexDouble> transformedSamples;
             transformedSamples.reserve(samples.size());
 
