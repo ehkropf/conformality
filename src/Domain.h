@@ -22,7 +22,7 @@
 #include "Boundary.h"
 #include <functional>
 #include <memory>
-#include <cmath>
+#include <vector>
 
 /**
  * @brief Abstract base class for domains
@@ -40,63 +40,7 @@ protected:
      * @param tolerance Tolerance for boundary proximity
      * @return Winding number
      */
-    int calculateWindingNumber(const ComplexDouble& z, const std::vector<ComplexDouble>& samples, double tolerance = 1e-12) const
-    {
-        if (samples.empty())
-        {
-            return 0;
-        }
-
-        int winding = 0;
-        double minDistanceToBoundary = std::numeric_limits<double>::max();
-
-        for (size_t i = 0; i < samples.size(); ++i)
-        {
-            ComplexDouble p1 = samples[i];
-            ComplexDouble p2 = samples[(i + 1) % samples.size()];
-
-            // Track minimum distance to boundary for tolerance checking
-            double distToSegment = distanceToLineSegment(z, p1, p2);
-            minDistanceToBoundary = std::min(minDistanceToBoundary, distToSegment);
-
-            // Check if point is very close to boundary
-            if (distToSegment < tolerance)
-            {
-                // Point is on boundary - return special value
-                return std::numeric_limits<int>::max();
-            }
-
-            // Ray casting: check if horizontal ray from z to the right crosses this edge
-            if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-                (p2.imag() <= z.imag() && p1.imag() > z.imag()))
-            {
-                // Avoid division by zero
-                if (std::abs(p2.imag() - p1.imag()) < 1e-15)
-                {
-                    continue;
-                }
-
-                // Calculate x-coordinate of intersection point
-                double t = (z.imag() - p1.imag()) / (p2.imag() - p1.imag());
-                double x_intersect = p1.real() + t * (p2.real() - p1.real());
-
-                // Count intersection if it's to the right of the point
-                if (x_intersect > z.real())
-                {
-                    if (p2.imag() > p1.imag())
-                    {
-                        winding++;
-                    }
-                    else
-                    {
-                        winding--;
-                    }
-                }
-            }
-        }
-
-        return winding;
-    }
+    int calculateWindingNumber(const ComplexDouble& z, const std::vector<ComplexDouble>& samples, double tolerance = 1e-12) const;
 
     /**
      * @brief Calculate distance from point to line segment
@@ -105,25 +49,7 @@ protected:
      * @param segmentEnd End of line segment
      * @return Distance to closest point on segment
      */
-    double distanceToLineSegment(const ComplexDouble& point, const ComplexDouble& segmentStart, const ComplexDouble& segmentEnd) const
-    {
-        ComplexDouble v = segmentEnd - segmentStart;
-        ComplexDouble w = point - segmentStart;
-
-        // If segment has zero length, return distance to start point
-        double segmentLengthSq = std::norm(v.getValue());
-        if (segmentLengthSq < 1e-15)
-        {
-            return std::abs((point - segmentStart).getValue());
-        }
-
-        // Project point onto line segment
-        double t = std::real((w * ComplexDouble(v.real(), -v.imag())).getValue()) / segmentLengthSq;
-        t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
-
-        ComplexDouble projection = segmentStart + v * ComplexDouble(t, 0.0);
-        return std::abs((point - projection).getValue());
-    }
+    double distanceToLineSegment(const ComplexDouble& point, const ComplexDouble& segmentStart, const ComplexDouble& segmentEnd) const;
 
 public:
     /**
@@ -189,70 +115,12 @@ public:
         , boundary(domainBoundary)
     {}
 
-    Boundary& getBoundary()
-    {
-        return *boundary;
-    }
+    Boundary& getBoundary();
+    const Boundary& getBoundary() const;
 
-    const Boundary& getBoundary() const
-    {
-        return *boundary;
-    }
+    bool contains(const ComplexDouble& z) const override;
 
-    bool contains(const ComplexDouble& z) const override
-    {
-        // Increase sampling resolution for better accuracy (Key Change #3)
-        const int sampleCount = 500; // Increased from 100
-        auto samples = boundary->sample(sampleCount);
-        if (samples.empty())
-        {
-            return false;
-        }
-
-        // Add proper boundary tolerance handling (Key Change #2)
-        const double boundaryTolerance = 1e-12;
-
-        // Fix the ray-casting intersection calculation and ensure correct winding number (Key Changes #1 and #4)
-        int winding = calculateWindingNumber(z, samples, boundaryTolerance);
-
-        // Handle boundary cases (Key Change #2)
-        if (winding == std::numeric_limits<int>::max())
-        {
-            // Point is on or very close to boundary
-            return !isExternal; // Inside for internal domains, outside for external domains
-        }
-
-        if (isExternal)
-        {
-            // For external domain, point is inside if outside the boundary (winding number = 0)
-            return (winding == 0);
-        }
-        else
-        {
-            // For internal domain, point is inside if inside the boundary (winding number != 0)
-            return (winding != 0);
-        }
-    }
-
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
-    {
-        // Increase sampling resolution for transformed boundaries (Key Change #3)
-        const int transformSampleCount = 2000; // Increased from 1000
-        auto samples = boundary->sample(transformSampleCount);
-        std::vector<ComplexDouble> transformedSamples;
-        transformedSamples.reserve(samples.size());
-
-        for (const auto& point : samples)
-        {
-            transformedSamples.push_back(transform(point));
-        }
-
-        // Create a new boundary from transformed samples
-        // Note: In a real implementation, we would need to handle
-        // different boundary types more intelligently
-        auto discreteComponent = std::make_shared<DiscreteBoundaryComponent>(transformedSamples);
-        boundary = std::make_shared<SimpleBoundary>(discreteComponent);
-    }
+    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override;
 };
 
 /**
@@ -285,82 +153,22 @@ public:
      * @brief Get the center of the domain
      * @return Center point
      */
-    ComplexDouble getCenter() const
-    {
-        return center;
-    }
+    ComplexDouble getCenter() const;
 
     /**
      * @brief Get the radius at a specific angle
      * @param angle Angle in radians
      * @return Radius at the given angle
      */
-    double getRadius(double angle) const
-    {
-        return radiusFunction(angle);
-    }
+    double getRadius(double angle) const;
 
-    bool contains(const ComplexDouble& z) const override
-    {
-        // For starlike domains, we can use the more efficient analytical containment test
-        // with improved boundary tolerance handling (Key Change #2)
-        const double boundaryTolerance = 1e-12;
-
-        double angle = std::arg(z.getValue() - center.getValue());
-        double radius = std::abs(z.getValue() - center.getValue());
-        double boundaryRadius = radiusFunction(angle);
-
-        // Handle boundary cases with tolerance
-        if (std::abs(radius - boundaryRadius) < boundaryTolerance)
-        {
-            return !isExternal; // On boundary: inside for internal domains, outside for external domains
-        }
-
-        if (isExternal)
-        {
-            // For external domain, point is inside if it's outside the boundary
-            return radius > boundaryRadius;
-        }
-        else
-        {
-            // For internal domain, point is inside if it's inside the boundary
-            return radius < boundaryRadius;
-        }
-    }
+    bool contains(const ComplexDouble& z) const override;
 
 private:
     static std::shared_ptr<Boundary> createBoundary(
         const ComplexDouble& center,
         std::function<double(double)> radiusFunc
-    )
-    {
-        // Create a parameterization from the radius function
-        auto paramFunc = [center, radiusFunc](double t) -> ComplexDouble
-        {
-            double r = radiusFunc(t);
-            return center + ComplexDouble(r * std::cos(t), r * std::sin(t));
-        };
-
-        // Compute the derivative of the parameterization
-        auto derivFunc = [radiusFunc](double t) -> ComplexDouble
-        {
-            // For a radius function r(θ), the derivative of r(θ)e^(iθ) is:
-            // r'(θ)e^(iθ) + ir(θ)e^(iθ)
-            double r = radiusFunc(t);
-
-            // Approximate r'(θ) with finite difference
-            const double h = 1e-6;
-            double rPrime = (radiusFunc(t + h) - radiusFunc(t - h)) / (2.0 * h);
-
-            ComplexDouble tangent = ComplexDouble(rPrime * std::cos(t), rPrime * std::sin(t)) +
-                                    ComplexDouble(0.0, 1.0) * ComplexDouble(r * std::cos(t), r * std::sin(t));
-
-            return tangent;
-        };
-
-        auto component = std::make_shared<AnalyticBoundaryComponent>(paramFunc, derivFunc);
-        return std::make_shared<SimpleBoundary>(component);
-    }
+    );
 };
 
 /**
@@ -405,44 +213,25 @@ public:
      * @brief Get the eccentricity of the ellipse
      * @return Eccentricity
      */
-    double getEccentricity() const
-    {
-        if (a >= b)
-        {
-            return std::sqrt(1.0 - (b * b) / (a * a));
-        }
-        else
-        {
-            return std::sqrt(1.0 - (a * a) / (b * b));
-        }
-    }
+    double getEccentricity() const;
 
     /**
      * @brief Get the semi-major axis
      * @return Semi-major axis
      */
-    double getSemiMajorAxis() const
-    {
-        return a;
-    }
+    double getSemiMajorAxis() const;
 
     /**
      * @brief Get the semi-minor axis
      * @return Semi-minor axis
      */
-    double getSemiMinorAxis() const
-    {
-        return b;
-    }
+    double getSemiMinorAxis() const;
 
     /**
      * @brief Get the rotation angle
      * @return Rotation angle in radians
      */
-    double getRotation() const
-    {
-        return rotation;
-    }
+    double getRotation() const;
 };
 
 /**
@@ -479,32 +268,9 @@ public:
      * @brief Get the radius of the circle
      * @return Radius
      */
-    double getRadius() const
-    {
-        return radius;
-    }
+    double getRadius() const;
 
-    // Override contains for efficiency with improved boundary tolerance (Key Change #2)
-    bool contains(const ComplexDouble& z) const override
-    {
-        const double boundaryTolerance = 1e-12;
-        double dist = std::abs(z.getValue() - getCenter().getValue());
-
-        // Handle boundary cases with tolerance
-        if (std::abs(dist - radius) < boundaryTolerance)
-        {
-            return !isExternalDomain(); // On boundary: inside for internal domains, outside for external domains
-        }
-
-        if (isExternalDomain())
-        {
-            return dist > radius;
-        }
-        else
-        {
-            return dist < radius;
-        }
-    }
+    bool contains(const ComplexDouble& z) const override;
 };
 
 /**
@@ -533,67 +299,18 @@ public:
      * @brief Get the vertices of the polygon
      * @return Vector of vertices
      */
-    const std::vector<ComplexDouble>& getVertices() const
-    {
-        return vertices;
-    }
+    const std::vector<ComplexDouble>& getVertices() const;
 
     /**
      * @brief Set the vertices of the polygon
      * @param newVertices New vertices
      */
-    void setVertices(const std::vector<ComplexDouble>& newVertices)
-    {
-        vertices = newVertices;
-        boundary = createBoundary(vertices);
-    }
+    void setVertices(const std::vector<ComplexDouble>& newVertices);
 
 private:
     static std::shared_ptr<Boundary> createBoundary(
         const std::vector<ComplexDouble>& vertices
-    )
-    {
-        // Create a piecewise linear parameterization from the vertices
-        auto paramFunc = [vertices](double t) -> ComplexDouble
-        {
-            if (vertices.empty())
-            {
-                return ComplexDouble(0.0, 0.0);
-            }
-
-            double normalizedT = std::fmod(t, 2.0 * M_PI);
-            if (normalizedT < 0) normalizedT += 2.0 * M_PI;
-
-            double indexF = normalizedT * vertices.size() / (2.0 * M_PI);
-            int index1 = static_cast<int>(std::floor(indexF)) % vertices.size();
-            int index2 = (index1 + 1) % vertices.size();
-            double frac = indexF - index1;
-
-            return vertices[index1] * ComplexDouble(1.0 - frac) + vertices[index2] * ComplexDouble(frac);
-        };
-
-        // Compute the derivative of the parameterization
-        auto derivFunc = [vertices](double t) -> ComplexDouble
-        {
-            if (vertices.empty())
-            {
-                return ComplexDouble(0.0, 0.0);
-            }
-
-            double normalizedT = std::fmod(t, 2.0 * M_PI);
-            if (normalizedT < 0) normalizedT += 2.0 * M_PI;
-
-            double indexF = normalizedT * vertices.size() / (2.0 * M_PI);
-            int index1 = static_cast<int>(std::floor(indexF)) % vertices.size();
-            int index2 = (index1 + 1) % vertices.size();
-
-            // Derivative is constant along each edge
-            return (vertices[index2] - vertices[index1]) * ComplexDouble(vertices.size() / (2.0 * M_PI));
-        };
-
-        auto component = std::make_shared<AnalyticBoundaryComponent>(paramFunc, derivFunc);
-        return std::make_shared<SimpleBoundary>(component);
-    }
+    );
 };
 
 /**
@@ -617,137 +334,14 @@ public:
         , boundaries(domainBoundaries)
     {}
 
-    void addBoundary(std::shared_ptr<Boundary> boundary)
-    {
-        boundaries.push_back(boundary);
-        connectivity = boundaries.size();
-    }
+    void addBoundary(std::shared_ptr<Boundary> boundary);
 
-    std::vector<std::shared_ptr<Boundary>>& getBoundaries()
-    {
-        return boundaries;
-    }
+    std::vector<std::shared_ptr<Boundary>>& getBoundaries();
+    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const;
 
-    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const
-    {
-        return boundaries;
-    }
+    bool contains(const ComplexDouble& z) const override;
 
-    bool contains(const ComplexDouble& z) const override
-    {
-        if (boundaries.empty())
-        {
-            return false;
-        }
-
-        // For internal domains:
-        // - Point is inside if it's inside the outer boundary (index 0)
-        // - AND outside all inner boundaries (index > 0)
-        //
-        // For external domains:
-        // - Point is inside if it's outside all boundaries
-
-        bool insideOuterBoundary = false;
-        const double boundaryTolerance = 1e-12;
-
-        // Check against each boundary
-        for (size_t i = 0; i < boundaries.size(); ++i)
-        {
-            // Increase sampling resolution for better accuracy (Key Change #3)
-            auto samples = boundaries[i]->sample(500);
-            if (samples.empty())
-            {
-                continue;
-            }
-
-            // Use improved winding number calculation (Key Changes #1 and #4)
-            int winding = calculateWindingNumber(z, samples, boundaryTolerance);
-
-            // Handle boundary cases (Key Change #2)
-            if (winding == std::numeric_limits<int>::max())
-            {
-                // Point is on boundary
-                if (i == 0)
-                {
-                    // On outer boundary
-                    return !isExternal;
-                }
-                else
-                {
-                    // On inner boundary
-                    return isExternal;
-                }
-            }
-
-            bool insideThisBoundary = (winding != 0);
-
-            if (i == 0)
-            {
-                // Outer boundary
-                insideOuterBoundary = insideThisBoundary;
-
-                // For external domains, being outside the outer boundary counts as "inside" the domain
-                if (isExternal && !insideOuterBoundary)
-                {
-                    return true;
-                }
-
-                // For internal domains, being outside the outer boundary means the point is outside the domain
-                if (!isExternal && !insideOuterBoundary)
-                {
-                    return false;
-                }
-            }
-            else
-            {
-                // Inner boundary
-                // For internal domains, being inside an inner boundary means the point is outside the domain
-                if (!isExternal && insideThisBoundary)
-                {
-                    return false;
-                }
-
-                // For external domains, being inside an inner boundary means the point is inside the domain
-                if (isExternal && insideThisBoundary)
-                {
-                    return true;
-                }
-            }
-        }
-
-        // If we get here for an internal domain, the point is inside the outer boundary
-        // and outside all inner boundaries, so it's inside the domain
-        if (!isExternal)
-        {
-            return true;
-        }
-
-        // If we get here for an external domain, the point is inside the outer boundary
-        // and outside all inner boundaries, so it's outside the domain
-        return false;
-    }
-
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override
-    {
-        // Transform each boundary with increased sampling resolution (Key Change #3)
-        const int transformSampleCount = 2000;
-
-        for (auto& boundary : boundaries)
-        {
-            auto samples = boundary->sample(transformSampleCount);
-            std::vector<ComplexDouble> transformedSamples;
-            transformedSamples.reserve(samples.size());
-
-            for (const auto& point : samples)
-            {
-                transformedSamples.push_back(transform(point));
-            }
-
-            // Create a new boundary from transformed samples
-            auto discreteComponent = std::make_shared<DiscreteBoundaryComponent>(transformedSamples);
-            boundary = std::make_shared<SimpleBoundary>(discreteComponent);
-        }
-    }
+    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override;
 };
 
 #endif // DOMAIN_HPP

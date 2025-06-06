@@ -1,6 +1,7 @@
 *.swo
 *.swp
 .DS_Store
+.claude
 run*.sh
 build/
 design/

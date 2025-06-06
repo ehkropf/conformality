@@ -77,6 +77,11 @@ add_library(map_objects OBJECT
 add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/Grid.cpp
 )
+add_library(domain_objects OBJECT
+    ${CMAKE_SOURCE_DIR}/src/Domain.cpp
+    ${CMAKE_SOURCE_DIR}/src/BoundaryComponent.cpp
+    ${CMAKE_SOURCE_DIR}/src/Boundary.cpp
+)
 
 #####
 # Testing section
@@ -86,8 +91,6 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/90a41521142c978131f38c6da07b4eb96a9f1ff6.zip
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-#set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
@@ -104,6 +107,7 @@ add_executable(test_exec
     $<TARGET_OBJECTS:map_objects>
     tests/grids.cpp
     $<TARGET_OBJECTS:util_objects>
+    $<TARGET_OBJECTS:domain_objects>
 )
 target_link_libraries(test_exec
     GTest::gtest_main
