@@ -21,15 +21,6 @@
 #include <cmath>
 
 // BoundaryComponent implementations
-int BoundaryComponent::getIndex() const
-{
-    return index;
-}
-
-void BoundaryComponent::setIndex(int idx)
-{
-    index = idx;
-}
 
 // AnalyticBoundaryComponent implementations
 AnalyticBoundaryComponent::AnalyticBoundaryComponent(
@@ -40,15 +31,6 @@ AnalyticBoundaryComponent::AnalyticBoundaryComponent(
 {
 }
 
-ComplexDouble AnalyticBoundaryComponent::evaluate(double t) const
-{
-    return parameterization(t);
-}
-
-ComplexDouble AnalyticBoundaryComponent::evaluateDerivative(double t) const
-{
-    return derivative(t);
-}
 
 std::vector<ComplexDouble> AnalyticBoundaryComponent::sample(size_t numPoints) const
 {

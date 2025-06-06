@@ -41,34 +41,9 @@ ConformalMap::ConformalMap(
     }
 }
 
-std::shared_ptr<Domain> ConformalMap::getSourceDomain() const
-{
-    return source_domain;
-}
-
-std::shared_ptr<Domain> ConformalMap::getTargetDomain() const
-{
-    return target_domain;
-}
-
-bool ConformalMap::isExternalMap() const
-{
-    return is_external;
-}
-
-void ConformalMap::setExternal(bool external)
-{
-    is_external = external;
-}
-
 void ConformalMap::setMethod(std::shared_ptr<ConformalMapMethod> method_impl)
 {
     method = method_impl;
-}
-
-std::shared_ptr<ConformalMapMethod> ConformalMap::getMethod() const
-{
-    return method;
 }
 
 void ConformalMap::compute(double target_accuracy)

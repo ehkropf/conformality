@@ -101,15 +101,6 @@ double Domain::distanceToLineSegment(const ComplexDouble& point, const ComplexDo
 }
 
 // SimplyConnectedDomain implementation
-Boundary& SimplyConnectedDomain::getBoundary()
-{
-    return *boundary;
-}
-
-const Boundary& SimplyConnectedDomain::getBoundary() const
-{
-    return *boundary;
-}
 bool SimplyConnectedDomain::contains(const ComplexDouble& z) const
 {
     // Increase sampling resolution for better accuracy (Key Change #3)
@@ -166,15 +157,6 @@ void SimplyConnectedDomain::transformBoundary(std::function<ComplexDouble(const 
 }
 
 // StarlikeDomain implementation
-ComplexDouble StarlikeDomain::getCenter() const
-{
-    return center;
-}
-
-double StarlikeDomain::getRadius(double angle) const
-{
-    return radiusFunction(angle);
-}
 bool StarlikeDomain::contains(const ComplexDouble& z) const
 {
     // For starlike domains, we can use the more efficient analytical containment test
@@ -237,37 +219,8 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
 }
 
 // EllipticalDomain implementation
-double EllipticalDomain::getSemiMajorAxis() const
-{
-    return a;
-}
-
-double EllipticalDomain::getSemiMinorAxis() const
-{
-    return b;
-}
-
-double EllipticalDomain::getRotation() const
-{
-    return rotation;
-}
-double EllipticalDomain::getEccentricity() const
-{
-    if (a >= b)
-    {
-        return std::sqrt(1.0 - (b * b) / (a * a));
-    }
-    else
-    {
-        return std::sqrt(1.0 - (a * a) / (b * b));
-    }
-}
 
 // CircularDomain implementation
-double CircularDomain::getRadius() const
-{
-    return radius;
-}
 bool CircularDomain::contains(const ComplexDouble& z) const
 {
     const double boundaryTolerance = 1e-12;
@@ -290,10 +243,6 @@ bool CircularDomain::contains(const ComplexDouble& z) const
 }
 
 // PolygonalDomain implementation
-const std::vector<ComplexDouble>& PolygonalDomain::getVertices() const
-{
-    return vertices;
-}
 void PolygonalDomain::setVertices(const std::vector<ComplexDouble>& newVertices)
 {
     vertices = newVertices;
@@ -347,15 +296,6 @@ std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
 }
 
 // MultiplyConnectedDomain implementation
-std::vector<std::shared_ptr<Boundary>>& MultiplyConnectedDomain::getBoundaries()
-{
-    return boundaries;
-}
-
-const std::vector<std::shared_ptr<Boundary>>& MultiplyConnectedDomain::getBoundaries() const
-{
-    return boundaries;
-}
 void MultiplyConnectedDomain::addBoundary(std::shared_ptr<Boundary> boundary)
 {
     boundaries.push_back(boundary);

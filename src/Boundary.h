@@ -75,7 +75,10 @@ public:
      * @brief Get the number of boundary components
      * @return Number of components
      */
-    size_t getNumComponents() const;
+    size_t getNumComponents() const
+    {
+        return components.size();
+    }
 
     /**
      * @brief Get a specific boundary component
@@ -88,7 +91,10 @@ public:
      * @brief Get all boundary components
      * @return Vector of boundary components
      */
-    const std::vector<std::shared_ptr<BoundaryComponent>>& getComponents() const;
+    const std::vector<std::shared_ptr<BoundaryComponent>>& getComponents() const
+    {
+        return components;
+    }
 };
 
 /**
@@ -103,13 +109,25 @@ public:
      */
     SimpleBoundary(std::shared_ptr<BoundaryComponent> component);
 
-    ComplexDouble evaluate(double t) const override;
+    ComplexDouble evaluate(double t) const override
+    {
+        return components[0]->evaluate(t);
+    }
 
-    ComplexDouble evaluateDerivative(double t) const override;
+    ComplexDouble evaluateDerivative(double t) const override
+    {
+        return components[0]->evaluateDerivative(t);
+    }
 
-    std::vector<ComplexDouble> sample(int numPoints) const override;
+    std::vector<ComplexDouble> sample(int numPoints) const override
+    {
+        return components[0]->sample(numPoints);
+    }
 
-    double findParameterization(const ComplexDouble& z) const override;
+    double findParameterization(const ComplexDouble& z) const override
+    {
+        return components[0]->findParameterization(z);
+    }
 };
 
 /**

@@ -59,14 +59,20 @@ public:
      *
      * @return double Achieved accuracy
      */
-    double getAccuracy() const;
+    double getAccuracy() const
+    {
+        return accuracy;
+    }
 
     /**
      * @brief Get the number of iterations performed in the last computation
      *
      * @return int Number of iterations
      */
-    int getIterationCount() const;
+    int getIterationCount() const
+    {
+        return iteration_count;
+    }
 
     /**
      * @brief Set the maximum number of iterations

@@ -29,10 +29,6 @@ void Boundary::addComponent(std::shared_ptr<BoundaryComponent> component)
     components.push_back(component);
 }
 
-size_t Boundary::getNumComponents() const
-{
-    return components.size();
-}
 
 const BoundaryComponent& Boundary::getComponent(size_t index) const
 {
@@ -43,35 +39,11 @@ const BoundaryComponent& Boundary::getComponent(size_t index) const
     return *components[index];
 }
 
-const std::vector<std::shared_ptr<BoundaryComponent>>& Boundary::getComponents() const
-{
-    return components;
-}
 
 // SimpleBoundary implementations
 SimpleBoundary::SimpleBoundary(std::shared_ptr<BoundaryComponent> component)
 {
     addComponent(component);
-}
-
-ComplexDouble SimpleBoundary::evaluate(double t) const
-{
-    return components[0]->evaluate(t);
-}
-
-ComplexDouble SimpleBoundary::evaluateDerivative(double t) const
-{
-    return components[0]->evaluateDerivative(t);
-}
-
-std::vector<ComplexDouble> SimpleBoundary::sample(int numPoints) const
-{
-    return components[0]->sample(numPoints);
-}
-
-double SimpleBoundary::findParameterization(const ComplexDouble& z) const
-{
-    return components[0]->findParameterization(z);
 }
 
 // CompositeBoundary implementations

@@ -81,28 +81,40 @@ public:
      *
      * @return std::shared_ptr<Domain> Source domain
      */
-    std::shared_ptr<Domain> getSourceDomain() const;
+    std::shared_ptr<Domain> getSourceDomain() const
+    {
+        return source_domain;
+    }
 
     /**
      * @brief Get the target domain
      *
      * @return std::shared_ptr<Domain> Target domain
      */
-    std::shared_ptr<Domain> getTargetDomain() const;
+    std::shared_ptr<Domain> getTargetDomain() const
+    {
+        return target_domain;
+    }
 
     /**
      * @brief Check if this is an external map
      *
      * @return true if external, false if internal
      */
-    bool isExternalMap() const;
+    bool isExternalMap() const
+    {
+        return is_external;
+    }
 
     /**
      * @brief Set whether this is an external map
      *
      * @param external True for external, false for internal
      */
-    void setExternal(bool external);
+    void setExternal(bool external)
+    {
+        is_external = external;
+    }
 
     /**
      * @brief Set the method used to compute the map
@@ -116,7 +128,10 @@ public:
      *
      * @return std::shared_ptr<ConformalMapMethod> The method implementation
      */
-    std::shared_ptr<ConformalMapMethod> getMethod() const;
+    std::shared_ptr<ConformalMapMethod> getMethod() const
+    {
+        return method;
+    }
 
     /**
      * @brief Compute the map using the specified method

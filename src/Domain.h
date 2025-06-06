@@ -115,8 +115,15 @@ public:
         , boundary(domainBoundary)
     {}
 
-    Boundary& getBoundary();
-    const Boundary& getBoundary() const;
+    Boundary& getBoundary()
+    {
+        return *boundary;
+    }
+    
+    const Boundary& getBoundary() const
+    {
+        return *boundary;
+    }
 
     bool contains(const ComplexDouble& z) const override;
 
@@ -153,14 +160,20 @@ public:
      * @brief Get the center of the domain
      * @return Center point
      */
-    ComplexDouble getCenter() const;
+    ComplexDouble getCenter() const
+    {
+        return center;
+    }
 
     /**
      * @brief Get the radius at a specific angle
      * @param angle Angle in radians
      * @return Radius at the given angle
      */
-    double getRadius(double angle) const;
+    double getRadius(double angle) const
+    {
+        return radiusFunction(angle);
+    }
 
     bool contains(const ComplexDouble& z) const override;
 
@@ -213,25 +226,44 @@ public:
      * @brief Get the eccentricity of the ellipse
      * @return Eccentricity
      */
-    double getEccentricity() const;
+    double getEccentricity() const
+    {
+        if (a >= b)
+        {
+            return std::sqrt(1.0 - (b * b) / (a * a));
+        }
+        else
+        {
+            return std::sqrt(1.0 - (a * a) / (b * b));
+        }
+    }
 
     /**
      * @brief Get the semi-major axis
      * @return Semi-major axis
      */
-    double getSemiMajorAxis() const;
+    double getSemiMajorAxis() const
+    {
+        return a;
+    }
 
     /**
      * @brief Get the semi-minor axis
      * @return Semi-minor axis
      */
-    double getSemiMinorAxis() const;
+    double getSemiMinorAxis() const
+    {
+        return b;
+    }
 
     /**
      * @brief Get the rotation angle
      * @return Rotation angle in radians
      */
-    double getRotation() const;
+    double getRotation() const
+    {
+        return rotation;
+    }
 };
 
 /**
@@ -268,7 +300,10 @@ public:
      * @brief Get the radius of the circle
      * @return Radius
      */
-    double getRadius() const;
+    double getRadius() const
+    {
+        return radius;
+    }
 
     bool contains(const ComplexDouble& z) const override;
 };
@@ -299,7 +334,10 @@ public:
      * @brief Get the vertices of the polygon
      * @return Vector of vertices
      */
-    const std::vector<ComplexDouble>& getVertices() const;
+    const std::vector<ComplexDouble>& getVertices() const
+    {
+        return vertices;
+    }
 
     /**
      * @brief Set the vertices of the polygon
@@ -336,8 +374,15 @@ public:
 
     void addBoundary(std::shared_ptr<Boundary> boundary);
 
-    std::vector<std::shared_ptr<Boundary>>& getBoundaries();
-    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const;
+    std::vector<std::shared_ptr<Boundary>>& getBoundaries()
+    {
+        return boundaries;
+    }
+    
+    const std::vector<std::shared_ptr<Boundary>>& getBoundaries() const
+    {
+        return boundaries;
+    }
 
     bool contains(const ComplexDouble& z) const override;
 

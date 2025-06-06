@@ -74,13 +74,19 @@ public:
      * @brief Get the index of this boundary component
      * @return Component index
      */
-    int getIndex() const;
+    int getIndex() const
+    {
+        return index;
+    }
 
     /**
      * @brief Set the index of this boundary component
      * @param idx New index value
      */
-    void setIndex(int idx);
+    void setIndex(int idx)
+    {
+        index = idx;
+    }
 };
 
 /**
@@ -106,14 +112,20 @@ public:
      * @param t Parameter value
      * @return ComplexDouble point on the boundary
      */
-    ComplexDouble evaluate(double t) const override;
+    ComplexDouble evaluate(double t) const override
+    {
+        return parameterization(t);
+    }
 
     /**
      * @brief Evaluate the derivative at parameter t
      * @param t Parameter value
      * @return ComplexDouble derivative
      */
-    ComplexDouble evaluateDerivative(double t) const override;
+    ComplexDouble evaluateDerivative(double t) const override
+    {
+        return derivative(t);
+    }
 
     /**
      * @brief Sample points along the boundary

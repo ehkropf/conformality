@@ -27,16 +27,6 @@ ConformalMapMethod::ConformalMapMethod()
 {
 }
 
-double ConformalMapMethod::getAccuracy() const
-{
-    return accuracy;
-}
-
-int ConformalMapMethod::getIterationCount() const
-{
-    return iteration_count;
-}
-
 void ConformalMapMethod::setMaxIterations(int max)
 {
     if (max <= 0)
