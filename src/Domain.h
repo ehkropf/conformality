@@ -15,11 +15,14 @@
  * You should have received a copy of the GNU Affero General Public License along
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
+ 
+ // FIXME: split this into header and code files
 
 #ifndef DOMAIN_HPP
 #define DOMAIN_HPP
 
 #include "Boundary.h"
+
 #include <functional>
 #include <memory>
 #include <cmath>
@@ -121,6 +124,7 @@ protected:
         double t = std::real((w * ComplexDouble(v.real(), -v.imag())).getValue()) / segmentLengthSq;
         t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
 
+// FIXME:￼ Only need to scale by t no need for full complex
         ComplexDouble projection = segmentStart + v * ComplexDouble(t, 0.0);
         return std::abs((point - projection).getValue());
     }
@@ -202,13 +206,14 @@ public:
     bool contains(const ComplexDouble& z) const override
     {
         // Increase sampling resolution for better accuracy (Key Change #3)
-        const int sampleCount = 500; // Increased from 100
+        const int sampleCount = 1000; // Increased from 100 should be 1000
         auto samples = boundary->sample(sampleCount);
         if (samples.empty())
         {
             return false;
-        }
+        } 
 
+// FIXME: should be somewhere else!!!!
         // Add proper boundary tolerance handling (Key Change #2)
         const double boundaryTolerance = 1e-12;
 
