@@ -27,15 +27,16 @@
 class ConformalMapMethod;
 
 /**
- * @brief Abstract base class for conformal maps
+ * @brief Orchestrator class for conformal maps
  *
- * This class represents a conformal mapping between two domains. It provides
- * the interface for evaluating the map and its inverse, as well as access to
- * the source and target domains.
+ * This class represents a conformal mapping between two domains and acts as
+ * an orchestrator, coordinating between the domain geometry and the computational
+ * method. It provides a clean interface for map evaluation while delegating
+ * the actual computation to the method implementation.
  */
 class ConformalMap
 {
-protected:
+private:
     std::shared_ptr<Domain> source_domain;
     std::shared_ptr<Domain> target_domain;
     bool is_external;
@@ -47,18 +48,20 @@ public:
      *
      * @param source Source domain
      * @param target Target domain
+     * @param method_impl Method to use for computation
      * @param external Whether this is an external map
      */
     ConformalMap(
         std::shared_ptr<Domain> source,
         std::shared_ptr<Domain> target,
+        std::shared_ptr<ConformalMapMethod> method_impl = nullptr,
         bool external = false
     );
 
     /**
-     * @brief Virtual destructor
+     * @brief Default destructor
      */
-    virtual ~ConformalMap() = default;
+    ~ConformalMap() = default;
 
     /**
      * @brief Map a point from the source domain to the target domain
@@ -66,7 +69,7 @@ public:
      * @param z Point in the source domain
      * @return ComplexDouble Mapped point in the target domain
      */
-    virtual ComplexDouble map(const ComplexDouble& z) const = 0;
+    ComplexDouble map(const ComplexDouble& z) const;
 
     /**
      * @brief Map a point from the target domain back to the source domain
@@ -74,7 +77,7 @@ public:
      * @param w Point in the target domain
      * @return ComplexDouble Mapped point in the source domain
      */
-    virtual ComplexDouble inverseMap(const ComplexDouble& w) const = 0;
+    ComplexDouble inverseMap(const ComplexDouble& w) const;
 
     /**
      * @brief Get the source domain

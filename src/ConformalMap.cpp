@@ -23,12 +23,13 @@
 ConformalMap::ConformalMap(
     std::shared_ptr<Domain> source,
     std::shared_ptr<Domain> target,
+    std::shared_ptr<ConformalMapMethod> method_impl,
     bool external
 )
     : source_domain(source)
     , target_domain(target)
     , is_external(external)
-    , method(nullptr)
+    , method(method_impl)
 {
     if (!source)
     {
@@ -54,4 +55,24 @@ void ConformalMap::compute(double target_accuracy)
     }
 
     method->compute(*this, target_accuracy);
+}
+
+ComplexDouble ConformalMap::map(const ComplexDouble& z) const
+{
+    if (!method)
+    {
+        throw std::runtime_error("No method set for map evaluation");
+    }
+
+    return method->map(z);
+}
+
+ComplexDouble ConformalMap::inverseMap(const ComplexDouble& w) const
+{
+    if (!method)
+    {
+        throw std::runtime_error("No method set for inverse map evaluation");
+    }
+
+    return method->inverseMap(w);
 }

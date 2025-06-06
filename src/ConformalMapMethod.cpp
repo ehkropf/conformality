@@ -17,8 +17,8 @@
  */
 
 #include "ConformalMapMethod.h"
+#include "Domain.h"
 #include <stdexcept>
-#include <typeinfo>
 
 ConformalMapMethod::ConformalMapMethod()
     : accuracy(0.0)
@@ -37,21 +37,34 @@ void ConformalMapMethod::setMaxIterations(int max)
     max_iterations = max;
 }
 
-void ConformalMapMethod::validateMapType(
-    ConformalMap& map_instance,
-    const std::string& expected_type
+void ConformalMapMethod::validateDomainCompatibility(
+    std::shared_ptr<Domain> domain,
+    int expected_connectivity
 ) const
 {
-    const std::string& actual_type = typeid(map_instance).name();
+    if (!domain)
+    {
+        throw std::invalid_argument("Domain cannot be null");
+    }
 
-    // Check if the actual type contains the expected type
-    // This is a simple check that works in many cases, but might need
-    // to be more sophisticated depending on the exact typeid implementation
-    if (actual_type.find(expected_type) == std::string::npos)
+    if (domain->getConnectivity() != expected_connectivity)
     {
         throw std::invalid_argument(
-            "Map type mismatch. Expected: " + expected_type +
-            ", Actual: " + actual_type
+            "Domain connectivity mismatch. Expected: " + std::to_string(expected_connectivity) +
+            ", Actual: " + std::to_string(domain->getConnectivity())
         );
     }
+}
+
+void ConformalMapMethod::validateDomainGeometry(std::shared_ptr<Domain> domain) const
+{
+    if (!domain)
+    {
+        throw std::invalid_argument("Domain cannot be null");
+    }
+
+    // This method should be overridden by specific methods to check
+    // for domain-specific geometric properties (e.g., starlike, polygonal)
+    // Base implementation just validates non-null domain
+    // Derived classes can use dynamic_cast to check specific domain types
 }

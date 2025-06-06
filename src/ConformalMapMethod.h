@@ -19,14 +19,21 @@
 #ifndef CONFORMAL_MAP_METHOD_HPP
 #define CONFORMAL_MAP_METHOD_HPP
 
+#include "Complex.h"
+
+#include <memory>
 #include <string>
-#include "ConformalMap.h"
+
+// Forward declarations to avoid circular dependency
+class ConformalMap;
+class Domain;
 
 /**
  * @brief Abstract base class for conformal mapping methods
  *
  * This class defines the interface for methods that compute conformal mappings
- * between domains. Derived classes implement specific algorithms.
+ * between domains. Methods own all algorithm-specific state and handle both
+ * computation and map evaluation. They validate domain compatibility at runtime.
  */
 class ConformalMapMethod
 {
@@ -53,6 +60,22 @@ public:
      * @param target_accuracy Target accuracy for the computation
      */
     virtual void compute(ConformalMap& map_instance, double target_accuracy = 1e-10) = 0;
+
+    /**
+     * @brief Evaluate the computed map at a point
+     *
+     * @param z Point in the source domain
+     * @return ComplexDouble Mapped point in the target domain
+     */
+    virtual ComplexDouble map(const ComplexDouble& z) const = 0;
+
+    /**
+     * @brief Evaluate the inverse of the computed map at a point
+     *
+     * @param w Point in the target domain
+     * @return ComplexDouble Mapped point in the source domain
+     */
+    virtual ComplexDouble inverseMap(const ComplexDouble& w) const = 0;
 
     /**
      * @brief Get the achieved accuracy of the last computation
@@ -83,13 +106,21 @@ public:
 
 protected:
     /**
-     * @brief Validate that the map is of the expected type
+     * @brief Validate that the domain is compatible with this method
      *
-     * @param map_instance Map to validate
-     * @param expected_type Expected type name
-     * @throws std::invalid_argument if the map is not of the expected type
+     * @param domain Domain to validate
+     * @param expected_connectivity Expected connectivity (0 = simply connected, etc.)
+     * @throws std::invalid_argument if the domain is not compatible
      */
-    void validateMapType(ConformalMap& map_instance, const std::string& expected_type) const;
+    void validateDomainCompatibility(std::shared_ptr<Domain> domain, int expected_connectivity) const;
+
+    /**
+     * @brief Validate that the domain has the required geometric properties
+     *
+     * @param domain Domain to validate
+     * @throws std::invalid_argument if the domain doesn't have required properties
+     */
+    void validateDomainGeometry(std::shared_ptr<Domain> domain) const;
 };
 
 #endif // CONFORMAL_MAP_METHOD_HPP

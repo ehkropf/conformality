@@ -40,26 +40,6 @@ public:
         accuracy = target_accuracy * 0.5; // Simulate achieved accuracy
     }
 
-    bool wasComputeCalled() const
-    {
-        return compute_called;
-    }
-
-    double getLastAccuracy() const
-    {
-        return last_accuracy;
-    }
-};
-
-// Mock implementation of ConformalMap for testing
-class MockMap : public ConformalMap
-{
-public:
-    MockMap(std::shared_ptr<Domain> source, std::shared_ptr<Domain> target, bool external = false)
-        : ConformalMap(source, target, external)
-    {
-    }
-
     ComplexDouble map(const ComplexDouble& z) const override
     {
         // Simple identity mapping for testing
@@ -71,7 +51,19 @@ public:
         // Simple identity mapping for testing
         return w;
     }
+
+    bool wasComputeCalled() const
+    {
+        return compute_called;
+    }
+
+    double getLastAccuracy() const
+    {
+        return last_accuracy;
+    }
 };
+
+// ConformalMap is now concrete, no need for MockMap
 
 TEST(ConformalMapTest, Construction)
 {
@@ -82,7 +74,7 @@ TEST(ConformalMapTest, Construction)
         2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
 
     // Test constructor with domains
-    MockMap map(source_domain, target_domain, false);
+    ConformalMap map(source_domain, target_domain, nullptr, false);
     EXPECT_EQ(source_domain, map.getSourceDomain());
     EXPECT_EQ(target_domain, map.getTargetDomain());
     EXPECT_FALSE(map.isExternalMap());
@@ -101,8 +93,8 @@ TEST(ConformalMapTest, MethodInteraction)
         2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
 
     // Create map and method
-    MockMap map(source_domain, target_domain);
     auto method = std::make_shared<MockMethod>();
+    ConformalMap map(source_domain, target_domain, method);
 
     // Test setting method
     map.setMethod(method);
@@ -122,8 +114,9 @@ TEST(ConformalMapTest, Identity)
     auto target_domain = std::make_shared<CircularDomain>(
         ComplexDouble(0.0, 0.0), 1.0, false);
 
-    // Create identity map
-    MockMap map(source_domain, target_domain);
+    // Create identity map with mock method
+    auto method = std::make_shared<MockMethod>();
+    ConformalMap map(source_domain, target_domain, method);
 
     // Test identity mapping
     ComplexDouble z(0.5, 0.5);
@@ -150,7 +143,7 @@ TEST(ConformalMapMethodTest, BasicProperties)
         ComplexDouble(0.0, 0.0), 1.0, false);
     auto target_domain = std::make_shared<EllipticalDomain>(
         2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
-    MockMap map(source_domain, target_domain);
+    ConformalMap map(source_domain, target_domain);
 
     // Test compute
     method.compute(map, 1e-10);
@@ -158,7 +151,7 @@ TEST(ConformalMapMethodTest, BasicProperties)
     EXPECT_EQ(1e-10 * 0.5, method.getAccuracy());
 }
 
-TEST(ConformalMapMethodTest, ValidateMapType)
+TEST(ConformalMapMethodTest, ValidateDomainCompatibility)
 {
     class TestMethod : public ConformalMapMethod
     {
@@ -170,24 +163,34 @@ TEST(ConformalMapMethodTest, ValidateMapType)
             // Just a stub
         }
 
-        void testValidation(ConformalMap& map, const std::string& expected_type)
+        ComplexDouble map(const ComplexDouble& z) const override
         {
-            validateMapType(map, expected_type);
+            return z;
+        }
+
+        ComplexDouble inverseMap(const ComplexDouble& w) const override
+        {
+            return w;
+        }
+
+        void testDomainValidation(std::shared_ptr<Domain> domain, int expected_connectivity)
+        {
+            validateDomainCompatibility(domain, expected_connectivity);
         }
     };
 
     TestMethod method;
 
-    // Create domains and map
-    auto source_domain = std::make_shared<CircularDomain>(
+    // Create domains
+    auto simply_connected_domain = std::make_shared<CircularDomain>(
         ComplexDouble(0.0, 0.0), 1.0, false);
-    auto target_domain = std::make_shared<EllipticalDomain>(
-        2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
-    MockMap map(source_domain, target_domain);
 
-    // Test validation with correct type
-    EXPECT_NO_THROW(method.testValidation(map, "MockMap"));
+    // Test validation with correct connectivity (1 = simply connected)
+    EXPECT_NO_THROW(method.testDomainValidation(simply_connected_domain, 1));
 
-    // Test validation with incorrect type - should throw
-    EXPECT_THROW(method.testValidation(map, "WrongMapType"), std::invalid_argument);
+    // Test validation with incorrect connectivity - should throw
+    EXPECT_THROW(method.testDomainValidation(simply_connected_domain, 0), std::invalid_argument);
+
+    // Test null domain - should throw
+    EXPECT_THROW(method.testDomainValidation(nullptr, 0), std::invalid_argument);
 }
