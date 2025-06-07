@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Everett Kropf (ehkropf@gmail.com)
+ * Copyright © 2025, Everett Kropf (ehkropf@gmail.com)
  *
  * This file is part of Conformality.
  * Conformality is free software: you can redistribute it and/or modify it under
