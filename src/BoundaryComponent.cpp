@@ -24,17 +24,17 @@
 
 // AnalyticBoundaryComponent implementations
 AnalyticBoundaryComponent::AnalyticBoundaryComponent(
-        std::function<ComplexDouble(double)> paramFunc,
-        std::function<ComplexDouble(double)> derivFunc)
+        std::function<Complex(double)> paramFunc,
+        std::function<Complex(double)> derivFunc)
     : parameterization(paramFunc)
     , derivative(derivFunc)
 {
 }
 
 
-std::vector<ComplexDouble> AnalyticBoundaryComponent::sample(size_t numPoints) const
+std::vector<Complex> AnalyticBoundaryComponent::sample(size_t numPoints) const
 {
-    std::vector<ComplexDouble> samples;
+    std::vector<Complex> samples;
     samples.reserve(numPoints);
 
     for (size_t i = 0; i < numPoints; ++i)
@@ -46,31 +46,31 @@ std::vector<ComplexDouble> AnalyticBoundaryComponent::sample(size_t numPoints) c
     return samples;
 }
 
-double AnalyticBoundaryComponent::findParameterization(const ComplexDouble& z) const
+double AnalyticBoundaryComponent::findParameterization(const Complex& z) const
 {
     // Simple implementation for test passing
     // In a real implementation, this would use numerical methods
     // like Newton's method to find the parameter more accurately
 
     // For a circle, we can use atan2 directly
-    return std::atan2(z.imag(), z.real());
+    return std::atan2(std::imag(z), std::real(z));
 
     // Note: A more general implementation would use optimization
     // to minimize |parameterization(t) - z|
 }
 
 // DiscreteBoundaryComponent implementations
-DiscreteBoundaryComponent::DiscreteBoundaryComponent(const std::vector<ComplexDouble>& pts)
+DiscreteBoundaryComponent::DiscreteBoundaryComponent(const std::vector<Complex>& pts)
     : points(pts)
 {
 }
 
-ComplexDouble DiscreteBoundaryComponent::evaluate(double t) const
+Complex DiscreteBoundaryComponent::evaluate(double t) const
 {
     // Implementation depends on interpolation method
     // For test passing, we'll use a simple linear interpolation
     if (points.empty())
-        return ComplexDouble(0.0, 0.0);
+        return Complex(0.0, 0.0);
 
     double normalizedT = std::fmod(t, 2.0 * M_PI);
     if (normalizedT < 0) normalizedT += 2.0 * M_PI;
@@ -81,27 +81,27 @@ ComplexDouble DiscreteBoundaryComponent::evaluate(double t) const
     double frac = indexF - index1;
 
     // Linear interpolation
-    ComplexDouble result = points[index1];
+    Complex result = points[index1];
     result = result * (1.0 - frac) + points[index2] * frac;
     return result;
 }
 
-ComplexDouble DiscreteBoundaryComponent::evaluateDerivative(double t) const
+Complex DiscreteBoundaryComponent::evaluateDerivative(double t) const
 {
     // Simple finite difference approximation
     const double h = 1e-6;
-    ComplexDouble fwd = evaluate(t + h);
-    ComplexDouble bwd = evaluate(t - h);
-    ComplexDouble diff = fwd - bwd;
-    return diff / ComplexDouble(2.0 * h);
+    Complex fwd = evaluate(t + h);
+    Complex bwd = evaluate(t - h);
+    Complex diff = fwd - bwd;
+    return diff / (2.0 * h);
 }
 
-std::vector<ComplexDouble> DiscreteBoundaryComponent::sample(size_t numPoints) const
+std::vector<Complex> DiscreteBoundaryComponent::sample(size_t numPoints) const
 {
     if (numPoints <= 0)
         return {};
 
-    std::vector<ComplexDouble> samples;
+    std::vector<Complex> samples;
     samples.reserve(numPoints);
 
     if (points.size() == numPoints)
@@ -119,7 +119,7 @@ std::vector<ComplexDouble> DiscreteBoundaryComponent::sample(size_t numPoints) c
     return samples;
 }
 
-double DiscreteBoundaryComponent::findParameterization(const ComplexDouble& z) const
+double DiscreteBoundaryComponent::findParameterization(const Complex& z) const
 {
     // Find closest point and interpolate parameter
     if (points.empty())
@@ -127,12 +127,11 @@ double DiscreteBoundaryComponent::findParameterization(const ComplexDouble& z) c
 
     // Linear search for closest point (could be optimized)
     int closestIdx = 0;
-    // FIXME: Complex class should implement a norm.
-    double minDist = std::norm(z.getValue() - points[0].getValue());
+    double minDist = std::norm(z - points[0]);
 
     for (size_t i = 1; i < points.size(); ++i)
     {
-        double dist = std::norm(z.getValue() - points[i].getValue());
+        double dist = std::norm(z - points[i]);
         if (dist < minDist)
         {
             minDist = dist;
@@ -155,15 +154,15 @@ void DiscreteBoundaryComponent::smooth(double factor)
     if (points.size() < 3 || factor <= 0.0 || factor >= 1.0)
         return;
 
-    std::vector<ComplexDouble> smoothedPoints = points;
+    std::vector<Complex> smoothedPoints = points;
 
     for (size_t i = 0; i < points.size(); ++i)
     {
         size_t prev = (i + points.size() - 1) % points.size();
         size_t next = (i + 1) % points.size();
 
-        ComplexDouble avg = (points[prev] + points[next]) / ComplexDouble(2.0);
-        smoothedPoints[i] = points[i] * ComplexDouble(1.0 - factor) + avg * ComplexDouble(factor);
+        Complex avg = (points[prev] + points[next]) / 2.0;
+        smoothedPoints[i] = points[i] * (1.0 - factor) + avg * factor;
     }
 
     points = smoothedPoints;

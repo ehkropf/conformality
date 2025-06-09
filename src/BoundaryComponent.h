@@ -19,7 +19,7 @@
 #ifndef BOUNDARY_COMPONENT_HPP
 #define BOUNDARY_COMPONENT_HPP
 
-#include "Complex.h"
+#include "Types.h"
 
 #include <functional>
 #include <vector>
@@ -45,30 +45,30 @@ public:
     /**
      * @brief Evaluate the boundary at parameter t
      * @param t Parameter value in [0, 2π)
-     * @return ComplexDouble point on the boundary
+     * @return Complex point on the boundary
      */
-    virtual ComplexDouble evaluate(double t) const = 0;
+    virtual Complex evaluate(double t) const = 0;
 
     /**
      * @brief Evaluate the derivative of the boundary at parameter t
      * @param t Parameter value in [0, 2π)
-     * @return ComplexDouble derivative value
+     * @return Complex derivative value
      */
-    virtual ComplexDouble evaluateDerivative(double t) const = 0;
+    virtual Complex evaluateDerivative(double t) const = 0;
 
     /**
      * @brief Sample points along the boundary
      * @param numPoints Number of points to sample
      * @return Vector of complex points on the boundary
      */
-    virtual std::vector<ComplexDouble> sample(size_t numPoints) const = 0;
+    virtual std::vector<Complex> sample(size_t numPoints) const = 0;
 
     /**
      * @brief Find the parameter value for a point on the boundary
-     * @param z ComplexDouble point on or near the boundary
+     * @param z Complex point on or near the boundary
      * @return Parameter value t such that evaluate(t) ≈ z
      */
-    virtual double findParameterization(const ComplexDouble& z) const = 0;
+    virtual double findParameterization(const Complex& z) const = 0;
 
     /**
      * @brief Get the index of this boundary component
@@ -95,8 +95,8 @@ public:
 class AnalyticBoundaryComponent : public BoundaryComponent
 {
 private:
-    std::function<ComplexDouble(double)> parameterization;
-    std::function<ComplexDouble(double)> derivative;
+    std::function<Complex(double)> parameterization;
+    std::function<Complex(double)> derivative;
 
 public:
     /**
@@ -104,15 +104,15 @@ public:
      * @param paramFunc Function mapping parameter t to complex point
      * @param derivFunc Function providing the derivative
      */
-    AnalyticBoundaryComponent(std::function<ComplexDouble(double)> paramFunc,
-                              std::function<ComplexDouble(double)> derivFunc);
+    AnalyticBoundaryComponent(std::function<Complex(double)> paramFunc,
+                              std::function<Complex(double)> derivFunc);
 
     /**
      * @brief Evaluate the boundary at parameter t
      * @param t Parameter value
-     * @return ComplexDouble point on the boundary
+     * @return Complex point on the boundary
      */
-    ComplexDouble evaluate(double t) const override
+    Complex evaluate(double t) const override
     {
         return parameterization(t);
     }
@@ -120,9 +120,9 @@ public:
     /**
      * @brief Evaluate the derivative at parameter t
      * @param t Parameter value
-     * @return ComplexDouble derivative
+     * @return Complex derivative
      */
-    ComplexDouble evaluateDerivative(double t) const override
+    Complex evaluateDerivative(double t) const override
     {
         return derivative(t);
     }
@@ -132,14 +132,14 @@ public:
      * @param numPoints Number of points to sample
      * @return Vector of complex points on the boundary
      */
-    std::vector<ComplexDouble> sample(size_t numPoints) const override;
+    std::vector<Complex> sample(size_t numPoints) const override;
 
     /**
      * @brief Find the parameter value for a point on the boundary
-     * @param z ComplexDouble point on or near the boundary
+     * @param z Complex point on or near the boundary
      * @return Parameter value t such that evaluate(t) ≈ z
      */
-    double findParameterization(const ComplexDouble& z) const override;
+    double findParameterization(const Complex& z) const override;
 };
 
 /**
@@ -148,7 +148,7 @@ public:
 class DiscreteBoundaryComponent : public BoundaryComponent
 {
 private:
-    std::vector<ComplexDouble> points;
+    std::vector<Complex> points;
     // FIXME: Uncomment this when implementing evaluation via method.
     // InterpolationMethod method;
 
@@ -158,24 +158,24 @@ public:
      * @param pts Vector of points defining the boundary
      * @param interpolationMethod Method used for interpolation
      */
-    DiscreteBoundaryComponent(const std::vector<ComplexDouble>& pts);
+    DiscreteBoundaryComponent(const std::vector<Complex>& pts);
 
     // FIXME: Implementation method.
     //DiscreteBoundaryComponent(
-    //    std::vector<ComplexDouble> pts,
+    //    std::vector<Complex> pts,
     //    InterpolationMethod interpolationMethod = InterpolationMethod::LINEAR
     //)
     //    : points(pts)
     //    , method(interpolationMethod)
     //{}
 
-    ComplexDouble evaluate(double t) const override;
+    Complex evaluate(double t) const override;
 
-    ComplexDouble evaluateDerivative(double t) const override;
+    Complex evaluateDerivative(double t) const override;
 
-    std::vector<ComplexDouble> sample(size_t numPoints) const override;
+    std::vector<Complex> sample(size_t numPoints) const override;
 
-    double findParameterization(const ComplexDouble& z) const override;
+    double findParameterization(const Complex& z) const override;
 
     void resample(int numPoints);
 

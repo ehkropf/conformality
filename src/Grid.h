@@ -19,7 +19,7 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include "Complex.h"
+#include "Types.h"
 #include <vector>
 #include <functional>
 #include <unordered_map>
@@ -45,7 +45,7 @@ class Grid
 {
 private:
     GridType type;
-    std::vector<ComplexDouble> points;
+    std::vector<Complex> points;
     std::vector<std::vector<size_t>> lines;
 
     // Parameters for grid generation
@@ -61,7 +61,7 @@ private:
     bool includeOrigin;                // Whether to include origin in polar grids
 
     // Parametric grid properties
-    std::function<ComplexDouble(double, double)> parameterization;
+    std::function<Complex(double, double)> parameterization;
     double uMin, uMax, vMin, vMax;     // Parametric grid bounds
     int numULines, numVLines;          // Parametric grid line counts
 
@@ -140,7 +140,7 @@ public:
      * @param vMaximum Maximum v-parameter (default: 1.0)
      */
     static Grid createParametricGrid(
-        std::function<ComplexDouble(double, double)> paramFunc,
+        std::function<Complex(double, double)> paramFunc,
         int numUlines,
         int numVlines,
         double uMinimum = 0.0,
@@ -155,14 +155,14 @@ public:
      * @param transform Function mapping complex points to complex points
      * @return Grid New grid with transformed points
      */
-    Grid transform(std::function<ComplexDouble(const ComplexDouble&)> transform) const;
+    Grid transform(std::function<Complex(const Complex&)> transform) const;
 
     /**
      * @brief Get all points in the grid
      *
-     * @return const std::vector<ComplexDouble>& Vector of all grid points
+     * @return const std::vector<Complex>& Vector of all grid points
      */
-    const std::vector<ComplexDouble>& getPoints() const
+    const std::vector<Complex>& getPoints() const
     {
         return points;
     }
@@ -216,7 +216,7 @@ public:
      * @param point Complex point to add
      * @return size_t Index of the added point
      */
-    size_t addPoint(const ComplexDouble& point);
+    size_t addPoint(const Complex& point);
 
     /**
      * @brief Add a line to the grid connecting specified points

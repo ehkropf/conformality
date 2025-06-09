@@ -40,13 +40,13 @@ public:
         accuracy = target_accuracy * 0.5; // Simulate achieved accuracy
     }
 
-    ComplexDouble map(const ComplexDouble& z) const override
+    Complex map(const Complex& z) const override
     {
         // Simple identity mapping for testing
         return z;
     }
 
-    ComplexDouble inverseMap(const ComplexDouble& w) const override
+    Complex inverseMap(const Complex& w) const override
     {
         // Simple identity mapping for testing
         return w;
@@ -69,9 +69,9 @@ TEST(ConformalMapTest, Construction)
 {
     // Create domains for the test
     auto source_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
     auto target_domain = std::make_shared<EllipticalDomain>(
-        2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
+        2.0, 1.0, 0.0, Complex(0.0, 0.0), false);
 
     // Test constructor with domains
     ConformalMap map(source_domain, target_domain, nullptr, false);
@@ -88,9 +88,9 @@ TEST(ConformalMapTest, MethodInteraction)
 {
     // Create domains for the test
     auto source_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
     auto target_domain = std::make_shared<EllipticalDomain>(
-        2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
+        2.0, 1.0, 0.0, Complex(0.0, 0.0), false);
 
     // Create map and method
     auto method = std::make_shared<MockMethod>();
@@ -110,20 +110,20 @@ TEST(ConformalMapTest, Identity)
 {
     // Create domains for the test
     auto source_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
     auto target_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
 
     // Create identity map with mock method
     auto method = std::make_shared<MockMethod>();
     ConformalMap map(source_domain, target_domain, method);
 
     // Test identity mapping
-    ComplexDouble z(0.5, 0.5);
-    ComplexDouble w = map.map(z);
+    Complex z(0.5, 0.5);
+    Complex w = map.map(z);
     EXPECT_EQ(z, w);
 
-    ComplexDouble z_back = map.inverseMap(w);
+    Complex z_back = map.inverseMap(w);
     EXPECT_EQ(z, z_back);
 }
 
@@ -140,9 +140,9 @@ TEST(ConformalMapMethodTest, BasicProperties)
 
     // Create domains and map for testing compute
     auto source_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
     auto target_domain = std::make_shared<EllipticalDomain>(
-        2.0, 1.0, 0.0, ComplexDouble(0.0, 0.0), false);
+        2.0, 1.0, 0.0, Complex(0.0, 0.0), false);
     ConformalMap map(source_domain, target_domain);
 
     // Test compute
@@ -163,12 +163,12 @@ TEST(ConformalMapMethodTest, ValidateDomainCompatibility)
             // Just a stub
         }
 
-        ComplexDouble map(const ComplexDouble& z) const override
+        Complex map(const Complex& z) const override
         {
             return z;
         }
 
-        ComplexDouble inverseMap(const ComplexDouble& w) const override
+        Complex inverseMap(const Complex& w) const override
         {
             return w;
         }
@@ -183,7 +183,7 @@ TEST(ConformalMapMethodTest, ValidateDomainCompatibility)
 
     // Create domains
     auto simply_connected_domain = std::make_shared<CircularDomain>(
-        ComplexDouble(0.0, 0.0), 1.0, false);
+        Complex(0.0, 0.0), 1.0, false);
 
     // Test validation with correct connectivity (1 = simply connected)
     EXPECT_NO_THROW(method.testDomainValidation(simply_connected_domain, 1));

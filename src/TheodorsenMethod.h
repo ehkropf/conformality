@@ -37,8 +37,8 @@ class TheodorsenMethod : public ConformalMapMethod
 {
 private:
     size_t n_points;                              // Number of sample points (must be power of 2)
-    std::vector<ComplexDouble> laurent_coeffs;    // Laurent series coefficients
-    std::vector<ComplexDouble> boundary_samples;  // Sampled boundary points
+    std::vector<Complex> laurent_coeffs;    // Laurent series coefficients
+    std::vector<Complex> boundary_samples;  // Sampled boundary points
     std::vector<double> phi_sequence;             // Angle sequence for sampling
     bool is_converged;                            // Convergence flag
     double residual_norm;                         // Last residual norm
@@ -49,7 +49,7 @@ private:
      * @param external Whether this is an external mapping
      * @return Vector of boundary sample points
      */
-    std::vector<ComplexDouble> sampleBoundary(std::shared_ptr<Domain> domain, bool external) const;
+    std::vector<Complex> sampleBoundary(std::shared_ptr<Domain> domain, bool external) const;
 
     /**
      * @brief Compute the boundary correspondence function rho(phi)
@@ -71,7 +71,7 @@ private:
      * @brief Compute Laurent series coefficients from boundary data
      * @param boundary_data Boundary correspondence function values
      */
-    void computeLaurentCoefficients(const std::vector<ComplexDouble>& boundary_data);
+    void computeLaurentCoefficients(const std::vector<Complex>& boundary_data);
 
     /**
      * @brief Check convergence based on residual norm
@@ -104,16 +104,16 @@ public:
     /**
      * @brief Evaluate the computed map at a point
      * @param z Point in the source domain
-     * @return ComplexDouble Mapped point in the target domain
+     * @return Complex Mapped point in the target domain
      */
-    ComplexDouble map(const ComplexDouble& z) const override;
+    Complex map(const Complex& z) const override;
 
     /**
      * @brief Evaluate the inverse of the computed map at a point
      * @param w Point in the target domain
-     * @return ComplexDouble Mapped point in the source domain
+     * @return Complex Mapped point in the source domain
      */
-    ComplexDouble inverseMap(const ComplexDouble& w) const override;
+    Complex inverseMap(const Complex& w) const override;
 
     /**
      * @brief Get the number of sample points
@@ -134,7 +134,7 @@ public:
      * @brief Get the Laurent series coefficients
      * @return Vector of Laurent coefficients
      */
-    const std::vector<ComplexDouble>& getLaurentCoefficients() const
+    const std::vector<Complex>& getLaurentCoefficients() const
     {
         return laurent_coeffs;
     }
@@ -161,7 +161,7 @@ public:
      * @brief Get the boundary sample points from the last computation
      * @return Vector of boundary sample points
      */
-    const std::vector<ComplexDouble>& getBoundarySamples() const
+    const std::vector<Complex>& getBoundarySamples() const
     {
         return boundary_samples;
     }

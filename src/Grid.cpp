@@ -44,9 +44,9 @@ Grid::Grid(GridType gridType)
     , numVLines(10)
 {
     // Default parameterization for parametric grids (identity function)
-    parameterization = [](double u, double v) -> ComplexDouble
+    parameterization = [](double u, double v) -> Complex
     {
-        return ComplexDouble(u, v);
+        return Complex(u, v);
     };
 
     regenerate();
@@ -97,7 +97,7 @@ Grid Grid::createCartesianGrid(
 }
 
 Grid Grid::createParametricGrid(
-    std::function<ComplexDouble(double, double)> paramFunc,
+    std::function<Complex(double, double)> paramFunc,
     int numUlines,
     int numVlines,
     double uMinimum,
@@ -127,7 +127,7 @@ void Grid::generatePolarGrid()
     size_t originIndex = 0;
     if (includeOrigin && rMin <= 0.0)
     {
-        originIndex = addPoint(ComplexDouble(0.0, 0.0));
+        originIndex = addPoint(Complex(0.0, 0.0));
     }
 
     // Create radial lines
@@ -155,7 +155,7 @@ void Grid::generatePolarGrid()
                 r = std::min(r, 1e-10); // Avoid exact zero to prevent degenerate point
             }
 
-            ComplexDouble point = ComplexDouble::fromPolar(r, angle);
+            Complex point = std::polar(r, angle);
             line.push_back(addPoint(point));
         }
 
@@ -173,7 +173,7 @@ void Grid::generatePolarGrid()
         }
 
         std::vector<size_t> line;
-        std::vector<ComplexDouble> circlePoints;
+        std::vector<Complex> circlePoints;
 
         // Create points along this circle
         for (int i = 0; i <= numRadialLines; ++i)
@@ -185,7 +185,7 @@ void Grid::generatePolarGrid()
                 break;
             }
 
-            ComplexDouble point = ComplexDouble::fromPolar(r, angle);
+            Complex point = std::polar(r, angle);
             circlePoints.push_back(point);
         }
 
@@ -193,9 +193,9 @@ void Grid::generatePolarGrid()
         for (const auto& point : circlePoints)
         {
             // Check if this point already exists in the grid
-            auto it = std::find_if(points.begin(), points.end(), [&point](const ComplexDouble& p)
+            auto it = std::find_if(points.begin(), points.end(), [&point](const Complex& p)
             {
-                return std::abs((point - p).getValue()) < 1e-10;
+                return std::abs(point - p) < 1e-10;
             });
 
             if (it != points.end())
@@ -228,7 +228,7 @@ void Grid::generateCartesianGrid()
         for (int i = 0; i < numVerticalLines; ++i)
         {
             double x = xMin + i * (xMax - xMin) / (numVerticalLines - 1);
-            pointIndices[j][i] = addPoint(ComplexDouble(x, y));
+            pointIndices[j][i] = addPoint(Complex(x, y));
         }
     }
 
@@ -274,7 +274,7 @@ void Grid::generateParametricGrid()
         for (int j = 0; j < numVLines; ++j)
         {
             double v = vMin + j * (vMax - vMin) / (numVLines - 1);
-            ComplexDouble point = parameterization(u, v);
+            Complex point = parameterization(u, v);
             pointIndices[i][j] = addPoint(point);
         }
     }
@@ -324,7 +324,7 @@ void Grid::regenerate()
     }
 }
 
-Grid Grid::transform(std::function<ComplexDouble(const ComplexDouble&)> transform) const
+Grid Grid::transform(std::function<Complex(const Complex&)> transform) const
 {
     Grid transformedGrid = *this;
     transformedGrid.clear();
@@ -333,7 +333,7 @@ Grid Grid::transform(std::function<ComplexDouble(const ComplexDouble&)> transfor
     std::vector<size_t> newIndices(points.size());
     for (size_t i = 0; i < points.size(); ++i)
     {
-        ComplexDouble transformed = transform(points[i]);
+        Complex transformed = transform(points[i]);
         newIndices[i] = transformedGrid.addPoint(transformed);
     }
 
@@ -351,7 +351,7 @@ Grid Grid::transform(std::function<ComplexDouble(const ComplexDouble&)> transfor
     return transformedGrid;
 }
 
-size_t Grid::addPoint(const ComplexDouble& point)
+size_t Grid::addPoint(const Complex& point)
 {
     points.push_back(point);
     return points.size() - 1;

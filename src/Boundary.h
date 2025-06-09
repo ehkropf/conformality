@@ -40,30 +40,30 @@ public:
     /**
      * @brief Evaluate the boundary at parameter t
      * @param t Parameter value
-     * @return ComplexDouble point on the boundary
+     * @return Complex point on the boundary
      */
-    virtual ComplexDouble evaluate(double t) const = 0;
+    virtual Complex evaluate(double t) const = 0;
 
     /**
      * @brief Evaluate the derivative at parameter t
      * @param t Parameter value
-     * @return ComplexDouble derivative
+     * @return Complex derivative
      */
-    virtual ComplexDouble evaluateDerivative(double t) const = 0;
+    virtual Complex evaluateDerivative(double t) const = 0;
 
     /**
      * @brief Sample points along the boundary
      * @param numPoints Number of points to sample
      * @return Vector of complex points on the boundary
      */
-    virtual std::vector<ComplexDouble> sample(int numPoints) const = 0;
+    virtual std::vector<Complex> sample(int numPoints) const = 0;
 
     /**
      * @brief Find the parameter value for a point on the boundary
-     * @param z ComplexDouble point on or near the boundary
+     * @param z Complex point on or near the boundary
      * @return Parameter value t such that evaluate(t) ≈ z
      */
-    virtual double findParameterization(const ComplexDouble& z) const = 0;
+    virtual double findParameterization(const Complex& z) const = 0;
 
     /**
      * @brief Add a boundary component
@@ -109,22 +109,22 @@ public:
      */
     SimpleBoundary(std::shared_ptr<BoundaryComponent> component);
 
-    ComplexDouble evaluate(double t) const override
+    Complex evaluate(double t) const override
     {
         return components[0]->evaluate(t);
     }
 
-    ComplexDouble evaluateDerivative(double t) const override
+    Complex evaluateDerivative(double t) const override
     {
         return components[0]->evaluateDerivative(t);
     }
 
-    std::vector<ComplexDouble> sample(int numPoints) const override
+    std::vector<Complex> sample(int numPoints) const override
     {
         return components[0]->sample(numPoints);
     }
 
-    double findParameterization(const ComplexDouble& z) const override
+    double findParameterization(const Complex& z) const override
     {
         return components[0]->findParameterization(z);
     }
@@ -149,13 +149,13 @@ public:
 
     void addComponent(std::shared_ptr<BoundaryComponent> component);
 
-    ComplexDouble evaluate(double t) const override;
+    Complex evaluate(double t) const override;
 
-    ComplexDouble evaluateDerivative(double t) const override;
+    Complex evaluateDerivative(double t) const override;
 
-    std::vector<ComplexDouble> sample(int numPoints) const override;
+    std::vector<Complex> sample(int numPoints) const override;
 
-    double findParameterization(const ComplexDouble& z) const override;
+    double findParameterization(const Complex& z) const override;
 
 private:
     void updateParameterRanges();

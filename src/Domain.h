@@ -43,7 +43,7 @@ protected:
      * @param tolerance Tolerance for boundary proximity
      * @return Winding number
      */
-    int calculateWindingNumber(const ComplexDouble& z, const std::vector<ComplexDouble>& samples, double tolerance = 1e-12) const;
+    int calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance = 1e-12) const;
 
     /**
      * @brief Calculate distance from point to line segment
@@ -52,7 +52,7 @@ protected:
      * @param segmentEnd End of line segment
      * @return Distance to closest point on segment
      */
-    double distanceToLineSegment(const ComplexDouble& point, const ComplexDouble& segmentStart, const ComplexDouble& segmentEnd) const;
+    double distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd) const;
 
 public:
     /**
@@ -87,16 +87,16 @@ public:
 
     /**
      * @brief Check if a point is contained in the domain
-     * @param z ComplexDouble point to check
+     * @param z Complex point to check
      * @return true if inside, false otherwise
      */
-    virtual bool contains(const ComplexDouble& z) const = 0;
+    virtual bool contains(const Complex& z) const = 0;
 
     /**
      * @brief Transform the boundary using a function
      * @param transform Function mapping complex points to complex points
      */
-    virtual void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) = 0;
+    virtual void transformBoundary(std::function<Complex(const Complex&)> transform) = 0;
 };
 
 /**
@@ -128,9 +128,9 @@ public:
         return *boundary;
     }
 
-    bool contains(const ComplexDouble& z) const override;
+    bool contains(const Complex& z) const override;
 
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override;
+    void transformBoundary(std::function<Complex(const Complex&)> transform) override;
 };
 
 /**
@@ -139,7 +139,7 @@ public:
 class StarlikeDomain : public SimplyConnectedDomain
 {
 protected:
-    ComplexDouble center;
+    Complex center;
     std::function<double(double)> radiusFunction;
 
 public:
@@ -150,7 +150,7 @@ public:
      * @param isExternalDomain Whether this is an external domain
      */
     StarlikeDomain(
-        const ComplexDouble& domainCenter,
+        const Complex& domainCenter,
         std::function<double(double)> radiusFunc,
         bool isExternalDomain = false
     )
@@ -163,7 +163,7 @@ public:
      * @brief Get the center of the domain
      * @return Center point
      */
-    ComplexDouble getCenter() const
+    Complex getCenter() const
     {
         return center;
     }
@@ -178,11 +178,11 @@ public:
         return radiusFunction(angle);
     }
 
-    bool contains(const ComplexDouble& z) const override;
+    bool contains(const Complex& z) const override;
 
 private:
     static std::shared_ptr<Boundary> createBoundary(
-        const ComplexDouble& center,
+        const Complex& center,
         std::function<double(double)> radiusFunc
     );
 };
@@ -207,7 +207,7 @@ public:
      * @param isExternalDomain Whether this is an external domain
      */
     EllipticalDomain(double semiMajorAxis, double semiMinorAxis, double rotationAngle = 0.0,
-                     const ComplexDouble& domainCenter = ComplexDouble(0.0, 0.0),
+                     const Complex& domainCenter = Complex(0.0, 0.0),
                      bool isExternalDomain = false)
         : StarlikeDomain(domainCenter,
                          [semiMajorAxis, semiMinorAxis, rotationAngle, this](double angle) -> double
@@ -285,7 +285,7 @@ public:
      * @param isExternalDomain Whether this is an external domain
      */
     CircularDomain(
-        const ComplexDouble& domainCenter,
+        const Complex& domainCenter,
         double circleRadius,
         bool isExternalDomain = false
     )
@@ -308,7 +308,7 @@ public:
         return radius;
     }
 
-    bool contains(const ComplexDouble& z) const override;
+    bool contains(const Complex& z) const override;
 };
 
 /**
@@ -317,7 +317,7 @@ public:
 class PolygonalDomain : public SimplyConnectedDomain
 {
 private:
-    std::vector<ComplexDouble> vertices;
+    std::vector<Complex> vertices;
 
 public:
     /**
@@ -326,7 +326,7 @@ public:
      * @param isExternalDomain Whether this is an external domain
      */
     PolygonalDomain(
-        const std::vector<ComplexDouble>& domainVertices,
+        const std::vector<Complex>& domainVertices,
         bool isExternalDomain = false
     )
         : SimplyConnectedDomain(createBoundary(domainVertices), isExternalDomain)
@@ -337,7 +337,7 @@ public:
      * @brief Get the vertices of the polygon
      * @return Vector of vertices
      */
-    const std::vector<ComplexDouble>& getVertices() const
+    const std::vector<Complex>& getVertices() const
     {
         return vertices;
     }
@@ -346,11 +346,11 @@ public:
      * @brief Set the vertices of the polygon
      * @param newVertices New vertices
      */
-    void setVertices(const std::vector<ComplexDouble>& newVertices);
+    void setVertices(const std::vector<Complex>& newVertices);
 
 private:
     static std::shared_ptr<Boundary> createBoundary(
-        const std::vector<ComplexDouble>& vertices
+        const std::vector<Complex>& vertices
     );
 };
 
@@ -387,9 +387,9 @@ public:
         return boundaries;
     }
 
-    bool contains(const ComplexDouble& z) const override;
+    bool contains(const Complex& z) const override;
 
-    void transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform) override;
+    void transformBoundary(std::function<Complex(const Complex&)> transform) override;
 };
 
 #endif // DOMAIN_HPP

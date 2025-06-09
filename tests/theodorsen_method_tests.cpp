@@ -29,7 +29,7 @@ protected:
     void SetUp() override
     {
         // Create unit circle as target domain
-        unit_circle = std::make_shared<CircularDomain>(ComplexDouble(0.0, 0.0), 1.0);
+        unit_circle = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 1.0);
         
         // Create elliptical domain as source
         ellipse = std::make_shared<EllipticalDomain>(2.0, 1.0); // Semi-major axis = 2, semi-minor axis = 1
@@ -88,14 +88,14 @@ TEST_F(TheodorsenMethodTest, DomainValidation)
     EXPECT_NO_THROW(method->compute(map, 1e-6));
     
     // Test with non-starlike domain
-    auto non_starlike = std::make_shared<CircularDomain>(ComplexDouble(0.0, 0.0), 2.0);
+    auto non_starlike = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 2.0);
     ConformalMap invalid_map(non_starlike, unit_circle, method);
     
     // Should reject non-starlike source domain
     EXPECT_THROW(method->compute(invalid_map, 1e-6), std::invalid_argument);
     
     // Test with non-unit circle target
-    auto non_unit_circle = std::make_shared<CircularDomain>(ComplexDouble(0.0, 0.0), 2.0);
+    auto non_unit_circle = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 2.0);
     ConformalMap invalid_target_map(ellipse, non_unit_circle, method);
     
     // Should reject non-unit circle target
@@ -131,26 +131,26 @@ TEST_F(TheodorsenMethodTest, MapEvaluation)
     method->compute(map, 1e-8);
     
     // Test mapping of center point
-    ComplexDouble center = ellipse->getCenter();
-    ComplexDouble mapped_center = method->map(center);
+    Complex center = ellipse->getCenter();
+    Complex mapped_center = method->map(center);
     
     // Center should map close to origin (for well-centered ellipse)
-    EXPECT_LT(mapped_center.abs(), 0.1);
+    EXPECT_LT(std::abs(mapped_center), 0.1);
     
     // Test mapping of points on boundary
     // Point on boundary should map to unit circle
-    ComplexDouble boundary_point(2.0, 0.0); // On ellipse boundary
-    ComplexDouble mapped_boundary = method->map(boundary_point);
+    Complex boundary_point(2.0, 0.0); // On ellipse boundary
+    Complex mapped_boundary = method->map(boundary_point);
     
     // Mapped boundary point should be close to unit circle
-    EXPECT_NEAR(mapped_boundary.abs(), 1.0, 0.1);
+    EXPECT_NEAR(std::abs(mapped_boundary), 1.0, 0.1);
 }
 
 TEST_F(TheodorsenMethodTest, MapEvaluationBeforeCompute)
 {
     // Should throw when trying to evaluate map before computation
-    EXPECT_THROW(method->map(ComplexDouble(0.0, 0.0)), std::runtime_error);
-    EXPECT_THROW(method->inverseMap(ComplexDouble(0.0, 0.0)), std::runtime_error);
+    EXPECT_THROW(method->map(Complex(0.0, 0.0)), std::runtime_error);
+    EXPECT_THROW(method->inverseMap(Complex(0.0, 0.0)), std::runtime_error);
 }
 
 TEST_F(TheodorsenMethodTest, InverseMapPlaceholder)
@@ -159,7 +159,7 @@ TEST_F(TheodorsenMethodTest, InverseMapPlaceholder)
     method->compute(map, 1e-8);
     
     // Inverse map should throw (not yet implemented)
-    EXPECT_THROW(method->inverseMap(ComplexDouble(0.5, 0.0)), std::runtime_error);
+    EXPECT_THROW(method->inverseMap(Complex(0.5, 0.0)), std::runtime_error);
 }
 
 TEST_F(TheodorsenMethodTest, ExternalMapping)
@@ -228,13 +228,13 @@ TEST_F(TheodorsenMethodTest, LaurentCoefficientsProperties)
     
     // For a conformal map from simply connected domain to unit disk,
     // the first coefficient (a_0) should be close to zero for centered ellipse
-    EXPECT_LT(coeffs[0].abs(), 0.1);
+    EXPECT_LT(std::abs(coeffs[0]), 0.1);
     
     // Check that higher order coefficients decay (at least some should be small)
     int small_coeff_count = 0;
     for (size_t i = 32; i < coeffs.size(); ++i)
     {
-        if (coeffs[i].abs() < 1e-6)
+        if (std::abs(coeffs[i]) < 1e-6)
         {
             small_coeff_count++;
         }

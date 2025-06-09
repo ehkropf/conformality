@@ -62,7 +62,7 @@ void CompositeBoundary::addComponent(std::shared_ptr<BoundaryComponent> componen
     updateParameterRanges();
 }
 
-ComplexDouble CompositeBoundary::evaluate(double t) const
+Complex CompositeBoundary::evaluate(double t) const
 {
     double normalizedT = std::fmod(t, 2.0 * M_PI);
     if (normalizedT < 0) normalizedT += 2.0 * M_PI;
@@ -86,7 +86,7 @@ ComplexDouble CompositeBoundary::evaluate(double t) const
     return components[componentIdx]->evaluate(scaledT);
 }
 
-ComplexDouble CompositeBoundary::evaluateDerivative(double t) const
+Complex CompositeBoundary::evaluateDerivative(double t) const
 {
     double normalizedT = std::fmod(t, 2.0 * M_PI);
     if (normalizedT < 0) normalizedT += 2.0 * M_PI;
@@ -110,14 +110,14 @@ ComplexDouble CompositeBoundary::evaluateDerivative(double t) const
     return components[componentIdx]->evaluateDerivative(scaledT);
 }
 
-std::vector<ComplexDouble> CompositeBoundary::sample(int numPoints) const
+std::vector<Complex> CompositeBoundary::sample(int numPoints) const
 {
     if (components.empty() || numPoints <= 0)
     {
         return {};
     }
 
-    std::vector<ComplexDouble> samples;
+    std::vector<Complex> samples;
     samples.reserve(numPoints);
 
     // Distribute points proportionally to parameter ranges
@@ -149,7 +149,7 @@ std::vector<ComplexDouble> CompositeBoundary::sample(int numPoints) const
     return samples;
 }
 
-double CompositeBoundary::findParameterization(const ComplexDouble& z) const
+double CompositeBoundary::findParameterization(const Complex& z) const
 {
     if (components.empty())
     {
@@ -163,8 +163,8 @@ double CompositeBoundary::findParameterization(const ComplexDouble& z) const
     for (size_t i = 0; i < components.size(); ++i)
     {
         double t = components[i]->findParameterization(z);
-        ComplexDouble point = components[i]->evaluate(t);
-        double dist = std::norm(z.getValue() - point.getValue());
+        Complex point = components[i]->evaluate(t);
+        double dist = std::norm(z - point);
 
         if (dist < minDist)
         {

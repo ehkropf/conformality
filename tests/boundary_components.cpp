@@ -21,26 +21,26 @@
 
 TEST(BoundaryComponentTest, AnalyticEvaluation) {
     // Create an analytic boundary component for a circle
-    auto circleFunc = [](double t) -> ComplexDouble {
-        return ComplexDouble(std::cos(t), std::sin(t));
+    auto circleFunc = [](double t) -> Complex {
+        return Complex(std::cos(t), std::sin(t));
     };
-    auto circleDerivFunc = [](double t) -> ComplexDouble {
-        return ComplexDouble(-std::sin(t), std::cos(t));
+    auto circleDerivFunc = [](double t) -> Complex {
+        return Complex(-std::sin(t), std::cos(t));
     };
 
     AnalyticBoundaryComponent circle(circleFunc, circleDerivFunc);
 
     // Test evaluation at specific points
-    ComplexDouble pt1 = circle.evaluate(0.0);
+    Complex pt1 = circle.evaluate(0.0);
     EXPECT_NEAR(1.0, pt1.real(), 1e-10);
     EXPECT_NEAR(0.0, pt1.imag(), 1e-10);
 
-    ComplexDouble pt2 = circle.evaluate(M_PI / 2);
+    Complex pt2 = circle.evaluate(M_PI / 2);
     EXPECT_NEAR(0.0, pt2.real(), 1e-10);
     EXPECT_NEAR(1.0, pt2.imag(), 1e-10);
 
     // Test derivative
-    ComplexDouble deriv1 = circle.evaluateDerivative(0.0);
+    Complex deriv1 = circle.evaluateDerivative(0.0);
     EXPECT_NEAR(0.0, deriv1.real(), 1e-10);
     EXPECT_NEAR(1.0, deriv1.imag(), 1e-10);
 }
@@ -48,11 +48,11 @@ TEST(BoundaryComponentTest, AnalyticEvaluation) {
 TEST(BoundaryComponentTest, Sampling) {
     // Create an analytic boundary component for an ellipse
     double a = 2.0, b = 1.0;
-    auto ellipseFunc = [a, b](double t) -> ComplexDouble {
-        return ComplexDouble(a * std::cos(t), b * std::sin(t));
+    auto ellipseFunc = [a, b](double t) -> Complex {
+        return Complex(a * std::cos(t), b * std::sin(t));
     };
-    auto ellipseDerivFunc = [a, b](double t) -> ComplexDouble {
-        return ComplexDouble(-a * std::sin(t), b * std::cos(t));
+    auto ellipseDerivFunc = [a, b](double t) -> Complex {
+        return Complex(-a * std::sin(t), b * std::cos(t));
     };
 
     AnalyticBoundaryComponent ellipse(ellipseFunc, ellipseDerivFunc);
@@ -73,17 +73,17 @@ TEST(BoundaryComponentTest, Sampling) {
 
 TEST(BoundaryComponentTest, Parameterization) {
     // Create an analytic boundary component for a circle
-    auto circleFunc = [](double t) -> ComplexDouble {
-        return ComplexDouble(std::cos(t), std::sin(t));
+    auto circleFunc = [](double t) -> Complex {
+        return Complex(std::cos(t), std::sin(t));
     };
-    auto circleDerivFunc = [](double t) -> ComplexDouble {
-        return ComplexDouble(-std::sin(t), std::cos(t));
+    auto circleDerivFunc = [](double t) -> Complex {
+        return Complex(-std::sin(t), std::cos(t));
     };
 
     AnalyticBoundaryComponent circle(circleFunc, circleDerivFunc);
 
     // Find parameter for a point on the boundary
-    ComplexDouble point(0.0, 1.0); // corresponds to t = π/2
+    Complex point(0.0, 1.0); // corresponds to t = π/2
     double param = circle.findParameterization(point);
     EXPECT_NEAR(M_PI / 2, param, 1e-10);
 }

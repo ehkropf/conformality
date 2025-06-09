@@ -79,8 +79,8 @@ TEST_F(FFTWWrapperTest, ForwardBackwardIdentity)
 
     // Create a simple signal: [1, 0, 0, 0, 0, 0, 0, 0]
     // The FFT should be all ones, and the inverse should return the original
-    std::vector<ComplexDouble> signal(8, ComplexDouble(0.0, 0.0));
-    signal[0] = ComplexDouble(1.0, 0.0);
+    std::vector<Complex> signal(8, Complex(0.0, 0.0));
+    signal[0] = Complex(1.0, 0.0);
 
     auto forward_result = fftw.forward_fft(signal);
 
@@ -107,12 +107,12 @@ TEST_F(FFTWWrapperTest, ForwardTransformSinusoid)
 
     // Create a sinusoidal signal: sin(2π*k/N), k=0,1,...,N-1
     const int N = 16;
-    std::vector<ComplexDouble> signal(N);
+    std::vector<Complex> signal(N);
 
     for (int k = 0; k < N; ++k)
     {
         double angle = 2.0 * M_PI * k / N;
-        signal[k] = ComplexDouble(std::sin(angle), 0.0);
+        signal[k] = Complex(std::sin(angle), 0.0);
     }
 
     auto transform = fftw.forward_fft(signal);
@@ -147,17 +147,17 @@ TEST_F(FFTWWrapperTest, DifferentSizes)
     auto& fftw = FFTWWrapper::get_instance(test_wisdom_file_);
 
     // Test with size 8
-    std::vector<ComplexDouble> signal8(8, ComplexDouble(1.0, 0.0));
+    std::vector<Complex> signal8(8, Complex(1.0, 0.0));
     auto result8 = fftw.forward_fft(signal8);
     EXPECT_EQ(result8.size(), 8);
 
     // Test with size 16
-    std::vector<ComplexDouble> signal16(16, ComplexDouble(1.0, 0.0));
+    std::vector<Complex> signal16(16, Complex(1.0, 0.0));
     auto result16 = fftw.forward_fft(signal16);
     EXPECT_EQ(result16.size(), 16);
 
     // Test with size 32
-    std::vector<ComplexDouble> signal32(32, ComplexDouble(1.0, 0.0));
+    std::vector<Complex> signal32(32, Complex(1.0, 0.0));
     auto result32 = fftw.forward_fft(signal32);
     EXPECT_EQ(result32.size(), 32);
 }
@@ -169,15 +169,15 @@ TEST_F(FFTWWrapperTest, ConjugationOperator)
     // Test the conjugation operator with a simple function
     // f(θ) = cos(θ), whose Hilbert transform is sin(θ)
     const int N = 128;
-    std::vector<ComplexDouble> cosine(N);
-    std::vector<ComplexDouble> expected_sine(N);
+    std::vector<Complex> cosine(N);
+    std::vector<Complex> expected_sine(N);
 
     for (int k = 0; k < N; ++k)
     {
         double angle = 2.0 * M_PI * k / N;
-        cosine[k] = ComplexDouble(std::cos(angle), 0.0);
+        cosine[k] = Complex(std::cos(angle), 0.0);
         // The conjugation operator applied to cos(θ) should give sin(θ)
-        expected_sine[k] = ComplexDouble(std::sin(angle), 0.0);
+        expected_sine[k] = Complex(std::sin(angle), 0.0);
     }
 
     auto result = fftw.conjugation_operator(cosine);
@@ -202,27 +202,27 @@ TEST_F(FFTWWrapperTest, ConjugationOperator)
 //    const double b = 1.0;   // Semi-minor axis
 //
 //    // Initialize arrays
-//    std::vector<ComplexDouble> theta(N);
-//    std::vector<ComplexDouble> rho(N);
+//    std::vector<Complex> theta(N);
+//    std::vector<Complex> rho(N);
 //
 //    // Setup initial conditions similar to the Python notebook
 //    for (int i = 0; i < N; ++i)
 //    {
 //        double t = 2.0 * M_PI * i / N;
-//        theta[i] = ComplexDouble(t, 0.0);
+//        theta[i] = Complex(t, 0.0);
 //
 //        // Calculate rho for ellipse
 //        double x = a * std::cos(t);
 //        double y = b * std::sin(t);
 //        double r = std::sqrt(x*x + y*y);
-//        rho[i] = ComplexDouble(r, 0.0);
+//        rho[i] = Complex(r, 0.0);
 //    }
 //
 //    // Take log of rho
-//    std::vector<ComplexDouble> log_rho(N);
+//    std::vector<Complex> log_rho(N);
 //    for (int i = 0; i < N; ++i)
 //    {
-//        log_rho[i] = ComplexDouble(std::log(rho[i].real()), 0.0);
+//        log_rho[i] = Complex(std::log(rho[i].real()), 0.0);
 //    }
 //
 //    // Apply conjugation operator (equivalent to K[log(rho)] in Python notebook)
@@ -244,10 +244,10 @@ TEST_F(FFTWWrapperTest, ConjugationOperator)
 //    EXPECT_TRUE(has_non_zero);
 //
 //    // Calculate phi = delta + theta
-//    std::vector<ComplexDouble> phi(N);
+//    std::vector<Complex> phi(N);
 //    for (int i = 0; i < N; ++i)
 //    {
-//        phi[i] = ComplexDouble(delta[i].real() + theta[i].real(), 0.0);
+//        phi[i] = Complex(delta[i].real() + theta[i].real(), 0.0);
 //    }
 //
 //    // Verify the resulting phi is different from theta

@@ -152,7 +152,7 @@ void FFTWWrapper::cleanup_plans()
 }
 
 // FFT methods
-std::vector<ComplexDouble> FFTWWrapper::forward_fft(const std::vector<ComplexDouble>& input)
+std::vector<Complex> FFTWWrapper::forward_fft(const std::vector<Complex>& input)
 {
     size_t size = input.size();
 
@@ -165,24 +165,24 @@ std::vector<ComplexDouble> FFTWWrapper::forward_fft(const std::vector<ComplexDou
     // Copy input data to FFTW input array
     for (size_t i = 0; i < size; ++i)
     {
-        input_[i][0] = input[i].real();
-        input_[i][1] = input[i].imag();
+        input_[i][0] = std::real(input[i]);
+        input_[i][1] = std::imag(input[i]);
     }
 
     // Execute the forward plan
     fftw_execute(forward_plan_);
 
     // Copy output data to result vector
-    std::vector<ComplexDouble> result(size);
+    std::vector<Complex> result(size);
     for (size_t i = 0; i < size; ++i)
     {
-        result[i] = ComplexDouble(output_[i][0], output_[i][1]);
+        result[i] = Complex(output_[i][0], output_[i][1]);
     }
 
     return result;
 }
 
-std::vector<ComplexDouble> FFTWWrapper::backward_fft(const std::vector<ComplexDouble>& input)
+std::vector<Complex> FFTWWrapper::backward_fft(const std::vector<Complex>& input)
 {
     size_t size = input.size();
 
@@ -195,46 +195,46 @@ std::vector<ComplexDouble> FFTWWrapper::backward_fft(const std::vector<ComplexDo
     // Copy input data to FFTW output array (since backward transform starts from output)
     for (size_t i = 0; i < size; ++i)
     {
-        output_[i][0] = input[i].real();
-        output_[i][1] = input[i].imag();
+        output_[i][0] = std::real(input[i]);
+        output_[i][1] = std::imag(input[i]);
     }
 
     // Execute the backward plan
     fftw_execute(backward_plan_);
 
     // Copy input data (which now contains the result) to result vector
-    std::vector<ComplexDouble> result(size);
+    std::vector<Complex> result(size);
     for (size_t i = 0; i < size; ++i)
     {
         // Normalize by dividing by size
-        result[i] = ComplexDouble(input_[i][0] / size, input_[i][1] / size);
+        result[i] = Complex(input_[i][0] / size, input_[i][1] / size);
     }
 
     return result;
 }
 
 // Conjugation operator
-std::vector<ComplexDouble> FFTWWrapper::conjugation_operator(const std::vector<ComplexDouble>& input)
+std::vector<Complex> FFTWWrapper::conjugation_operator(const std::vector<Complex>& input)
 {
     // First compute the FFT
-    std::vector<ComplexDouble> fourier_coeffs = forward_fft(input);
+    std::vector<Complex> fourier_coeffs = forward_fft(input);
     size_t size = fourier_coeffs.size();
     size_t half_size = size / 2;
 
     // Apply the signum function to the Fourier coefficients
     // Set the DC component (m = 0) to zero
-    fourier_coeffs[0] = ComplexDouble(0.0, 0.0);
+    fourier_coeffs[0] = Complex(0.0, 0.0);
 
     // For m > 0, multiply by -i
     for (size_t i = 1; i < half_size; ++i)
     {
-        fourier_coeffs[i] = fourier_coeffs[i] * ComplexDouble(0.0, -1.0);
+        fourier_coeffs[i] = fourier_coeffs[i] * Complex(0.0, -1.0);
     }
 
     // For m < 0, multiply by i
     for (size_t i = half_size; i < size; ++i)
     {
-        fourier_coeffs[i] = fourier_coeffs[i] * ComplexDouble(0.0, 1.0);
+        fourier_coeffs[i] = fourier_coeffs[i] * Complex(0.0, 1.0);
     }
 
     // Compute the inverse FFT

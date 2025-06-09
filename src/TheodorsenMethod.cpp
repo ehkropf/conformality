@@ -65,7 +65,7 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     // Check if target domain is unit circle
     auto circular_target = std::dynamic_pointer_cast<CircularDomain>(target_domain);
     if (!circular_target || std::abs(circular_target->getRadius() - 1.0) > 1e-12 ||
-        circular_target->getCenter().abs() > 1e-12)
+        std::abs(circular_target->getCenter()) > 1e-12)
     {
         throw std::invalid_argument("Theodorsen's method requires unit circle as target domain");
     }
@@ -96,18 +96,18 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     }
     
     // Compute final Laurent coefficients
-    std::vector<ComplexDouble> boundary_correspondence(n_points);
+    std::vector<Complex> boundary_correspondence(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        ComplexDouble exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
-        boundary_correspondence[i] = exp_iphi * ComplexDouble(rho[i], 0.0);
+        Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
+        boundary_correspondence[i] = exp_iphi * Complex(rho[i], 0.0);
     }
     
     computeLaurentCoefficients(boundary_correspondence);
     accuracy = residual_norm;
 }
 
-ComplexDouble TheodorsenMethod::map(const ComplexDouble& z) const
+Complex TheodorsenMethod::map(const Complex& z) const
 {
     if (!is_converged)
     {
@@ -116,7 +116,7 @@ ComplexDouble TheodorsenMethod::map(const ComplexDouble& z) const
     
     // Evaluate Laurent series: f(z) = sum_{n=-∞}^{∞} a_n z^n
     // For numerical stability, we split into positive and negative powers
-    ComplexDouble result{0.0, 0.0};
+    Complex result{0.0, 0.0};
     
     // Handle n=0 coefficient separately
     if (!laurent_coeffs.empty())
@@ -125,7 +125,7 @@ ComplexDouble TheodorsenMethod::map(const ComplexDouble& z) const
     }
     
     // Positive powers: a_n z^n for n > 0
-    ComplexDouble z_power = z;
+    Complex z_power = z;
     for (size_t n = 1; n < laurent_coeffs.size() / 2; ++n)
     {
         result = result + laurent_coeffs[n] * z_power;
@@ -133,10 +133,10 @@ ComplexDouble TheodorsenMethod::map(const ComplexDouble& z) const
     }
     
     // Negative powers: a_{-n} z^{-n} for n > 0
-    if (z.abs() > 1e-12) // Avoid division by zero
+    if (std::abs(z) > 1e-12) // Avoid division by zero
     {
-        ComplexDouble z_inv = ComplexDouble{1.0, 0.0} / z;
-        ComplexDouble z_inv_power = z_inv;
+        Complex z_inv = Complex{1.0, 0.0} / z;
+        Complex z_inv_power = z_inv;
         for (size_t n = 1; n < laurent_coeffs.size() / 2; ++n)
         {
             size_t neg_index = laurent_coeffs.size() / 2 + n;
@@ -151,7 +151,7 @@ ComplexDouble TheodorsenMethod::map(const ComplexDouble& z) const
     return result;
 }
 
-ComplexDouble TheodorsenMethod::inverseMap([[maybe_unused]] const ComplexDouble& w) const
+Complex TheodorsenMethod::inverseMap([[maybe_unused]] const Complex& w) const
 {
     // TODO: Implement inverse mapping using Newton's method or similar
     // For now, throw an exception as a placeholder
@@ -180,18 +180,18 @@ void TheodorsenMethod::setNumPoints(size_t num_points)
     is_converged = false;
 }
 
-std::vector<ComplexDouble> TheodorsenMethod::sampleBoundary(std::shared_ptr<Domain> domain, [[maybe_unused]] bool external) const
+std::vector<Complex> TheodorsenMethod::sampleBoundary(std::shared_ptr<Domain> domain, [[maybe_unused]] bool external) const
 {
     auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
-    ComplexDouble center = starlike_domain->getCenter();
+    Complex center = starlike_domain->getCenter();
     
-    std::vector<ComplexDouble> samples(n_points);
+    std::vector<Complex> samples(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
         double angle = phi_sequence[i];
         double radius = starlike_domain->getRadius(angle);
         
-        ComplexDouble boundary_point = center + ComplexDouble(radius, 0.0) * ComplexDouble(std::cos(angle), std::sin(angle));
+        Complex boundary_point = center + Complex(radius, 0.0) * Complex(std::cos(angle), std::sin(angle));
         samples[i] = boundary_point;
     }
     
@@ -201,7 +201,7 @@ std::vector<ComplexDouble> TheodorsenMethod::sampleBoundary(std::shared_ptr<Doma
 std::vector<double> TheodorsenMethod::computeBoundaryModuli(std::shared_ptr<Domain> domain, bool external) const
 {
     auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
-    [[maybe_unused]] ComplexDouble center = starlike_domain->getCenter();
+    [[maybe_unused]] Complex center = starlike_domain->getCenter();
     
     std::vector<double> rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
@@ -222,45 +222,45 @@ std::vector<double> TheodorsenMethod::computeBoundaryModuli(std::shared_ptr<Doma
 std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<double>& rho, bool external)
 {
     // Create complex boundary correspondence function
-    std::vector<ComplexDouble> psi(n_points);
+    std::vector<Complex> psi(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        ComplexDouble exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
-        psi[i] = ComplexDouble(rho[i], 0.0) * exp_iphi;
+        Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
+        psi[i] = Complex(rho[i], 0.0) * exp_iphi;
     }
     
     // Apply conjugation operator using FFTW wrapper
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
-    std::vector<ComplexDouble> K_psi = fftw.conjugation_operator(psi);
+    std::vector<Complex> K_psi = fftw.conjugation_operator(psi);
     
     // Update boundary correspondence
     std::vector<double> new_rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        ComplexDouble exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
+        Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
         
         if (external)
         {
             // External case: ψ_{n+1} = ψ_n - K[ψ_n]
-            ComplexDouble updated_psi = psi[i] - K_psi[i];
-            new_rho[i] = updated_psi.abs();
+            Complex updated_psi = psi[i] - K_psi[i];
+            new_rho[i] = std::abs(updated_psi);
         }
         else
         {
             // Internal case: ψ_{n+1} = ψ_n + K[ψ_n]
-            ComplexDouble updated_psi = psi[i] + K_psi[i];
-            new_rho[i] = updated_psi.abs();
+            Complex updated_psi = psi[i] + K_psi[i];
+            new_rho[i] = std::abs(updated_psi);
         }
     }
     
     return new_rho;
 }
 
-void TheodorsenMethod::computeLaurentCoefficients(const std::vector<ComplexDouble>& boundary_data)
+void TheodorsenMethod::computeLaurentCoefficients(const std::vector<Complex>& boundary_data)
 {
     // Use FFT to compute Fourier coefficients
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
-    std::vector<ComplexDouble> coeffs = fftw.forward_fft(boundary_data);
+    std::vector<Complex> coeffs = fftw.forward_fft(boundary_data);
     
     // Store coefficients in Laurent series format
     laurent_coeffs.resize(n_points);

@@ -57,7 +57,7 @@ void ConformalMap::compute(double target_accuracy)
     method->compute(*this, target_accuracy);
 }
 
-ComplexDouble ConformalMap::map(const ComplexDouble& z) const
+Complex ConformalMap::map(const Complex& z) const
 {
     if (!method)
     {
@@ -67,7 +67,7 @@ ComplexDouble ConformalMap::map(const ComplexDouble& z) const
     return method->map(z);
 }
 
-ComplexDouble ConformalMap::inverseMap(const ComplexDouble& w) const
+Complex ConformalMap::inverseMap(const Complex& w) const
 {
     if (!method)
     {

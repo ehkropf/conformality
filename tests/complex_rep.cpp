@@ -17,28 +17,28 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Complex.h"
+#include "../src/Types.h"
 
 TEST(ComplexTest, Construction)
 {
     Complex z1(3.0, 4.0);
-    EXPECT_DOUBLE_EQ(3.0, z1.real());
-    EXPECT_DOUBLE_EQ(4.0, z1.imag());
+    EXPECT_DOUBLE_EQ(3.0, std::real(z1));
+    EXPECT_DOUBLE_EQ(4.0, std::imag(z1));
 }
 
 TEST(ComplexTest, DefaultConstructor)
 {
     Complex z;
-    EXPECT_DOUBLE_EQ(0.0, z.real());
-    EXPECT_DOUBLE_EQ(0.0, z.imag());
+    EXPECT_DOUBLE_EQ(0.0, std::real(z));
+    EXPECT_DOUBLE_EQ(0.0, std::imag(z));
 }
 
 TEST(ComplexTest, ConstructFromComplex)
 {
     std::complex<double> stdz(2.0, 3.0);
-    Complex z(stdz);
-    EXPECT_DOUBLE_EQ(2.0, z.real());
-    EXPECT_DOUBLE_EQ(3.0, z.imag());
+    Complex z = stdz;
+    EXPECT_DOUBLE_EQ(2.0, std::real(z));
+    EXPECT_DOUBLE_EQ(3.0, std::imag(z));
 }
 
 TEST(ComplexTest, BasicOperations)
@@ -48,37 +48,37 @@ TEST(ComplexTest, BasicOperations)
 
     // Addition
     Complex sum = z1 + z2;
-    EXPECT_DOUBLE_EQ(4.0, sum.real());
-    EXPECT_DOUBLE_EQ(6.0, sum.imag());
+    EXPECT_DOUBLE_EQ(4.0, std::real(sum));
+    EXPECT_DOUBLE_EQ(6.0, std::imag(sum));
 
-    // Complex
+    // Subtraction
     Complex diff = z1 - z2;
-    EXPECT_DOUBLE_EQ(2.0, diff.real());
-    EXPECT_DOUBLE_EQ(2.0, diff.real());
+    EXPECT_DOUBLE_EQ(2.0, std::real(diff));
+    EXPECT_DOUBLE_EQ(2.0, std::imag(diff));
 
     // Multiplication
     Complex product = z1 * z2;
-    EXPECT_DOUBLE_EQ(-5.0, product.real());
-    EXPECT_DOUBLE_EQ(10.0, product.imag());
+    EXPECT_DOUBLE_EQ(-5.0, std::real(product));
+    EXPECT_DOUBLE_EQ(10.0, std::imag(product));
 
     // Division
     Complex quotient = z1 / z2;
-    EXPECT_NEAR(2.2, quotient.real(), 1e-10);
-    EXPECT_NEAR(-0.4, quotient.imag(), 1e-10);
+    EXPECT_NEAR(2.2, std::real(quotient), 1e-10);
+    EXPECT_NEAR(-0.4, std::imag(quotient), 1e-10);
 }
 
-TEST(ComplexTest, GetValue)
+TEST(ComplexTest, Assignment)
 {
     Complex z(1.0, 2.0);
-    std::complex<double> stdz = z.getValue();
+    std::complex<double> stdz = z;
     EXPECT_DOUBLE_EQ(1.0, std::real(stdz));
     EXPECT_DOUBLE_EQ(2.0, std::imag(stdz));
 
-    // Test non-const getValue
+    // Test assignment
     Complex z2(3.0, 4.0);
-    z2.getValue() = std::complex<double>(5.0, 6.0);
-    EXPECT_DOUBLE_EQ(5.0, z2.real());
-    EXPECT_DOUBLE_EQ(6.0, z2.imag());
+    z2 = std::complex<double>(5.0, 6.0);
+    EXPECT_DOUBLE_EQ(5.0, std::real(z2));
+    EXPECT_DOUBLE_EQ(6.0, std::imag(z2));
 }
 
 TEST(ComplexTest, EqualityOperator)
@@ -94,24 +94,24 @@ TEST(ComplexTest, EqualityOperator)
 TEST(ComplexTest, PolarForm)
 {
     Complex z(3.0, 4.0);
-    EXPECT_DOUBLE_EQ(5.0, z.abs());
-    EXPECT_NEAR(0.9272952180016122, z.arg(), 1e-10);
+    EXPECT_DOUBLE_EQ(5.0, std::abs(z));
+    EXPECT_NEAR(0.9272952180016122, std::arg(z), 1e-10);
 
-    Complex fromPolar = ComplexDouble::fromPolar(5.0, 0.9272952180016122);
-    EXPECT_NEAR(3.0, fromPolar.real(), 1e-10);
-    EXPECT_NEAR(4.0, fromPolar.imag(), 1e-10);
+    Complex fromPolar = std::polar(5.0, 0.9272952180016122);
+    EXPECT_NEAR(3.0, std::real(fromPolar), 1e-10);
+    EXPECT_NEAR(4.0, std::imag(fromPolar), 1e-10);
 }
 
-TEST(ComplexTest, DifferentTemplateType)
+TEST(ComplexTest, FloatComplex)
 {
-    // Test with float instead of double
-    Complex<std::complex<float>> zf(1.0f, 2.0f);
-    EXPECT_FLOAT_EQ(1.0f, zf.real());
-    EXPECT_FLOAT_EQ(2.0f, zf.imag());
+    // Test with float complex numbers
+    std::complex<float> zf(1.0f, 2.0f);
+    EXPECT_FLOAT_EQ(1.0f, std::real(zf));
+    EXPECT_FLOAT_EQ(2.0f, std::imag(zf));
 
     // Basic operations
-    Complex<std::complex<float>> zf2(2.0f, 3.0f);
-    Complex<std::complex<float>> sum = zf + zf2;
-    EXPECT_FLOAT_EQ(3.0f, sum.real());
-    EXPECT_FLOAT_EQ(5.0f, sum.imag());
+    std::complex<float> zf2(2.0f, 3.0f);
+    std::complex<float> sum = zf + zf2;
+    EXPECT_FLOAT_EQ(3.0f, std::real(sum));
+    EXPECT_FLOAT_EQ(5.0f, std::imag(sum));
 }

@@ -20,7 +20,7 @@
 #define CONFORMAL_MAP_HPP
 
 #include <memory>
-#include "Complex.h"
+#include "Types.h"
 #include "Domain.h"
 
 // Forward declaration to avoid circular dependency
@@ -67,17 +67,17 @@ public:
      * @brief Map a point from the source domain to the target domain
      *
      * @param z Point in the source domain
-     * @return ComplexDouble Mapped point in the target domain
+     * @return Complex Mapped point in the target domain
      */
-    ComplexDouble map(const ComplexDouble& z) const;
+    Complex map(const Complex& z) const;
 
     /**
      * @brief Map a point from the target domain back to the source domain
      *
      * @param w Point in the target domain
-     * @return ComplexDouble Mapped point in the source domain
+     * @return Complex Mapped point in the source domain
      */
-    ComplexDouble inverseMap(const ComplexDouble& w) const;
+    Complex inverseMap(const Complex& w) const;
 
     /**
      * @brief Get the source domain

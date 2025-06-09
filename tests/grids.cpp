@@ -21,9 +21,9 @@
 #include <cmath>
 
 // Helper function to compare complex points
-bool pointsEqual(const ComplexDouble& a, const ComplexDouble& b, double tolerance = 1e-10)
+bool pointsEqual(const Complex& a, const Complex& b, double tolerance = 1e-10)
 {
-    return std::abs((a - b).getValue()) < tolerance;
+    return std::abs(a - b) < tolerance;
 }
 
 TEST(GridTest, DefaultConstructionPolar)
@@ -80,8 +80,8 @@ TEST(GridTest, CreatePolarGrid)
         {
             // Check the last point (should be at r = 2.0)
             size_t lastIdx = line.back();
-            ComplexDouble lastPoint = points[lastIdx];
-            EXPECT_NEAR(2.0, lastPoint.abs(), 1e-10);
+            Complex lastPoint = points[lastIdx];
+            EXPECT_NEAR(2.0, std::abs(lastPoint), 1e-10);
         }
     }
 }
@@ -125,10 +125,10 @@ TEST(GridTest, CreateCartesianGrid)
 TEST(GridTest, CreateParametricGrid)
 {
     // Create a parametric grid representing a circle
-    auto circleFunc = [](double u, double v) -> ComplexDouble
+    auto circleFunc = [](double u, double v) -> Complex
     {
         // u is angle, v is radius
-        return ComplexDouble::fromPolar(v, u);
+        return std::polar(v, u);
     };
 
     Grid grid = Grid::createParametricGrid(circleFunc, 8, 4, 0.0, 2.0 * M_PI, 0.5, 2.0);
@@ -164,7 +164,7 @@ TEST(GridTest, CreateParametricGrid)
     std::vector<int> maxRadiusIndices = {3, 7, 11, 15, 19, 23, 27, 31};
     for (int idx : maxRadiusIndices)
     {
-        EXPECT_NEAR(2.0, points[idx].abs(), 1e-10);
+        EXPECT_NEAR(2.0, std::abs(points[idx]), 1e-10);
     }
 }
 
@@ -174,7 +174,7 @@ TEST(GridTest, TransformGrid)
     Grid grid = Grid::createCartesianGrid(3, 3, -1.0, 1.0, -1.0, 1.0);
 
     // Define a conformal transformation (z -> z^2)
-    auto squareMap = [](const ComplexDouble& z) -> ComplexDouble
+    auto squareMap = [](const Complex& z) -> Complex
     {
         return z * z;
     };
@@ -191,7 +191,7 @@ TEST(GridTest, TransformGrid)
 
     for (size_t i = 0; i < originalPoints.size(); ++i)
     {
-        ComplexDouble expected = squareMap(originalPoints[i]);
+        Complex expected = squareMap(originalPoints[i]);
         EXPECT_TRUE(pointsEqual(expected, transformedPoints[i]));
     }
 
@@ -312,9 +312,9 @@ TEST(GridTest, AddingPointsAndLines)
     grid.clear();
 
     // Add individual points
-    size_t idx1 = grid.addPoint(ComplexDouble(0.0, 0.0));
-    size_t idx2 = grid.addPoint(ComplexDouble(1.0, 0.0));
-    size_t idx3 = grid.addPoint(ComplexDouble(0.0, 1.0));
+    size_t idx1 = grid.addPoint(Complex(0.0, 0.0));
+    size_t idx2 = grid.addPoint(Complex(1.0, 0.0));
+    size_t idx3 = grid.addPoint(Complex(0.0, 1.0));
 
     EXPECT_EQ(0, idx1);
     EXPECT_EQ(1, idx2);

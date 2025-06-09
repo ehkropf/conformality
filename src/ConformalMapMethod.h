@@ -19,7 +19,7 @@
 #ifndef CONFORMAL_MAP_METHOD_HPP
 #define CONFORMAL_MAP_METHOD_HPP
 
-#include "Complex.h"
+#include "Types.h"
 
 #include <memory>
 #include <string>
@@ -65,17 +65,17 @@ public:
      * @brief Evaluate the computed map at a point
      *
      * @param z Point in the source domain
-     * @return ComplexDouble Mapped point in the target domain
+     * @return Complex Mapped point in the target domain
      */
-    virtual ComplexDouble map(const ComplexDouble& z) const = 0;
+    virtual Complex map(const Complex& z) const = 0;
 
     /**
      * @brief Evaluate the inverse of the computed map at a point
      *
      * @param w Point in the target domain
-     * @return ComplexDouble Mapped point in the source domain
+     * @return Complex Mapped point in the source domain
      */
-    virtual ComplexDouble inverseMap(const ComplexDouble& w) const = 0;
+    virtual Complex inverseMap(const Complex& w) const = 0;
 
     /**
      * @brief Get the achieved accuracy of the last computation

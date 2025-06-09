@@ -21,8 +21,11 @@
 #include <algorithm>
 #include <cmath>
 
+using std::imag;
+using std::real;
+
 // Domain implementation
-int Domain::calculateWindingNumber(const ComplexDouble& z, const std::vector<ComplexDouble>& samples, double tolerance) const
+int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance) const
 {
     if (samples.empty())
     {
@@ -34,8 +37,8 @@ int Domain::calculateWindingNumber(const ComplexDouble& z, const std::vector<Com
 
     for (size_t i = 0; i < samples.size(); ++i)
     {
-        ComplexDouble p1 = samples[i];
-        ComplexDouble p2 = samples[(i + 1) % samples.size()];
+        Complex p1 = samples[i];
+        Complex p2 = samples[(i + 1) % samples.size()];
 
         // Track minimum distance to boundary for tolerance checking
         double distToSegment = distanceToLineSegment(z, p1, p2);
@@ -49,23 +52,23 @@ int Domain::calculateWindingNumber(const ComplexDouble& z, const std::vector<Com
         }
 
         // Ray casting: check if horizontal ray from z to the right crosses this edge
-        if ((p1.imag() <= z.imag() && p2.imag() > z.imag()) ||
-            (p2.imag() <= z.imag() && p1.imag() > z.imag()))
+        if ((imag(p1) <= imag(z) && imag(p2) > imag(z)) ||
+            (imag(p2) <= imag(z) && imag(p1) > imag(z)))
         {
             // Avoid division by zero
-            if (std::abs(p2.imag() - p1.imag()) < 1e-15)
+            if (std::abs(imag(p2) - imag(p1)) < 1e-15)
             {
                 continue;
             }
 
             // Calculate x-coordinate of intersection point
-            double t = (z.imag() - p1.imag()) / (p2.imag() - p1.imag());
-            double x_intersect = p1.real() + t * (p2.real() - p1.real());
+            double t = (imag(z) - imag(p1)) / (imag(p2) - imag(p1));
+            double x_intersect = real(p1) + t * (real(p2) - real(p1));
 
             // Count intersection if it's to the right of the point
-            if (x_intersect > z.real())
+            if (x_intersect > real(z))
             {
-                if (p2.imag() > p1.imag())
+                if (imag(p2) > imag(p1))
                 {
                     winding++;
                 }
@@ -80,29 +83,29 @@ int Domain::calculateWindingNumber(const ComplexDouble& z, const std::vector<Com
     return winding;
 }
 
-double Domain::distanceToLineSegment(const ComplexDouble& point, const ComplexDouble& segmentStart, const ComplexDouble& segmentEnd) const
+double Domain::distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd) const
 {
-    ComplexDouble v = segmentEnd - segmentStart;
-    ComplexDouble w = point - segmentStart;
+    Complex v = segmentEnd - segmentStart;
+    Complex w = point - segmentStart;
 
     // If segment has zero length, return distance to start point
-    double segmentLengthSq = std::norm(v.getValue());
+    double segmentLengthSq = std::norm(v);
     if (segmentLengthSq < 1e-15)
     {
-        return std::abs((point - segmentStart).getValue());
+        return std::abs(point - segmentStart);
     }
 
     // Project point onto line segment
-    double t = std::real((w * ComplexDouble(v.real(), -v.imag())).getValue()) / segmentLengthSq;
+    double t = real(w * Complex(real(v), -imag(v))) / segmentLengthSq;
     t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
 
 // FIXME:￼ Only need to scale by t no need for full complex
-    ComplexDouble projection = segmentStart + v * ComplexDouble(t, 0.0);
-    return std::abs((point - projection).getValue());
+    Complex projection = segmentStart + v * Complex(t, 0.0);
+    return std::abs(point - projection);
 }
 
 // SimplyConnectedDomain implementation
-bool SimplyConnectedDomain::contains(const ComplexDouble& z) const
+bool SimplyConnectedDomain::contains(const Complex& z) const
 {
     // Increase sampling resolution for better accuracy (Key Change #3)
     const int sampleCount = 500; // Increased from 100
@@ -138,12 +141,12 @@ bool SimplyConnectedDomain::contains(const ComplexDouble& z) const
     }
 }
 
-void SimplyConnectedDomain::transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform)
+void SimplyConnectedDomain::transformBoundary(std::function<Complex(const Complex&)> transform)
 {
     // Increase sampling resolution for transformed boundaries (Key Change #3)
     const int transformSampleCount = 2000; // Increased from 1000
     auto samples = boundary->sample(transformSampleCount);
-    std::vector<ComplexDouble> transformedSamples;
+    std::vector<Complex> transformedSamples;
     transformedSamples.reserve(samples.size());
 
     for (const auto& point : samples)
@@ -159,14 +162,14 @@ void SimplyConnectedDomain::transformBoundary(std::function<ComplexDouble(const 
 }
 
 // StarlikeDomain implementation
-bool StarlikeDomain::contains(const ComplexDouble& z) const
+bool StarlikeDomain::contains(const Complex& z) const
 {
     // For starlike domains, we can use the more efficient analytical containment test
     // with improved boundary tolerance handling (Key Change #2)
     const double boundaryTolerance = 1e-12;
 
-    double angle = std::arg(z.getValue() - center.getValue());
-    double radius = std::abs(z.getValue() - center.getValue());
+    double angle = std::arg(z - center);
+    double radius = std::abs(z - center);
     double boundaryRadius = radiusFunction(angle);
 
     // Handle boundary cases with tolerance
@@ -188,19 +191,19 @@ bool StarlikeDomain::contains(const ComplexDouble& z) const
 }
 
 std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
-    const ComplexDouble& center,
+    const Complex& center,
     std::function<double(double)> radiusFunc
 )
 {
     // Create a parameterization from the radius function
-    auto paramFunc = [center, radiusFunc](double t) -> ComplexDouble
+    auto paramFunc = [center, radiusFunc](double t) -> Complex
     {
         double r = radiusFunc(t);
-        return center + ComplexDouble(r * std::cos(t), r * std::sin(t));
+        return center + Complex(r * std::cos(t), r * std::sin(t));
     };
 
     // Compute the derivative of the parameterization
-    auto derivFunc = [radiusFunc](double t) -> ComplexDouble
+    auto derivFunc = [radiusFunc](double t) -> Complex
     {
         // For a radius function r(θ), the derivative of r(θ)e^(iθ) is:
         // r'(θ)e^(iθ) + ir(θ)e^(iθ)
@@ -210,8 +213,8 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
         const double h = 1e-6;
         double rPrime = (radiusFunc(t + h) - radiusFunc(t - h)) / (2.0 * h);
 
-        ComplexDouble tangent = ComplexDouble(rPrime * std::cos(t), rPrime * std::sin(t)) +
-                                ComplexDouble(0.0, 1.0) * ComplexDouble(r * std::cos(t), r * std::sin(t));
+        Complex tangent = Complex(rPrime * std::cos(t), rPrime * std::sin(t)) +
+                                Complex(0.0, 1.0) * Complex(r * std::cos(t), r * std::sin(t));
 
         return tangent;
     };
@@ -223,10 +226,10 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
 // EllipticalDomain implementation
 
 // CircularDomain implementation
-bool CircularDomain::contains(const ComplexDouble& z) const
+bool CircularDomain::contains(const Complex& z) const
 {
     const double boundaryTolerance = 1e-12;
-    double dist = std::abs(z.getValue() - getCenter().getValue());
+    double dist = std::abs(z - getCenter());
 
     // Handle boundary cases with tolerance
     if (std::abs(dist - radius) < boundaryTolerance)
@@ -245,22 +248,22 @@ bool CircularDomain::contains(const ComplexDouble& z) const
 }
 
 // PolygonalDomain implementation
-void PolygonalDomain::setVertices(const std::vector<ComplexDouble>& newVertices)
+void PolygonalDomain::setVertices(const std::vector<Complex>& newVertices)
 {
     vertices = newVertices;
     boundary = createBoundary(vertices);
 }
 
 std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
-    const std::vector<ComplexDouble>& vertices
+    const std::vector<Complex>& vertices
 )
 {
     // Create a piecewise linear parameterization from the vertices
-    auto paramFunc = [vertices](double t) -> ComplexDouble
+    auto paramFunc = [vertices](double t) -> Complex
     {
         if (vertices.empty())
         {
-            return ComplexDouble(0.0, 0.0);
+            return Complex(0.0, 0.0);
         }
 
         double normalizedT = std::fmod(t, 2.0 * M_PI);
@@ -271,15 +274,15 @@ std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
         int index2 = (index1 + 1) % vertices.size();
         double frac = indexF - index1;
 
-        return vertices[index1] * ComplexDouble(1.0 - frac) + vertices[index2] * ComplexDouble(frac);
+        return vertices[index1] * Complex(1.0 - frac) + vertices[index2] * Complex(frac);
     };
 
     // Compute the derivative of the parameterization
-    auto derivFunc = [vertices](double t) -> ComplexDouble
+    auto derivFunc = [vertices](double t) -> Complex
     {
         if (vertices.empty())
         {
-            return ComplexDouble(0.0, 0.0);
+            return Complex(0.0, 0.0);
         }
 
         double normalizedT = std::fmod(t, 2.0 * M_PI);
@@ -290,7 +293,7 @@ std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
         int index2 = (index1 + 1) % vertices.size();
 
         // Derivative is constant along each edge
-        return (vertices[index2] - vertices[index1]) * ComplexDouble(vertices.size() / (2.0 * M_PI));
+        return (vertices[index2] - vertices[index1]) * Complex(vertices.size() / (2.0 * M_PI));
     };
 
     auto component = std::make_shared<AnalyticBoundaryComponent>(paramFunc, derivFunc);
@@ -304,7 +307,7 @@ void MultiplyConnectedDomain::addBoundary(std::shared_ptr<Boundary> boundary)
     connectivity = boundaries.size();
 }
 
-bool MultiplyConnectedDomain::contains(const ComplexDouble& z) const
+bool MultiplyConnectedDomain::contains(const Complex& z) const
 {
     if (boundaries.empty())
     {
@@ -398,7 +401,7 @@ bool MultiplyConnectedDomain::contains(const ComplexDouble& z) const
     return false;
 }
 
-void MultiplyConnectedDomain::transformBoundary(std::function<ComplexDouble(const ComplexDouble&)> transform)
+void MultiplyConnectedDomain::transformBoundary(std::function<Complex(const Complex&)> transform)
 {
     // Transform each boundary with increased sampling resolution (Key Change #3)
     const int transformSampleCount = 2000;
@@ -406,7 +409,7 @@ void MultiplyConnectedDomain::transformBoundary(std::function<ComplexDouble(cons
     for (auto& boundary : boundaries)
     {
         auto samples = boundary->sample(transformSampleCount);
-        std::vector<ComplexDouble> transformedSamples;
+        std::vector<Complex> transformedSamples;
         transformedSamples.reserve(samples.size());
 
         for (const auto& point : samples)

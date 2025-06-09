@@ -23,7 +23,7 @@
 #include <vector>
 #include <filesystem>
 
-#include "Complex.h"
+#include "Types.h"
 
 /**
  * @brief A wrapper for the FFTW library that handles 1D FFTs and wisdom management.
@@ -112,7 +112,7 @@ public:
      * @param input Input vector of complex values.
      * @return Output vector of complex values.
      */
-    std::vector<ComplexDouble> forward_fft(const std::vector<ComplexDouble>& input);
+    std::vector<Complex> forward_fft(const std::vector<Complex>& input);
 
     /**
      * @brief Perform a backward FFT (frequency domain to time domain).
@@ -120,7 +120,7 @@ public:
      * @return Output vector of complex values.
      * @note The output is normalized by dividing by the size of the input vector.
      */
-    std::vector<ComplexDouble> backward_fft(const std::vector<ComplexDouble>& input);
+    std::vector<Complex> backward_fft(const std::vector<Complex>& input);
 
     /**
      * @brief Apply the conjugation operator K to a vector of complex values.
@@ -133,7 +133,7 @@ public:
      * @param input Input vector of complex values.
      * @return Output vector after applying the conjugation operator.
      */
-    std::vector<ComplexDouble> conjugation_operator(const std::vector<ComplexDouble>& input);
+    std::vector<Complex> conjugation_operator(const std::vector<Complex>& input);
 };
 
 #endif // FFTW_WRAPPER_HPP
