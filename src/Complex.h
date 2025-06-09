@@ -102,7 +102,8 @@ public:
      *
      * @return The underlying complex value
      */
-    const T& getValue() const
+// FIXME:  
+    const T& getValue const
     {
         return value;
     }

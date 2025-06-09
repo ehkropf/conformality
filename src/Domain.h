@@ -15,11 +15,14 @@
  * You should have received a copy of the GNU Affero General Public License along
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
+ 
+ // FIXME: split this into header and code files
 
 #ifndef DOMAIN_HPP
 #define DOMAIN_HPP
 
 #include "Boundary.h"
+
 #include <functional>
 #include <memory>
 #include <vector>

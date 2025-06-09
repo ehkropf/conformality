@@ -96,6 +96,7 @@ double Domain::distanceToLineSegment(const ComplexDouble& point, const ComplexDo
     double t = std::real((w * ComplexDouble(v.real(), -v.imag())).getValue()) / segmentLengthSq;
     t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
 
+// FIXME:￼ Only need to scale by t no need for full complex
     ComplexDouble projection = segmentStart + v * ComplexDouble(t, 0.0);
     return std::abs((point - projection).getValue());
 }
@@ -111,6 +112,7 @@ bool SimplyConnectedDomain::contains(const ComplexDouble& z) const
         return false;
     }
 
+// FIXME: should be somewhere else!!!!
     // Add proper boundary tolerance handling (Key Change #2)
     const double boundaryTolerance = 1e-12;
 
