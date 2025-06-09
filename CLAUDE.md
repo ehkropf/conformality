@@ -1,5 +1,11 @@
 # Information for claude
 
+## Project overview
+
+A high level overview of this project is in `design/high_level_overview.md`. Currently we are in phase 1 of this project; documentation for this phase (such as it is) exists in the `design/phase1` directory.
+
+Note that some refactoring is discussed in `design/phase1/map_hierarchy_design_discussion.md`.
+
 ## C++ formatting
 
 These are guidelines, and can be broken if it improves readability.

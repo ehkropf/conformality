@@ -1,5 +1,6 @@
 *.swo
 *.swp
+*.pdf
 .DS_Store
 .claude
 run*.sh

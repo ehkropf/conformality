@@ -73,6 +73,7 @@ set_property(TARGET imobjects
 add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/ConformalMap.cpp
     ${CMAKE_SOURCE_DIR}/src/ConformalMapMethod.cpp
+    ${CMAKE_SOURCE_DIR}/src/TheodorsenMethod.cpp
 )
 add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/Grid.cpp
@@ -104,6 +105,7 @@ add_executable(test_exec
     tests/fftw_wrapper.cpp
     $<TARGET_OBJECTS:fftw_wrapper>
     tests/conformal_map_tests.cpp
+    tests/theodorsen_method_tests.cpp
     $<TARGET_OBJECTS:map_objects>
     tests/grids.cpp
     $<TARGET_OBJECTS:util_objects>
