@@ -16,12 +16,12 @@
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef CONFORMAL_MAP_HPP
-#define CONFORMAL_MAP_HPP
+#pragma once
 
-#include <memory>
 #include "Types.h"
 #include "Domain.h"
+
+#include <memory>
 
 // Forward declaration to avoid circular dependency
 class ConformalMapMethod;
@@ -37,10 +37,10 @@ class ConformalMapMethod;
 class ConformalMap
 {
 private:
-    std::shared_ptr<Domain> source_domain;
-    std::shared_ptr<Domain> target_domain;
-    bool is_external;
-    std::shared_ptr<ConformalMapMethod> method;
+    std::shared_ptr<Domain> mp_source_domain;
+    std::shared_ptr<Domain> mp_target_domain;
+    std::shared_ptr<ConformalMapMethod> mp_method;
+    MappingType m_mapping_type;
 
 public:
     /**
@@ -49,14 +49,32 @@ public:
      * @param source Source domain
      * @param target Target domain
      * @param method_impl Method to use for computation
-     * @param external Whether this is an external map
      */
     ConformalMap(
         std::shared_ptr<Domain> source,
         std::shared_ptr<Domain> target,
-        std::shared_ptr<ConformalMapMethod> method_impl = nullptr,
-        bool external = false
+        std::shared_ptr<ConformalMapMethod> method_impl = nullptr
     );
+
+    /**
+     * @brief Copy constructor
+     */
+    ConformalMap(const ConformalMap& other) = default;
+
+    /**
+     * @brief Move constructor
+     */
+    ConformalMap(ConformalMap&& other) = default;
+
+    /**
+     * @brief Copy assignment operator
+     */
+    ConformalMap& operator=(const ConformalMap& other) = default;
+
+    /**
+     * @brief Move assignment operator
+     */
+    ConformalMap& operator=(ConformalMap&& other) = default;
 
     /**
      * @brief Default destructor
@@ -86,7 +104,7 @@ public:
      */
     std::shared_ptr<Domain> getSourceDomain() const
     {
-        return source_domain;
+        return mp_source_domain;
     }
 
     /**
@@ -96,27 +114,17 @@ public:
      */
     std::shared_ptr<Domain> getTargetDomain() const
     {
-        return target_domain;
+        return mp_target_domain;
     }
 
     /**
-     * @brief Check if this is an external map
+     * @brief Get the mapping type
      *
-     * @return true if external, false if internal
+     * @return MappingType The type of this conformal mapping
      */
-    bool isExternalMap() const
+    MappingType getMappingType() const
     {
-        return is_external;
-    }
-
-    /**
-     * @brief Set whether this is an external map
-     *
-     * @param external True for external, false for internal
-     */
-    void setExternal(bool external)
-    {
-        is_external = external;
+        return m_mapping_type;
     }
 
     /**
@@ -133,7 +141,7 @@ public:
      */
     std::shared_ptr<ConformalMapMethod> getMethod() const
     {
-        return method;
+        return mp_method;
     }
 
     /**
@@ -143,5 +151,3 @@ public:
      */
     void compute(double target_accuracy = 1e-10);
 };
-
-#endif // CONFORMAL_MAP_HPP

@@ -26,7 +26,7 @@ TEST(StarlikeDomainTest, Construction) {
 
     StarlikeDomain domain(center, radiusFunc, false); // Internal domain
 
-    EXPECT_FALSE(domain.isExternalDomain());
+    EXPECT_FALSE(domain.isUnbounded());
     EXPECT_EQ(1, domain.getConnectivity());
     EXPECT_EQ(center, domain.getCenter());
 }

@@ -79,6 +79,7 @@ add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/Grid.cpp
     ${CMAKE_SOURCE_DIR}/src/RootFinder.cpp
     ${CMAKE_SOURCE_DIR}/src/StatusManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/Types.cpp
 )
 add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/Domain.cpp
@@ -115,6 +116,7 @@ add_executable(test_exec
     $<TARGET_OBJECTS:domain_objects>
     tests/root_finder_tests.cpp
     tests/status_manager_tests.cpp
+    tests/types_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main

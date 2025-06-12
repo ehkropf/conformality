@@ -17,6 +17,7 @@
  */
 
 #include "ConformalMapMethod.h"
+#include "ConformalMap.h"
 #include "Domain.h"
 #include <stdexcept>
 
@@ -74,4 +75,31 @@ void ConformalMapMethod::validateDomain(
 {
     validateDomainCompatibility(domain, expected_connectivity);
     validateDomainGeometry(domain);
+}
+
+void ConformalMapMethod::validateDomains(const ConformalMap& map_instance) const
+{
+    const auto source_domain = map_instance.getSourceDomain();
+    const auto target_domain = map_instance.getTargetDomain();
+
+    if (!source_domain || !target_domain)
+    {
+        throw std::invalid_argument("Both source and target domains must be non-null");
+    }
+
+    int source_connectivity = source_domain->getConnectivity();
+    int target_connectivity = target_domain->getConnectivity();
+
+    if (source_connectivity != target_connectivity)
+    {
+        throw std::invalid_argument(
+            "Source and target domains must have the same connectivity. "
+            "Source: " + std::to_string(source_connectivity) +
+            ", Target: " + std::to_string(target_connectivity)
+        );
+    }
+
+    // Validate individual domain geometry
+    validateDomainGeometry(source_domain);
+    validateDomainGeometry(target_domain);
 }

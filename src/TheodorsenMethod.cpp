@@ -49,7 +49,8 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
 {
     auto source_domain = map_instance.getSourceDomain();
     auto target_domain = map_instance.getTargetDomain();
-    bool external = map_instance.isExternalMap();
+    MappingType mapping_type = map_instance.getMappingType();
+    bool external = (mapping_type == MappingType::EXTERIOR_TO_INTERIOR);
     
     // Validate domains
     validateDomain(source_domain, 1); // Simply connected and starlike

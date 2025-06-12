@@ -79,14 +79,14 @@ TEST_F(SimplyConnectedDomainTest, Construction)
     // Test internal domain construction
     SimplyConnectedDomain internalDomain(circleBoundary, false);
 
-    EXPECT_FALSE(internalDomain.isExternalDomain());
+    EXPECT_FALSE(internalDomain.isUnbounded());
     EXPECT_EQ(1, internalDomain.getConnectivity());
     EXPECT_EQ(circleBoundary.get(), &internalDomain.getBoundary());
 
     // Test external domain construction
     SimplyConnectedDomain externalDomain(circleBoundary, true);
 
-    EXPECT_TRUE(externalDomain.isExternalDomain());
+    EXPECT_TRUE(externalDomain.isUnbounded());
     EXPECT_EQ(1, externalDomain.getConnectivity());
     EXPECT_EQ(circleBoundary.get(), &externalDomain.getBoundary());
 }

@@ -18,18 +18,18 @@
 
 #include "ConformalMap.h"
 #include "ConformalMapMethod.h"
+
 #include <stdexcept>
 
 ConformalMap::ConformalMap(
     std::shared_ptr<Domain> source,
     std::shared_ptr<Domain> target,
-    std::shared_ptr<ConformalMapMethod> method_impl,
-    bool external
+    std::shared_ptr<ConformalMapMethod> method_impl
 )
-    : source_domain(source)
-    , target_domain(target)
-    , is_external(external)
-    , method(method_impl)
+    : mp_source_domain(source)
+    , mp_target_domain(target)
+    , mp_method(method_impl)
+    , m_mapping_type(determineMappingType(*source, *target))
 {
     if (!source)
     {
@@ -44,35 +44,39 @@ ConformalMap::ConformalMap(
 
 void ConformalMap::setMethod(std::shared_ptr<ConformalMapMethod> method_impl)
 {
-    method = method_impl;
+    mp_method = method_impl;
 }
 
 void ConformalMap::compute(double target_accuracy)
 {
-    if (!method)
+    if (!mp_method)
     {
         throw std::runtime_error("No method set for computation");
     }
 
-    method->compute(*this, target_accuracy);
+    // Validate domains before computation
+    mp_method->validateDomains(*this);
+
+    mp_method->compute(*this, target_accuracy);
 }
 
 Complex ConformalMap::map(const Complex& z) const
 {
-    if (!method)
+    if (!mp_method)
     {
         throw std::runtime_error("No method set for map evaluation");
     }
 
-    return method->map(z);
+    return mp_method->map(z);
 }
 
 Complex ConformalMap::inverseMap(const Complex& w) const
 {
-    if (!method)
+    if (!mp_method)
     {
         throw std::runtime_error("No method set for inverse map evaluation");
     }
 
-    return method->inverseMap(w);
+    return mp_method->inverseMap(w);
 }
+

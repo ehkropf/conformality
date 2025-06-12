@@ -125,17 +125,17 @@ bool SimplyConnectedDomain::contains(const Complex& z) const
     if (winding == std::numeric_limits<int>::max())
     {
         // Point is on or very close to boundary
-        return !isExternalDomain(); // Inside for internal domains, outside for external domains
+        return !isUnbounded(); // Inside for bounded domains, outside for unbounded domains
     }
 
-    if (isExternalDomain())
+    if (isUnbounded())
     {
-        // For external domain, point is inside if outside the boundary (winding number = 0)
+        // For unbounded domain, point is inside if outside the boundary (winding number = 0)
         return (winding == 0);
     }
     else
     {
-        // For internal domain, point is inside if inside the boundary (winding number != 0)
+        // For bounded domain, point is inside if inside the boundary (winding number != 0)
         return (winding != 0);
     }
 }
@@ -174,17 +174,17 @@ bool StarlikeDomain::contains(const Complex& z) const
     // Handle boundary cases with tolerance
     if (std::abs(radius - boundaryRadius) < boundaryTolerance)
     {
-        return !isExternalDomain(); // On boundary: inside for internal domains, outside for external domains
+        return !isUnbounded(); // On boundary: inside for bounded domains, outside for unbounded domains
     }
 
-    if (isExternalDomain())
+    if (isUnbounded())
     {
-        // For external domain, point is inside if it's outside the boundary
+        // For unbounded domain, point is inside if it's outside the boundary
         return radius > boundaryRadius;
     }
     else
     {
-        // For internal domain, point is inside if it's inside the boundary
+        // For bounded domain, point is inside if it's inside the boundary
         return radius < boundaryRadius;
     }
 }
@@ -233,10 +233,10 @@ bool CircularDomain::contains(const Complex& z) const
     // Handle boundary cases with tolerance
     if (std::abs(dist - radius) < boundaryTolerance)
     {
-        return !isExternalDomain(); // On boundary: inside for internal domains, outside for external domains
+        return !isUnbounded(); // On boundary: inside for bounded domains, outside for unbounded domains
     }
 
-    if (isExternalDomain())
+    if (isUnbounded())
     {
         return dist > radius;
     }
@@ -339,12 +339,12 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
             if (i == 0)
             {
                 // On outer boundary
-                return !isExternalDomain();
+                return !isUnbounded();
             }
             else
             {
                 // On inner boundary
-                return isExternalDomain();
+                return isUnbounded();
             }
         }
 
@@ -355,14 +355,14 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
             // Outer boundary
             insideOuterBoundary = insideThisBoundary;
 
-            // For external domains, being outside the outer boundary counts as "inside" the domain
-            if (isExternalDomain() && !insideOuterBoundary)
+            // For unbounded domains, being outside the outer boundary counts as "inside" the domain
+            if (isUnbounded() && !insideOuterBoundary)
             {
                 return true;
             }
 
-            // For internal domains, being outside the outer boundary means the point is outside the domain
-            if (!isExternalDomain() && !insideOuterBoundary)
+            // For bounded domains, being outside the outer boundary means the point is outside the domain
+            if (!isUnbounded() && !insideOuterBoundary)
             {
                 return false;
             }
@@ -370,28 +370,28 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
         else
         {
             // Inner boundary
-            // For internal domains, being inside an inner boundary means the point is outside the domain
-            if (!isExternalDomain() && insideThisBoundary)
+            // For bounded domains, being inside an inner boundary means the point is outside the domain
+            if (!isUnbounded() && insideThisBoundary)
             {
                 return false;
             }
 
-            // For external domains, being inside an inner boundary means the point is inside the domain
-            if (isExternalDomain() && insideThisBoundary)
+            // For unbounded domains, being inside an inner boundary means the point is inside the domain
+            if (isUnbounded() && insideThisBoundary)
             {
                 return true;
             }
         }
     }
 
-    // If we get here for an internal domain, the point is inside the outer boundary
+    // If we get here for a bounded domain, the point is inside the outer boundary
     // and outside all inner boundaries, so it's inside the domain
-    if (!isExternalDomain())
+    if (!isUnbounded())
     {
         return true;
     }
 
-    // If we get here for an external domain, the point is inside the outer boundary
+    // If we get here for an unbounded domain, the point is inside the outer boundary
     // and outside all inner boundaries, so it's outside the domain
     return false;
 }

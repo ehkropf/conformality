@@ -26,7 +26,7 @@ TEST(EllipticalDomainTest, Construction) {
 
     EllipticalDomain domain(a, b, rotation, center, false);
 
-    EXPECT_FALSE(domain.isExternalDomain());
+    EXPECT_FALSE(domain.isUnbounded());
     EXPECT_EQ(1, domain.getConnectivity());
     EXPECT_EQ(center, domain.getCenter());
     EXPECT_DOUBLE_EQ(std::sqrt(1.0 - (b*b)/(a*a)), domain.getEccentricity());

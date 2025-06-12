@@ -119,6 +119,17 @@ public:
      */
     void validateDomain(std::shared_ptr<Domain> domain, int expected_connectivity) const;
 
+    /**
+     * @brief Validate both source and target domains for use with this method
+     *
+     * Validates that both domains in the conformal map are compatible with this method.
+     * Derived classes can override this to specify domain-specific connectivity requirements.
+     *
+     * @param map_instance The conformal map whose domains should be validated
+     * @throws std::invalid_argument if either domain is not valid for this method
+     */
+    virtual void validateDomains(const ConformalMap& map_instance) const;
+
 protected:
     /**
      * @brief Validate that the domain is compatible with this method

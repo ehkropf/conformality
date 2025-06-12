@@ -27,3 +27,19 @@ using Complex = std::complex<double>;
 // Constants used everywhere
 
 constexpr double BOUNDARY_TOLERANCE = 1e-12;
+
+// Other
+
+enum class MappingType
+{
+    INTERIOR_TO_INTERIOR,    // Standard conformal map
+    EXTERIOR_TO_INTERIOR,    // External map (most common external case)
+    INTERIOR_TO_EXTERIOR,    // Map from bounded to unbounded domain (e.g., unit disk to exterior of unit disk)
+    EXTERIOR_TO_EXTERIOR     // Mapping between unbounded domains (e.g., composition of exterior maps)
+};
+
+// Forward delcaration to avoid circularity
+class Domain;
+
+/// Determines the appropriate mapping type based on the connectivity of source and target domains
+MappingType determineMappingType(const Domain& source, const Domain& target);

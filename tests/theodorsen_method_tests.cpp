@@ -165,7 +165,9 @@ TEST_F(TheodorsenMethodTest, InverseMapPlaceholder)
 TEST_F(TheodorsenMethodTest, ExternalMapping)
 {
     // Test external mapping (placeholder implementation)
-    ConformalMap external_map(ellipse, unit_circle, method, true);
+    // Create unbounded ellipse domain for external mapping
+    auto unbounded_ellipse = std::make_shared<EllipticalDomain>(2.0, 1.0, 0.0, Complex(0.0, 0.0), true);
+    ConformalMap external_map(unbounded_ellipse, unit_circle, method);
     
     // Should still work but with external algorithm
     EXPECT_NO_THROW(method->compute(external_map, 1e-6));

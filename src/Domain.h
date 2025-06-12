@@ -30,7 +30,7 @@
 class Domain
 {
 private:
-    const bool isExternal;
+    const bool m_is_unbounded;
     const int connectivity;
 
 public:
@@ -55,23 +55,23 @@ public:
 public:
     /**
      * @brief Construct a new Domain
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      * @param domainConnectivity Connectivity of the domain
      */
-    Domain(bool isExternalDomain = false, int domainConnectivity = 1)
-        : isExternal(isExternalDomain)
+    Domain(bool isUnboundedDomain = false, int domainConnectivity = 1)
+        : m_is_unbounded(isUnboundedDomain)
         , connectivity(domainConnectivity)
     {}
 
     virtual ~Domain() = default;
 
     /**
-     * @brief Check if this is an external domain
-     * @return true if external, false if internal
+     * @brief Check if this is an unbounded domain
+     * @return true if unbounded, false if bounded
      */
-    bool isExternalDomain() const
+    bool isUnbounded() const
     {
-        return isExternal;
+        return m_is_unbounded;
     }
 
     /**
@@ -109,10 +109,10 @@ public:
     /**
      * @brief Construct a new Simply Connected Domain
      * @param domainBoundary Boundary of the domain
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
-    SimplyConnectedDomain(std::shared_ptr<Boundary> domainBoundary, bool isExternalDomain = false)
-        : Domain(isExternalDomain, 1)
+    SimplyConnectedDomain(std::shared_ptr<Boundary> domainBoundary, bool isUnboundedDomain = false)
+        : Domain(isUnboundedDomain, 1)
         , boundary(domainBoundary)
     {}
 
@@ -145,14 +145,14 @@ public:
      * @brief Construct a new Starlike Domain
      * @param domainCenter Center point of the domain
      * @param radiusFunc Function mapping angle to radius
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
     StarlikeDomain(
         const Complex& domainCenter,
         std::function<double(double)> radiusFunc,
-        bool isExternalDomain = false
+        bool isUnboundedDomain = false
     )
-        : SimplyConnectedDomain(createBoundary(domainCenter, radiusFunc), isExternalDomain)
+        : SimplyConnectedDomain(createBoundary(domainCenter, radiusFunc), isUnboundedDomain)
         , center(domainCenter)
         , radiusFunction(radiusFunc)
     {}
@@ -202,11 +202,11 @@ public:
      * @param semiMinorAxis Semi-minor axis
      * @param rotationAngle Rotation angle in radians
      * @param domainCenter Center of the ellipse
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
     EllipticalDomain(double semiMajorAxis, double semiMinorAxis, double rotationAngle = 0.0,
                      const Complex& domainCenter = Complex(0.0, 0.0),
-                     bool isExternalDomain = false)
+                     bool isUnboundedDomain = false)
         : StarlikeDomain(domainCenter,
                          [semiMajorAxis, semiMinorAxis, rotationAngle](double angle) -> double
                          {
@@ -217,7 +217,7 @@ public:
                              return std::abs(std::complex<double>(semiMajorAxis*std::cos(theta), semiMinorAxis*std::sin(theta)));
 
                          },
-            isExternalDomain)
+            isUnboundedDomain)
         , a(semiMajorAxis)
         , b(semiMinorAxis)
         , rotation(rotationAngle)
@@ -280,19 +280,19 @@ public:
      * @brief Construct a new Circular Domain
      * @param domainCenter Center of the circle
      * @param circleRadius Radius of the circle
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
     CircularDomain(
         const Complex& domainCenter,
         double circleRadius,
-        bool isExternalDomain = false
+        bool isUnboundedDomain = false
     )
         : EllipticalDomain(
             circleRadius,
             circleRadius,
             0.0,
             domainCenter,
-            isExternalDomain
+            isUnboundedDomain
         )
         , radius(circleRadius)
     {}
@@ -321,13 +321,13 @@ public:
     /**
      * @brief Construct a new Polygonal Domain
      * @param domainVertices Vertices of the polygon
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
     PolygonalDomain(
         const std::vector<Complex>& domainVertices,
-        bool isExternalDomain = false
+        bool isUnboundedDomain = false
     )
-        : SimplyConnectedDomain(createBoundary(domainVertices), isExternalDomain)
+        : SimplyConnectedDomain(createBoundary(domainVertices), isUnboundedDomain)
         , vertices(domainVertices)
     {}
 
@@ -364,12 +364,12 @@ public:
     /**
      * @brief Construct a new Multiply Connected Domain
      * @param domainBoundaries Vector of boundaries
-     * @param isExternalDomain Whether this is an external domain
+     * @param isUnboundedDomain Whether this is an unbounded domain
      */
     MultiplyConnectedDomain(
         std::vector<std::shared_ptr<Boundary>> domainBoundaries,
-        bool isExternalDomain = false)
-        : Domain(isExternalDomain, domainBoundaries.size())
+        bool isUnboundedDomain = false)
+        : Domain(isUnboundedDomain, domainBoundaries.size())
         , boundaries(domainBoundaries)
     {}
 

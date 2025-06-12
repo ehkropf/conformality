@@ -83,14 +83,10 @@ TEST(ConformalMapTest, Construction)
         2.0, 1.0, 0.0, Complex(0.0, 0.0), false);
 
     // Test constructor with domains
-    ConformalMap map(source_domain, target_domain, nullptr, false);
+    ConformalMap map(source_domain, target_domain, nullptr);
     EXPECT_EQ(source_domain, map.getSourceDomain());
     EXPECT_EQ(target_domain, map.getTargetDomain());
-    EXPECT_FALSE(map.isExternalMap());
-
-    // Test setting external flag
-    map.setExternal(true);
-    EXPECT_TRUE(map.isExternalMap());
+    EXPECT_EQ(MappingType::INTERIOR_TO_INTERIOR, map.getMappingType());
 }
 
 TEST(ConformalMapTest, MethodInteraction)
