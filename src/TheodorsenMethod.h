@@ -166,6 +166,14 @@ public:
         return boundary_samples;
     }
 
+protected:
+    /**
+     * @brief Validate that the domain has the required geometric properties for Theodorsen's method
+     * @param domain Domain to validate
+     * @throws std::invalid_argument if the domain is not starlike
+     */
+    void validateDomainGeometry(std::shared_ptr<Domain> domain) const override;
+
 private:
     /**
      * @brief Validate that the number of points is a power of 2

@@ -21,10 +21,21 @@
 #include <stdexcept>
 
 ConformalMapMethod::ConformalMapMethod()
-    : accuracy(0.0)
-    , max_iterations(1000)
-    , iteration_count(0)
+    : m_achieved_accuracy(0.0)
+    , m_max_iterations(1000)
+    , m_iteration_count(0)
 {
+}
+
+ConformalMapMethod::ConformalMapMethod(int max_iter)
+    : m_achieved_accuracy(0.0)
+    , m_max_iterations(max_iter)
+    , m_iteration_count(0)
+{
+    if (max_iter <= 0)
+    {
+        throw std::invalid_argument("Maximum iterations must be positive");
+    }
 }
 
 void ConformalMapMethod::setMaxIterations(int max)
@@ -34,7 +45,7 @@ void ConformalMapMethod::setMaxIterations(int max)
         throw std::invalid_argument("Maximum iterations must be positive");
     }
 
-    max_iterations = max;
+    m_max_iterations = max;
 }
 
 void ConformalMapMethod::validateDomainCompatibility(
@@ -56,15 +67,11 @@ void ConformalMapMethod::validateDomainCompatibility(
     }
 }
 
-void ConformalMapMethod::validateDomainGeometry(std::shared_ptr<Domain> domain) const
+void ConformalMapMethod::validateDomain(
+    std::shared_ptr<Domain> domain,
+    int expected_connectivity
+) const
 {
-    if (!domain)
-    {
-        throw std::invalid_argument("Domain cannot be null");
-    }
-
-    // This method should be overridden by specific methods to check
-    // for domain-specific geometric properties (e.g., starlike, polygonal)
-    // Base implementation just validates non-null domain
-    // Derived classes can use dynamic_cast to check specific domain types
+    validateDomainCompatibility(domain, expected_connectivity);
+    validateDomainGeometry(domain);
 }

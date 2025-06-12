@@ -16,13 +16,11 @@
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef CONFORMAL_MAP_METHOD_HPP
-#define CONFORMAL_MAP_METHOD_HPP
+#pragma once
 
 #include "Types.h"
 
 #include <memory>
-#include <string>
 
 // Forward declarations to avoid circular dependency
 class ConformalMap;
@@ -38,15 +36,21 @@ class Domain;
 class ConformalMapMethod
 {
 protected:
-    double accuracy;
-    int max_iterations;
-    int iteration_count;
+    double m_achieved_accuracy;
+    int m_max_iterations;
+    int m_iteration_count;
 
 public:
     /**
-     * @brief Construct a new Conformal Map Method
+     * @brief Construct a new Conformal Map Method with default settings
      */
     ConformalMapMethod();
+
+    /**
+     * @brief Construct a new Conformal Map Method with custom settings
+     * @param max_iter Maximum number of iterations (must be positive)
+     */
+    explicit ConformalMapMethod(int max_iter);
 
     /**
      * @brief Virtual destructor
@@ -84,7 +88,7 @@ public:
      */
     double getAccuracy() const
     {
-        return accuracy;
+        return m_achieved_accuracy;
     }
 
     /**
@@ -94,7 +98,7 @@ public:
      */
     int getIterationCount() const
     {
-        return iteration_count;
+        return m_iteration_count;
     }
 
     /**
@@ -104,9 +108,22 @@ public:
      */
     void setMaxIterations(int max);
 
+    /**
+     * @brief Validate a domain for use with this method
+     *
+     * Performs both compatibility and geometry validation.
+     *
+     * @param domain Domain to validate
+     * @param expected_connectivity Expected connectivity (0 = simply connected, etc.)
+     * @throws std::invalid_argument if the domain is not valid for this method
+     */
+    void validateDomain(std::shared_ptr<Domain> domain, int expected_connectivity) const;
+
 protected:
     /**
      * @brief Validate that the domain is compatible with this method
+     *
+     * Checks connectivity and null pointer. Always called by validateDomain.
      *
      * @param domain Domain to validate
      * @param expected_connectivity Expected connectivity (0 = simply connected, etc.)
@@ -117,10 +134,11 @@ protected:
     /**
      * @brief Validate that the domain has the required geometric properties
      *
+     * Method-specific geometric validation. Must be implemented by derived classes.
+     *
      * @param domain Domain to validate
      * @throws std::invalid_argument if the domain doesn't have required properties
      */
-    void validateDomainGeometry(std::shared_ptr<Domain> domain) const;
+    virtual void validateDomainGeometry(std::shared_ptr<Domain> domain) const = 0;
 };
 
-#endif // CONFORMAL_MAP_METHOD_HPP

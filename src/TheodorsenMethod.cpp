@@ -42,7 +42,7 @@ TheodorsenMethod::TheodorsenMethod(size_t num_points)
         phi_sequence[i] = 2.0 * M_PI * static_cast<double>(i) / static_cast<double>(n_points);
     }
     
-    max_iterations = 100;
+    m_max_iterations = 100;
 }
 
 void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accuracy)
@@ -51,16 +51,9 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     auto target_domain = map_instance.getTargetDomain();
     bool external = map_instance.isExternalMap();
     
-    // Validate domain compatibility
-    validateDomainCompatibility(source_domain, 1); // Simply connected
-    validateDomainCompatibility(target_domain, 1);
-    
-    // Check if source domain is starlike
-    auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(source_domain);
-    if (!starlike_domain)
-    {
-        throw std::invalid_argument("Theodorsen's method requires a starlike source domain");
-    }
+    // Validate domains
+    validateDomain(source_domain, 1); // Simply connected and starlike
+    validateDomainCompatibility(target_domain, 1); // Target just needs connectivity check
     
     // Check if target domain is unit circle
     auto circular_target = std::dynamic_pointer_cast<CircularDomain>(target_domain);
@@ -77,17 +70,17 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     std::vector<double> rho = computeBoundaryModuli(source_domain, external);
     
     // Iterative refinement
-    iteration_count = 0;
+    m_iteration_count = 0;
     is_converged = false;
     residual_norm = std::numeric_limits<double>::infinity();
     
-    while (iteration_count < max_iterations && !is_converged)
+    while (m_iteration_count < m_max_iterations && !is_converged)
     {
         std::vector<double> old_rho = rho;
         rho = theodorsenIteration(rho, external);
         
         is_converged = checkConvergence(old_rho, rho, target_accuracy);
-        ++iteration_count;
+        ++m_iteration_count;
     }
     
     if (!is_converged)
@@ -104,7 +97,22 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     }
     
     computeLaurentCoefficients(boundary_correspondence);
-    accuracy = residual_norm;
+    m_achieved_accuracy = residual_norm;
+}
+
+void TheodorsenMethod::validateDomainGeometry(std::shared_ptr<Domain> domain) const
+{
+    if (!domain)
+    {
+        throw std::invalid_argument("Domain cannot be null");
+    }
+
+    // Check if the domain is starlike
+    auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
+    if (!starlike_domain)
+    {
+        throw std::invalid_argument("Theodorsen's method requires a starlike domain");
+    }
 }
 
 Complex TheodorsenMethod::map(const Complex& z) const

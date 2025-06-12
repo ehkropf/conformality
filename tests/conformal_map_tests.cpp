@@ -32,12 +32,21 @@ private:
 public:
     MockMethod() : ConformalMapMethod() {}
 
+    void validateDomainGeometry(std::shared_ptr<Domain> domain) const override
+    {
+        // Mock implementation - accept any domain
+        if (!domain)
+        {
+            throw std::invalid_argument("Domain cannot be null");
+        }
+    }
+
     void compute([[maybe_unused]] ConformalMap& map, double target_accuracy) override
     {
         compute_called = true;
         last_accuracy = target_accuracy;
-        iteration_count = 5; // Simulate some iterations
-        accuracy = target_accuracy * 0.5; // Simulate achieved accuracy
+        m_iteration_count = 5; // Simulate some iterations
+        m_achieved_accuracy = target_accuracy * 0.5; // Simulate achieved accuracy
     }
 
     Complex map(const Complex& z) const override
@@ -171,6 +180,15 @@ TEST(ConformalMapMethodTest, ValidateDomainCompatibility)
         Complex inverseMap(const Complex& w) const override
         {
             return w;
+        }
+
+        void validateDomainGeometry(std::shared_ptr<Domain> domain) const override
+        {
+            // Test implementation - accept any domain
+            if (!domain)
+            {
+                throw std::invalid_argument("Domain cannot be null");
+            }
         }
 
         void testDomainValidation(std::shared_ptr<Domain> domain, int expected_connectivity)
