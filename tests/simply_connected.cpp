@@ -39,7 +39,7 @@ protected:
         };
 
         circleComponent = std::make_shared<AnalyticBoundaryComponent>(circleFunc, circleDerivFunc);
-        circleBoundary = std::make_shared<SimpleBoundary>(circleComponent);
+        circleBoundary = std::make_shared<Boundary>(circleComponent);
 
         // Create an ellipse boundary for testing
         double a = 2.0, b = 1.0;
@@ -53,7 +53,7 @@ protected:
         };
 
         ellipseComponent = std::make_shared<AnalyticBoundaryComponent>(ellipseFunc, ellipseDerivFunc);
-        ellipseBoundary = std::make_shared<SimpleBoundary>(ellipseComponent);
+        ellipseBoundary = std::make_shared<Boundary>(ellipseComponent);
 
         // Create a square boundary using discrete points
         std::vector<Complex> squarePoints = {
@@ -63,15 +63,15 @@ protected:
             Complex(1.0, -1.0)
         };
         squareComponent = std::make_shared<DiscreteBoundaryComponent>(squarePoints);
-        squareBoundary = std::make_shared<SimpleBoundary>(squareComponent);
+        squareBoundary = std::make_shared<Boundary>(squareComponent);
     }
 
     std::shared_ptr<AnalyticBoundaryComponent> circleComponent{nullptr};
-    std::shared_ptr<SimpleBoundary> circleBoundary{nullptr};
+    std::shared_ptr<Boundary> circleBoundary{nullptr};
     std::shared_ptr<AnalyticBoundaryComponent> ellipseComponent{nullptr};
-    std::shared_ptr<SimpleBoundary> ellipseBoundary{nullptr};
+    std::shared_ptr<Boundary> ellipseBoundary{nullptr};
     std::shared_ptr<DiscreteBoundaryComponent> squareComponent{nullptr};
-    std::shared_ptr<SimpleBoundary> squareBoundary{nullptr};
+    std::shared_ptr<Boundary> squareBoundary{nullptr};
 };
 
 TEST_F(SimplyConnectedDomainTest, Construction)
@@ -106,7 +106,8 @@ TEST_F(SimplyConnectedDomainTest, BoundaryAccess)
 
     // Verify we can sample from the boundary
     auto samples = boundary.sample(8);
-    EXPECT_EQ(8, samples.size());
+    EXPECT_EQ(1, samples.size()); // One component
+    EXPECT_EQ(8, samples[0].size()); // 8 points in that component
 }
 
 TEST_F(SimplyConnectedDomainTest, InternalCircularDomainContainment)
@@ -202,7 +203,8 @@ TEST_F(SimplyConnectedDomainTest, BoundaryTransformation)
     };
 
     // Get some points on the original boundary
-    std::vector<Complex> originalSamples = domain.getBoundary().sample(8);
+    auto originalSamplesVec = domain.getBoundary().sample(8);
+    std::vector<Complex> originalSamples = originalSamplesVec[0]; // Single component
 
     // Verify original points are on unit circle
     for (const Complex& point : originalSamples)
@@ -214,7 +216,8 @@ TEST_F(SimplyConnectedDomainTest, BoundaryTransformation)
     domain.transformBoundary(scaleTransform);
 
     // Get points on the transformed boundary
-    std::vector<Complex> transformedSamples = domain.getBoundary().sample(8);
+    auto transformedSamplesVec = domain.getBoundary().sample(8);
+    std::vector<Complex> transformedSamples = transformedSamplesVec[0]; // Single component
 
     // Verify transformed points are on circle of radius 2
     for (const Complex& point : transformedSamples)
@@ -242,7 +245,9 @@ TEST_F(SimplyConnectedDomainTest, ComplexTransformation)
 
     // After z -> z^2 transformation, the unit circle should become a more complex shape
     // Test some expected behavior
-    auto transformedSamples = domain.getBoundary().sample(16);
+    auto transformedSamplesVec = domain.getBoundary().sample(16);
+    EXPECT_EQ(1, transformedSamplesVec.size()); // One component
+    auto transformedSamples = transformedSamplesVec[0];
     EXPECT_EQ(16, transformedSamples.size());
 
     // The transformation should preserve some symmetries
@@ -291,7 +296,8 @@ TEST_F(SimplyConnectedDomainTest, IdentityTransformation)
     SimplyConnectedDomain domain(ellipseBoundary, false);
 
     // Store original state
-    auto originalSamples = domain.getBoundary().sample(10);
+    auto originalSamplesVec = domain.getBoundary().sample(10);
+    auto originalSamples = originalSamplesVec[0]; // Single component
 
     // Apply identity transformation
     auto identityTransform = [](const Complex& z) -> Complex
@@ -302,7 +308,8 @@ TEST_F(SimplyConnectedDomainTest, IdentityTransformation)
     domain.transformBoundary(identityTransform);
 
     // Check that domain behavior is preserved
-    auto newSamples = domain.getBoundary().sample(10);
+    auto newSamplesVec = domain.getBoundary().sample(10);
+    auto newSamples = newSamplesVec[0]; // Single component
     EXPECT_EQ(originalSamples.size(), newSamples.size());
 
     // The discrete representation might not be exactly identical due to resampling,

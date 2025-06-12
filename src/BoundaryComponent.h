@@ -39,7 +39,6 @@ enum class InterpolationMethod {
 class BoundaryComponent
 {
 protected:
-    int index{0};
     std::shared_ptr<IStatusManager> p_statusManager;
 
 public:
@@ -73,23 +72,6 @@ public:
      */
     virtual double findParameterization(const Complex& z) const = 0;
 
-    /**
-     * @brief Get the index of this boundary component
-     * @return Component index
-     */
-    int getIndex() const
-    {
-        return index;
-    }
-
-    /**
-     * @brief Set the index of this boundary component
-     * @param idx New index value
-     */
-    void setIndex(int idx)
-    {
-        index = idx;
-    }
 
     /**
      * @brief Set the status manager for this boundary component

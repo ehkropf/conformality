@@ -16,8 +16,7 @@
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef BOUNDARY_HPP
-#define BOUNDARY_HPP
+#pragma once
 
 #include "BoundaryComponent.h"
 
@@ -25,9 +24,10 @@
 #include <vector>
 
 /**
- * @brief Abstract base class for boundaries
+ * @brief Boundary consisting of one or more boundary components
  *
- * A boundary consists of one or more boundary components
+ * Handles both simply-connected (single component) and multiply-connected
+ * (multiple components) boundaries automatically.
  */
 class Boundary
 {
@@ -35,35 +35,50 @@ protected:
     std::vector<std::shared_ptr<BoundaryComponent>> components;
 
 public:
-    virtual ~Boundary() = default;
+    Boundary() = default;
 
     /**
-     * @brief Evaluate the boundary at parameter t
-     * @param t Parameter value
+     * @brief Construct boundary with components
+     * @param boundaryComponents Vector of boundary components
+     */
+    Boundary(std::vector<std::shared_ptr<BoundaryComponent>> boundaryComponents);
+
+    /**
+     * @brief Construct boundary with single component
+     * @param component Single boundary component
+     */
+    Boundary(std::shared_ptr<BoundaryComponent> component);
+
+    /**
+     * @brief Evaluate the boundary at parameter t on specified component
+     * @param t Parameter value in [0, 2π]
+     * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex point on the boundary
      */
-    virtual Complex evaluate(double t) const = 0;
+    Complex evaluate(double t, size_t componentIndex = 0) const;
 
     /**
-     * @brief Evaluate the derivative at parameter t
-     * @param t Parameter value
+     * @brief Evaluate the derivative at parameter t on specified component
+     * @param t Parameter value in [0, 2π]
+     * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex derivative
      */
-    virtual Complex evaluateDerivative(double t) const = 0;
+    Complex evaluateDerivative(double t, size_t componentIndex = 0) const;
 
     /**
      * @brief Sample points along the boundary
-     * @param numPoints Number of points to sample
-     * @return Vector of complex points on the boundary
+     * @param numPoints Number of points to sample from each component
+     * @return Vector of vectors, one for each boundary component
      */
-    virtual std::vector<Complex> sample(int numPoints) const = 0;
+    std::vector<std::vector<Complex>> sample(size_t numPoints) const;
 
     /**
      * @brief Find the parameter value for a point on the boundary
      * @param z Complex point on or near the boundary
-     * @return Parameter value t such that evaluate(t) ≈ z
+     * @param componentIndex Index of the boundary component to search on
+     * @return Parameter value t such that evaluate(t, componentIndex) ≈ z
      */
-    virtual double findParameterization(const Complex& z) const = 0;
+    double findParameterization(const Complex& z, size_t componentIndex = 0) const;
 
     /**
      * @brief Add a boundary component
@@ -95,70 +110,5 @@ public:
     {
         return components;
     }
+
 };
-
-/**
- * @brief Simple boundary consisting of a single component
- */
-class SimpleBoundary : public Boundary
-{
-public:
-    /**
-     * @brief Construct a new Simple Boundary
-     * @param component Single boundary component
-     */
-    SimpleBoundary(std::shared_ptr<BoundaryComponent> component);
-
-    Complex evaluate(double t) const override
-    {
-        return components[0]->evaluate(t);
-    }
-
-    Complex evaluateDerivative(double t) const override
-    {
-        return components[0]->evaluateDerivative(t);
-    }
-
-    std::vector<Complex> sample(int numPoints) const override
-    {
-        return components[0]->sample(numPoints);
-    }
-
-    double findParameterization(const Complex& z) const override
-    {
-        return components[0]->findParameterization(z);
-    }
-};
-
-/**
- * @brief Composite boundary consisting of multiple components
- */
-class CompositeBoundary : public Boundary
-{
-private:
-    std::vector<double> parameterRanges;  // End of parameter range for each component
-
-public:
-    CompositeBoundary() = default;
-
-    /**
-     * @brief Construct a new Composite Boundary
-     * @param components Vector of boundary components
-     */
-    CompositeBoundary(std::vector<std::shared_ptr<BoundaryComponent>> boundaryComponents);
-
-    void addComponent(std::shared_ptr<BoundaryComponent> component);
-
-    Complex evaluate(double t) const override;
-
-    Complex evaluateDerivative(double t) const override;
-
-    std::vector<Complex> sample(int numPoints) const override;
-
-    double findParameterization(const Complex& z) const override;
-
-private:
-    void updateParameterRanges();
-};
-
-#endif // BOUNDARY_HPP

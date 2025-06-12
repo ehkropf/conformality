@@ -61,7 +61,7 @@ double AnalyticBoundaryComponent::findParameterization(const Complex& z) const
     try
     {
         // Use ternary search to minimize the distance over [0, 2π]
-        double result = RootFinder::ternarySearch(objective, 0.0, 2.0 * M_PI);
+        double result = RootFinder::ternarySearch(objective, 0.0, 2.0 * M_PI, 1e-12);
 
         // Normalize result to [0, 2π)
         while (result < 0.0) result += 2.0 * M_PI;

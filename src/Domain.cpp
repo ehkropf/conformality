@@ -109,11 +109,12 @@ bool SimplyConnectedDomain::contains(const Complex& z) const
 {
     // Increase sampling resolution for better accuracy (Key Change #3)
     const int sampleCount = 500; // Increased from 100
-    auto samples = boundary->sample(sampleCount);
-    if (samples.empty())
+    auto samplesVec = boundary->sample(sampleCount);
+    if (samplesVec.empty() || samplesVec[0].empty())
     {
         return false;
     }
+    auto samples = samplesVec[0]; // Use first component for simply connected domain
 
 // FIXME: should be somewhere else!!!!
     // Add proper boundary tolerance handling (Key Change #2)
@@ -145,8 +146,9 @@ void SimplyConnectedDomain::transformBoundary(std::function<Complex(const Comple
 {
     // Increase sampling resolution for transformed boundaries (Key Change #3)
     const int transformSampleCount = 2000; // Increased from 1000
-    auto samples = boundary->sample(transformSampleCount);
+    auto samplesVec = boundary->sample(transformSampleCount);
     std::vector<Complex> transformedSamples;
+    auto samples = samplesVec[0]; // Use first component for simply connected domain
     transformedSamples.reserve(samples.size());
 
     for (const auto& point : samples)
@@ -158,7 +160,7 @@ void SimplyConnectedDomain::transformBoundary(std::function<Complex(const Comple
     // Note: In a real implementation, we would need to handle
     // different boundary types more intelligently
     auto discreteComponent = std::make_shared<DiscreteBoundaryComponent>(transformedSamples);
-    boundary = std::make_shared<SimpleBoundary>(discreteComponent);
+    boundary = std::make_shared<Boundary>(discreteComponent);
 }
 
 // StarlikeDomain implementation
@@ -220,7 +222,7 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
     };
 
     auto component = std::make_shared<AnalyticBoundaryComponent>(paramFunc, derivFunc);
-    return std::make_shared<SimpleBoundary>(component);
+    return std::make_shared<Boundary>(component);
 }
 
 // EllipticalDomain implementation
@@ -297,7 +299,7 @@ std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
     };
 
     auto component = std::make_shared<AnalyticBoundaryComponent>(paramFunc, derivFunc);
-    return std::make_shared<SimpleBoundary>(component);
+    return std::make_shared<Boundary>(component);
 }
 
 // MultiplyConnectedDomain implementation
@@ -328,11 +330,12 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
     for (size_t i = 0; i < boundaries.size(); ++i)
     {
         // Increase sampling resolution for better accuracy (Key Change #3)
-        auto samples = boundaries[i]->sample(500);
-        if (samples.empty())
+        auto samplesVec = boundaries[i]->sample(500);
+        if (samplesVec.empty() || samplesVec[0].empty())
         {
             continue;
         }
+        auto samples = samplesVec[0]; // Use first component of each boundary
 
         // Use improved winding number calculation (Key Changes #1 and #4)
         int winding = calculateWindingNumber(z, samples, boundaryTolerance);
@@ -408,8 +411,9 @@ void MultiplyConnectedDomain::transformBoundary(std::function<Complex(const Comp
 
     for (auto& boundary : boundaries)
     {
-        auto samples = boundary->sample(transformSampleCount);
+        auto samplesVec = boundary->sample(transformSampleCount);
         std::vector<Complex> transformedSamples;
+        auto samples = samplesVec[0]; // Use first component of each boundary
         transformedSamples.reserve(samples.size());
 
         for (const auto& point : samples)
@@ -419,6 +423,6 @@ void MultiplyConnectedDomain::transformBoundary(std::function<Complex(const Comp
 
         // Create a new boundary from transformed samples
         auto discreteComponent = std::make_shared<DiscreteBoundaryComponent>(transformedSamples);
-        boundary = std::make_shared<SimpleBoundary>(discreteComponent);
+        boundary = std::make_shared<Boundary>(discreteComponent);
     }
 }
