@@ -23,3 +23,7 @@
 // Type aliases for common types used throughout the codebase
 
 using Complex = std::complex<double>;
+
+// Constants used everywhere
+
+constexpr double BOUNDARY_TOLERANCE = 1e-12;

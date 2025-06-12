@@ -17,6 +17,7 @@
  */
 
 #include "Domain.h"
+#include "Types.h"
 #include <limits>
 #include <algorithm>
 #include <cmath>
@@ -25,7 +26,7 @@ using std::imag;
 using std::real;
 
 // Domain implementation
-int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance) const
+int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance)
 {
     if (samples.empty())
     {
@@ -41,7 +42,7 @@ int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>&
         Complex p2 = samples[(i + 1) % samples.size()];
 
         // Track minimum distance to boundary for tolerance checking
-        double distToSegment = distanceToLineSegment(z, p1, p2);
+        double distToSegment = Domain::distanceToLineSegment(z, p1, p2);
         minDistanceToBoundary = std::min(minDistanceToBoundary, distToSegment);
 
         // Check if point is very close to boundary
@@ -83,7 +84,7 @@ int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>&
     return winding;
 }
 
-double Domain::distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd) const
+double Domain::distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd)
 {
     Complex v = segmentEnd - segmentStart;
     Complex w = point - segmentStart;
@@ -99,8 +100,7 @@ double Domain::distanceToLineSegment(const Complex& point, const Complex& segmen
     double t = real(w * Complex(real(v), -imag(v))) / segmentLengthSq;
     t = std::max(0.0, std::min(1.0, t)); // Clamp to [0,1]
 
-// FIXME:￼ Only need to scale by t no need for full complex
-    Complex projection = segmentStart + v * Complex(t, 0.0);
+    Complex projection = segmentStart + v * t;
     return std::abs(point - projection);
 }
 
@@ -116,21 +116,19 @@ bool SimplyConnectedDomain::contains(const Complex& z) const
     }
     auto samples = samplesVec[0]; // Use first component for simply connected domain
 
-// FIXME: should be somewhere else!!!!
-    // Add proper boundary tolerance handling (Key Change #2)
-    const double boundaryTolerance = 1e-12;
+    const double boundaryTolerance = BOUNDARY_TOLERANCE;
 
     // Fix the ray-casting intersection calculation and ensure correct winding number (Key Changes #1 and #4)
-    int winding = calculateWindingNumber(z, samples, boundaryTolerance);
+    int winding = Domain::calculateWindingNumber(z, samples, boundaryTolerance);
 
     // Handle boundary cases (Key Change #2)
     if (winding == std::numeric_limits<int>::max())
     {
         // Point is on or very close to boundary
-        return !isExternal; // Inside for internal domains, outside for external domains
+        return !isExternalDomain(); // Inside for internal domains, outside for external domains
     }
 
-    if (isExternal)
+    if (isExternalDomain())
     {
         // For external domain, point is inside if outside the boundary (winding number = 0)
         return (winding == 0);
@@ -167,8 +165,7 @@ void SimplyConnectedDomain::transformBoundary(std::function<Complex(const Comple
 bool StarlikeDomain::contains(const Complex& z) const
 {
     // For starlike domains, we can use the more efficient analytical containment test
-    // with improved boundary tolerance handling (Key Change #2)
-    const double boundaryTolerance = 1e-12;
+    const double boundaryTolerance = BOUNDARY_TOLERANCE;
 
     double angle = std::arg(z - center);
     double radius = std::abs(z - center);
@@ -177,10 +174,10 @@ bool StarlikeDomain::contains(const Complex& z) const
     // Handle boundary cases with tolerance
     if (std::abs(radius - boundaryRadius) < boundaryTolerance)
     {
-        return !isExternal; // On boundary: inside for internal domains, outside for external domains
+        return !isExternalDomain(); // On boundary: inside for internal domains, outside for external domains
     }
 
-    if (isExternal)
+    if (isExternalDomain())
     {
         // For external domain, point is inside if it's outside the boundary
         return radius > boundaryRadius;
@@ -230,7 +227,7 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
 // CircularDomain implementation
 bool CircularDomain::contains(const Complex& z) const
 {
-    const double boundaryTolerance = 1e-12;
+    const double boundaryTolerance = BOUNDARY_TOLERANCE;
     double dist = std::abs(z - getCenter());
 
     // Handle boundary cases with tolerance
@@ -303,11 +300,6 @@ std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
 }
 
 // MultiplyConnectedDomain implementation
-void MultiplyConnectedDomain::addBoundary(std::shared_ptr<Boundary> boundary)
-{
-    boundaries.push_back(boundary);
-    connectivity = boundaries.size();
-}
 
 bool MultiplyConnectedDomain::contains(const Complex& z) const
 {
@@ -324,7 +316,7 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
     // - Point is inside if it's outside all boundaries
 
     bool insideOuterBoundary = false;
-    const double boundaryTolerance = 1e-12;
+    const double boundaryTolerance = BOUNDARY_TOLERANCE;
 
     // Check against each boundary
     for (size_t i = 0; i < boundaries.size(); ++i)
@@ -338,7 +330,7 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
         auto samples = samplesVec[0]; // Use first component of each boundary
 
         // Use improved winding number calculation (Key Changes #1 and #4)
-        int winding = calculateWindingNumber(z, samples, boundaryTolerance);
+        int winding = Domain::calculateWindingNumber(z, samples, boundaryTolerance);
 
         // Handle boundary cases (Key Change #2)
         if (winding == std::numeric_limits<int>::max())
@@ -347,12 +339,12 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
             if (i == 0)
             {
                 // On outer boundary
-                return !isExternal;
+                return !isExternalDomain();
             }
             else
             {
                 // On inner boundary
-                return isExternal;
+                return isExternalDomain();
             }
         }
 
@@ -364,13 +356,13 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
             insideOuterBoundary = insideThisBoundary;
 
             // For external domains, being outside the outer boundary counts as "inside" the domain
-            if (isExternal && !insideOuterBoundary)
+            if (isExternalDomain() && !insideOuterBoundary)
             {
                 return true;
             }
 
             // For internal domains, being outside the outer boundary means the point is outside the domain
-            if (!isExternal && !insideOuterBoundary)
+            if (!isExternalDomain() && !insideOuterBoundary)
             {
                 return false;
             }
@@ -379,13 +371,13 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
         {
             // Inner boundary
             // For internal domains, being inside an inner boundary means the point is outside the domain
-            if (!isExternal && insideThisBoundary)
+            if (!isExternalDomain() && insideThisBoundary)
             {
                 return false;
             }
 
             // For external domains, being inside an inner boundary means the point is inside the domain
-            if (isExternal && insideThisBoundary)
+            if (isExternalDomain() && insideThisBoundary)
             {
                 return true;
             }
@@ -394,7 +386,7 @@ bool MultiplyConnectedDomain::contains(const Complex& z) const
 
     // If we get here for an internal domain, the point is inside the outer boundary
     // and outside all inner boundaries, so it's inside the domain
-    if (!isExternal)
+    if (!isExternalDomain())
     {
         return true;
     }

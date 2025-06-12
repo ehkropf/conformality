@@ -16,10 +16,7 @@
  * with Conformality. If not, see <https://www.gnu.org/licenses/>.
  */
  
- // FIXME: split this into header and code files
-
-#ifndef DOMAIN_HPP
-#define DOMAIN_HPP
+#pragma once
 
 #include "Boundary.h"
 
@@ -32,10 +29,11 @@
  */
 class Domain
 {
-protected:
-    bool isExternal;
-    int connectivity;
+private:
+    const bool isExternal;
+    const int connectivity;
 
+public:
     /**
      * @brief Improved ray-casting algorithm for point-in-polygon testing
      * @param z Point to test
@@ -43,7 +41,7 @@ protected:
      * @param tolerance Tolerance for boundary proximity
      * @return Winding number
      */
-    int calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance = 1e-12) const;
+    static int calculateWindingNumber(const Complex& z, const std::vector<Complex>& samples, double tolerance = 1e-12);
 
     /**
      * @brief Calculate distance from point to line segment
@@ -52,7 +50,7 @@ protected:
      * @param segmentEnd End of line segment
      * @return Distance to closest point on segment
      */
-    double distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd) const;
+    static double distanceToLineSegment(const Complex& point, const Complex& segmentStart, const Complex& segmentEnd);
 
 public:
     /**
@@ -210,13 +208,13 @@ public:
                      const Complex& domainCenter = Complex(0.0, 0.0),
                      bool isExternalDomain = false)
         : StarlikeDomain(domainCenter,
-                         [semiMajorAxis, semiMinorAxis, rotationAngle, this](double angle) -> double
+                         [semiMajorAxis, semiMinorAxis, rotationAngle](double angle) -> double
                          {
                              // Adjust angle by rotation.
                              double adjustedAngle = angle - rotationAngle;
 
-                             const double theta = std::atan((semiMajorAxis*semiMinorAxis)*std::tan(adjustedAngle));
-                             return std::abs(std::complex<double>(a*std::cos(theta), b*std::sin(theta)));
+                             const double theta = std::atan((semiMajorAxis/semiMinorAxis)*std::tan(adjustedAngle));
+                             return std::abs(std::complex<double>(semiMajorAxis*std::cos(theta), semiMinorAxis*std::sin(theta)));
 
                          },
             isExternalDomain)
@@ -375,7 +373,6 @@ public:
         , boundaries(domainBoundaries)
     {}
 
-    void addBoundary(std::shared_ptr<Boundary> boundary);
 
     std::vector<std::shared_ptr<Boundary>>& getBoundaries()
     {
@@ -392,4 +389,3 @@ public:
     void transformBoundary(std::function<Complex(const Complex&)> transform) override;
 };
 
-#endif // DOMAIN_HPP
