@@ -1,44 +1,116 @@
-# Information for claude
+# Claude Project Guide
 
-## Project overview
+## Project Status & Documentation
 
-A high level overview of this project is in `design/high_level_overview.md`. Currently we are in phase 1 of this project; documentation for this phase (such as it is) exists in the `design/phase1` directory.
+**Current Phase:** Phase 1
+**Project Overview:** `design/high_level_overview.md`
+**Phase 1 Documentation:** `design/phase1/` directory
+**Map Design Discussion:** `design/phase1/map_hierarchy_design_discussion.md` (led to major refactor)
 
-Note that some refactoring is discussed in `design/phase1/map_hierarchy_design_discussion.md`.
+## Project architecture
 
-## C++ formatting
+TBD coherently, but see design directory.
 
-These are guidelines, and can be broken if it improves readability.
+## Dependencies & Libraries
 
-- Try to keep each line to less than 120 characters.
-- Curly braces should always be on their own lines.
-- Use spaces around operators `+` and `-` and after commas.
-- Use snake_case for variable names.
-- Use PascalCase for class names.
-- Use camelCase for function names.
-- Function definitions should have arguments all on the same line, unless the line would exceed the limit. The closing ')' should always be on the same line as the last argument.
-- Continued lines in function definitions should start under the first character of the argment from a previous line. In the case there is no argument after the opening `(` (line space limitations), simply indent the next line by 8 extra spaces instead of 4.
-- For the constructor initialisation list, put the colon and the first member init on a separate line to start the list. Each following member initialisation should start the next line with a `,` under the colon followed by the member init.
-- Function call arguments should follow the same rules as function definitions.
-- For object initialisation, prefer the curly brackets `{}` over parentheses and the assignment operator. The latter two can be used when it makes more sense (readability or technical reasons).
+- **Third-party included libraries**
+  - imgui
+  - implot
+  - spdlog
+- **Libraries that must be pre-installed**
+  - FFTW (needs compiled for target system)
 
-Example:
+## Common patterns & Utilities
 
+- **Error handling**
+  - It's good to throw exceptions on errors (except when it isn't)
+  - Errors should have good messages
+- **Logging**
+  - StatusManager will handle collecting messages and logging
+  - The `spdlog` package will be used for logging
+
+## Build & development commands
+- Builds will be done in a `build` directory
+  - Every cmake and make command should be given from this directory
+  - Tests will be run from this directory
+- Use `cmake` to configure the build
+  - CC=clang
+  - CXX=clang++
+  - Release is default build type
+- Use `make -j9` to build
+- No IDE used, just MacVim and shell vim.
+
+## C++ Style Guide
+
+This project uses c++20.
+
+*Note: These are guidelines and can be broken if it improves readability.*
+
+### General Formatting
+- **Line length:** Keep lines under 120 characters
+- **Braces:** Always on their own lines (exception: empty functions can use `{}` on one line)
+- **Spacing:** Use spaces around operators (`+`, `-`) and after commas
+
+### Naming Conventions
+- **Variables:** `snake_case`
+- **Classes:** `PascalCase`
+- **Functions:** `camelCase`
+- **Private members:** Prefix with `m_`
+- **Pointers:** Prefix with `p_` (member pointers: `mp_`)
+
+### Function Formatting
+- **Arguments:** All on same line unless exceeding line limit
+- **Continuation:** Align under first character of previous argument, or indent 8 spaces if no previous argument
+- **Closing parenthesis:** Same line as last argument
+
+### Constructor Initialization
+- **Colon:** On separate line to start the list
+- **Members:** Each on new line starting with `,` aligned under the colon
+
+### Object Initialization
+- **Preferred:** Curly brackets `{}`
+- **Alternative:** Parentheses or assignment when it improves readability
+
+### Example
 ```cpp
 class MyClass
 {
+private:
+    int m_value;
+    std::unique_ptr<int> mp_data;
+
 public:
+    MyClass(int value, std::unique_ptr<int> data)
+        : m_value{value}
+        , mp_data{std::move(data)}
+    {
+    }
+
     void myFunction(int param1, int param2)
     {
+        const int result = param1 + param2;
         // Function body
     }
 };
 ```
 
-## C++ best practices
+## C++ Best Practices
 
-- Always include necessary headers.
-- Use `const` and `constexpr` where appropriate (we want const-ness declared on everything, unless of course it is going to be changed after declaration).
-- Prefer `std::vector` over raw arrays.
-- Use smart pointers (`std::unique_ptr`, `std::shared_ptr`) for dynamic memory management.
-- Avoid global variables.
+### Memory & Resources
+
+- Use smart pointers (`std::unique_ptr`, `std::shared_ptr`) for dynamic memory
+- Prefer `std::vector` over raw arrays (unless compile-time size is known)
+- Avoid global variables
+
+### Code Quality
+
+- Always include necessary headers
+- Use `const` and `constexpr` extensively (declare const-ness unless value will change)
+- Prefer RAII for resource management
+- When possible, always go for the best big-O number for performance
+
+## Testing guidelines
+
+- Using gtest
+- All tests go in the `tests` directory.
+- Test files don't need `test` in the name, since there in a `tests` directory

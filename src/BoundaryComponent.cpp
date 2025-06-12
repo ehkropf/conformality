@@ -17,20 +17,23 @@
  */
 
 #include "BoundaryComponent.h"
+#include "RootFinder.h"
 
 #include <cmath>
+#include <stdexcept>
 
 // BoundaryComponent implementations
 
 // AnalyticBoundaryComponent implementations
 AnalyticBoundaryComponent::AnalyticBoundaryComponent(
         std::function<Complex(double)> paramFunc,
-        std::function<Complex(double)> derivFunc)
+        std::function<Complex(double)> derivFunc,
+        std::shared_ptr<IStatusManager> statusMgr)
     : parameterization(paramFunc)
     , derivative(derivFunc)
 {
+    p_statusManager = statusMgr;
 }
-
 
 std::vector<Complex> AnalyticBoundaryComponent::sample(size_t numPoints) const
 {
@@ -48,32 +51,63 @@ std::vector<Complex> AnalyticBoundaryComponent::sample(size_t numPoints) const
 
 double AnalyticBoundaryComponent::findParameterization(const Complex& z) const
 {
-    // Simple implementation for test passing
-    // In a real implementation, this would use numerical methods
-    // like Newton's method to find the parameter more accurately
+    // Define the objective function: squared distance from z to parameterization(t)
+    auto objective = [this, &z](double t) -> double
+    {
+        Complex diff = this->evaluate(t) - z;
+        return std::norm(diff); // squared magnitude
+    };
 
-    // For a circle, we can use atan2 directly
-    return std::atan2(std::imag(z), std::real(z));
+    try
+    {
+        // Use ternary search to minimize the distance over [0, 2π]
+        double result = RootFinder::ternarySearch(objective, 0.0, 2.0 * M_PI);
 
-    // Note: A more general implementation would use optimization
-    // to minimize |parameterization(t) - z|
+        // Normalize result to [0, 2π)
+        while (result < 0.0) result += 2.0 * M_PI;
+        while (result >= 2.0 * M_PI) result -= 2.0 * M_PI;
+
+        return result;
+    }
+    catch (const RootFinder::ConvergenceError&)
+    {
+        if (p_statusManager)
+        {
+            p_statusManager->reportWarning("AnalyticBoundaryComponent",
+                                         "Root finding failed to converge in findParameterization",
+                                         "Falling back to atan2 approximation for circular-like boundaries");
+        }
+
+        // Fallback: use atan2 for circular-like boundaries
+        double angle = std::atan2(std::imag(z), std::real(z));
+        if (angle < 0.0) angle += 2.0 * M_PI;
+        return angle;
+    }
 }
 
 // DiscreteBoundaryComponent implementations
-DiscreteBoundaryComponent::DiscreteBoundaryComponent(const std::vector<Complex>& pts)
-    : points(pts)
+DiscreteBoundaryComponent::DiscreteBoundaryComponent(
+        const std::vector<Complex>& pts, InterpolationMethod method,
+        std::shared_ptr<IStatusManager> statusMgr)
+    : points(pts), method(method)
 {
+    p_statusManager = statusMgr;
 }
 
 Complex DiscreteBoundaryComponent::evaluate(double t) const
 {
     // Implementation depends on interpolation method
+    if (method == InterpolationMethod::CUBIC_SPLINE
+            || method == InterpolationMethod::FOURIER)
+    {
+        throw std::runtime_error("Cubic spline and Fourier interpolation methods not yet implemented");
+    }
+
     // For test passing, we'll use a simple linear interpolation
     if (points.empty())
         return Complex(0.0, 0.0);
 
-    double normalizedT = std::fmod(t, 2.0 * M_PI);
-    if (normalizedT < 0) normalizedT += 2.0 * M_PI;
+    double normalizedT = t - 2.0 * M_PI * std::floor(t / (2.0 * M_PI));
 
     double indexF = normalizedT * points.size() / (2.0 * M_PI);
     int index1 = static_cast<int>(std::floor(indexF)) % points.size();
@@ -88,6 +122,7 @@ Complex DiscreteBoundaryComponent::evaluate(double t) const
 
 Complex DiscreteBoundaryComponent::evaluateDerivative(double t) const
 {
+    // TODO: Check if we need anything more complicated than simple finite difference.
     // Simple finite difference approximation
     const double h = 1e-6;
     Complex fwd = evaluate(t + h);

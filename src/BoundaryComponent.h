@@ -20,9 +20,11 @@
 #define BOUNDARY_COMPONENT_HPP
 
 #include "Types.h"
+#include "StatusManager.h"
 
 #include <functional>
 #include <vector>
+#include <memory>
 
 // Forward declarations
 enum class InterpolationMethod {
@@ -37,7 +39,8 @@ enum class InterpolationMethod {
 class BoundaryComponent
 {
 protected:
-    int index = 0;
+    int index{0};
+    std::shared_ptr<IStatusManager> p_statusManager;
 
 public:
     virtual ~BoundaryComponent() = default;
@@ -87,6 +90,15 @@ public:
     {
         index = idx;
     }
+
+    /**
+     * @brief Set the status manager for this boundary component
+     * @param manager Shared pointer to status manager
+     */
+    void setStatusManager(std::shared_ptr<IStatusManager> manager)
+    {
+        p_statusManager = manager;
+    }
 };
 
 /**
@@ -103,9 +115,11 @@ public:
      * @brief Construct a new Analytic Boundary Component
      * @param paramFunc Function mapping parameter t to complex point
      * @param derivFunc Function providing the derivative
+     * @param statusMgr Optional status manager for reporting warnings/errors
      */
     AnalyticBoundaryComponent(std::function<Complex(double)> paramFunc,
-                              std::function<Complex(double)> derivFunc);
+                              std::function<Complex(double)> derivFunc,
+                              std::shared_ptr<IStatusManager> statusMgr = nullptr);
 
     /**
      * @brief Evaluate the boundary at parameter t
@@ -149,25 +163,19 @@ class DiscreteBoundaryComponent : public BoundaryComponent
 {
 private:
     std::vector<Complex> points;
-    // FIXME: Uncomment this when implementing evaluation via method.
-    // InterpolationMethod method;
+    InterpolationMethod method;
 
 public:
     /**
      * @brief Construct a new Discrete Boundary Component
      * @param pts Vector of points defining the boundary
      * @param interpolationMethod Method used for interpolation
+     * @param statusMgr Optional status manager for reporting warnings/errors
      */
-    DiscreteBoundaryComponent(const std::vector<Complex>& pts);
-
-    // FIXME: Implementation method.
-    //DiscreteBoundaryComponent(
-    //    std::vector<Complex> pts,
-    //    InterpolationMethod interpolationMethod = InterpolationMethod::LINEAR
-    //)
-    //    : points(pts)
-    //    , method(interpolationMethod)
-    //{}
+    DiscreteBoundaryComponent(
+            const std::vector<Complex>& pts,
+            InterpolationMethod interpolationMethod = InterpolationMethod::LINEAR,
+            std::shared_ptr<IStatusManager> statusMgr = nullptr);
 
     Complex evaluate(double t) const override;
 
