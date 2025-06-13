@@ -3,7 +3,8 @@
 *.pdf
 .DS_Store
 .claude
+CLAUDE.local.md
 run*.sh
 build/
 design/
-CLAUDE.local.md
+docs/diagrams/

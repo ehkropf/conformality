@@ -1,12 +1,49 @@
 # Diagram file for Conformality
-# vim: ft=yaml
-
 compilation_database_dir: build
-output_directory: .
+output_directory: docs/diagrams
+query_driver: c++
 diagrams:
-  domain_classes:
+  conformal_map:
     type: class
-    title: Domain class structure
+    title: Conformal Map Depends
+    glob:
+      - src/*.h
+      - src/*.cpp
+    include:
+      dependencies:
+        - ConformalMap
+      dependants:
+        - ConformalMap
+    exclude:
+      namespaces:
+        - std
+  theodorsen_method:
+    type: class
+    title: Theodorsen's Method Classes
+    glob:
+      - src/*.h
+      - src/*.cpp
+    include:
+      context:
+        - match:
+            radius: 4
+            pattern: TheodorsenMethod
+#      dependencies:
+#        - TheodorsenMethod
+#      dependants:
+#        - TheodorsenMethod
+    exclude:
+      namespaces:
+        - std
+  all_classes:
+    type: class
+    title: All Conformality Classes
     glob:
       include:
-        - src/*.hpp
+        - src/*.h
+        - src/*.cpp
+    exclude:
+      namespaces:
+        - std
+
+# vim: ft=yaml
