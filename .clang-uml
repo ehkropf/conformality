@@ -17,24 +17,37 @@ diagrams:
     exclude:
       namespaces:
         - std
+
   theodorsen_method:
     type: class
     title: Theodorsen's Method Classes
     glob:
-      - src/*.h
       - src/*.cpp
     include:
       context:
         - match:
             radius: 4
             pattern: TheodorsenMethod
-#      dependencies:
-#        - TheodorsenMethod
-#      dependants:
-#        - TheodorsenMethod
     exclude:
       namespaces:
         - std
+
+  domains:
+    type: class
+    title: Available Domains
+    glob:
+      - src/Domain.cpp
+    include:
+      context:
+        - match:
+            radius: 4
+            pattern: Domain
+    exclude:
+      namespaces:
+        - std
+      elements:
+        - IStatusManager
+
   all_classes:
     type: class
     title: All Conformality Classes
