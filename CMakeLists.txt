@@ -59,6 +59,7 @@ add_library(imobjects OBJECT
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui_draw.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui_tables.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/imgui_widgets.cpp
+    ${CMAKE_SOURCE_DIR}/external/imgui/imgui_demo.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_glfw.cpp
     ${CMAKE_SOURCE_DIR}/external/imgui/backends/imgui_impl_metal.mm
     ${CMAKE_SOURCE_DIR}/external/implot/implot.cpp
@@ -85,6 +86,33 @@ add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/Domain.cpp
     ${CMAKE_SOURCE_DIR}/src/BoundaryComponent.cpp
     ${CMAKE_SOURCE_DIR}/src/Boundary.cpp
+)
+
+#####
+# GUI objects
+add_library(gui_objects OBJECT
+    ${CMAKE_SOURCE_DIR}/src/gui/Application.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/MainWindow.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/Renderer.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/MetalRenderer.mm
+)
+set_property(TARGET gui_objects
+    PROPERTY INCLUDE_DIRECTORIES ${IM_INCLUDE_DIRS}
+)
+
+# GUI executable
+add_executable(conformality_gui
+    ${CMAKE_SOURCE_DIR}/src/gui/main.cpp
+    $<TARGET_OBJECTS:gui_objects>
+    $<TARGET_OBJECTS:imobjects>
+    $<TARGET_OBJECTS:map_objects>
+    $<TARGET_OBJECTS:util_objects>
+    $<TARGET_OBJECTS:domain_objects>
+    $<TARGET_OBJECTS:fftw_wrapper>
+)
+target_link_libraries(conformality_gui
+    ${IM_LINK_LIBS}
+    ${FFTW_LIB}
 )
 
 #####
