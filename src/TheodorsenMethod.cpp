@@ -52,6 +52,9 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     MappingType mapping_type = map_instance.getMappingType();
     bool external = (mapping_type == MappingType::EXTERIOR_TO_INTERIOR);
     
+    // Store current domain for iteration
+    m_current_domain = source_domain;
+    
     // Validate domains
     validateDomain(source_domain, 1); // Simply connected and starlike
     validateDomainCompatibility(target_domain, 1); // Target just needs connectivity check
@@ -123,37 +126,41 @@ Complex TheodorsenMethod::map(const Complex& z) const
         throw std::runtime_error("Map has not been computed yet");
     }
     
-    // Evaluate Laurent series: f(z) = sum_{n=-∞}^{∞} a_n z^n
-    // For numerical stability, we split into positive and negative powers
+    // Evaluate Laurent series for Theodorsen's method: f(z) = a_{-1}*z + a_0 + a_1/z + a_2/z^2 + ...
+    // FFTW coefficients are in order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
     Complex result{0.0, 0.0};
+    size_t N = laurent_coeffs.size();
     
-    // Handle n=0 coefficient separately
-    if (!laurent_coeffs.empty())
+    if (laurent_coeffs.empty())
     {
-        result = result + laurent_coeffs[0];
+        return result;
     }
     
-    // Positive powers: a_n z^n for n > 0
-    Complex z_power = z;
-    for (size_t n = 1; n < laurent_coeffs.size() / 2; ++n)
-    {
-        result = result + laurent_coeffs[n] * z_power;
-        z_power = z_power * z;
+    // The DFT of boundary data ρ(φ)e^{iφ} gives us coefficients for Laurent series
+    // For Theodorsen conformal map from interior domain to unit disk:
+    // f(z) = sum_{k=-∞}^{∞} c_k z^k where the map is analytic in the domain
+    
+    // Add constant term
+    result += laurent_coeffs[0];
+    
+    // For mapping from interior domain to unit disk, we expect the dominant term to be z
+    // and higher positive powers should decay. Let's only use the principal part of the Laurent series.
+    
+    // Add z term (should be the dominant contribution, approximately = z for conformal map)
+    if (N > 1) {
+        // The coefficient for z is at index N-1 in FFTW ordering
+        result += laurent_coeffs[N-1] * z;
     }
     
-    // Negative powers: a_{-n} z^{-n} for n > 0
-    if (std::abs(z) > 1e-12) // Avoid division by zero
-    {
+    // Add 1/z terms (Laurent series principal part)
+    if (std::abs(z) > 1e-12) {
         Complex z_inv = Complex{1.0, 0.0} / z;
         Complex z_inv_power = z_inv;
-        for (size_t n = 1; n < laurent_coeffs.size() / 2; ++n)
-        {
-            size_t neg_index = laurent_coeffs.size() / 2 + n;
-            if (neg_index < laurent_coeffs.size())
-            {
-                result = result + laurent_coeffs[neg_index] * z_inv_power;
-                z_inv_power = z_inv_power * z_inv;
-            }
+        
+        // Add first few 1/z^k terms only
+        for (size_t k = 1; k < std::min(size_t(8), N/2); ++k) {
+            result += laurent_coeffs[k] * z_inv_power;
+            z_inv_power *= z_inv;
         }
     }
     
@@ -230,35 +237,58 @@ std::vector<double> TheodorsenMethod::computeBoundaryModuli(std::shared_ptr<Doma
 
 std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<double>& rho, bool external)
 {
-    // Create complex boundary correspondence function
-    std::vector<Complex> psi(n_points);
+    // Create log(ρ(φ)) for conjugation operator
+    std::vector<Complex> log_rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
-        psi[i] = Complex(rho[i], 0.0) * exp_iphi;
+        // Compute log(ρ(φ_k)) - real-valued since ρ > 0
+        log_rho[i] = Complex(std::log(rho[i]), 0.0);
     }
     
-    // Apply conjugation operator using FFTW wrapper
+    // Apply conjugation operator to log(ρ(φ_k))
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
-    std::vector<Complex> K_psi = fftw.conjugation_operator(psi);
+    std::vector<Complex> delta_fft = fftw.forward_fft(log_rho);
     
-    // Update boundary correspondence
+    // Apply conjugation operator: multiply by ±i for positive/negative frequencies
+    size_t m = n_points / 2;
+    for (size_t k = 1; k < m; ++k)
+    {
+        delta_fft[k] = delta_fft[k] * Complex(0.0, -1.0); // multiply by -i
+    }
+    for (size_t k = m; k < n_points; ++k)  
+    {
+        delta_fft[k] = delta_fft[k] * Complex(0.0, 1.0);  // multiply by +i
+    }
+    
+    // Get delta_{k+1} by inverse FFT (take real part)
+    std::vector<Complex> delta_complex = fftw.backward_fft(delta_fft);
+    std::vector<double> delta(n_points);
+    for (size_t i = 0; i < n_points; ++i)
+    {
+        delta[i] = delta_complex[i].real();
+    }
+    
+    // Renormalize: φ_{k+1} = δ_{k+1} + θ - δ_{k+1}[0]
+    double delta_0 = delta[0];
+    std::vector<double> phi_new(n_points);
+    for (size_t i = 0; i < n_points; ++i)
+    {
+        phi_new[i] = delta[i] + phi_sequence[i] - delta_0;
+    }
+    
+    // Compute new ρ values at updated φ positions
+    auto source_domain = std::dynamic_pointer_cast<StarlikeDomain>(m_current_domain);
     std::vector<double> new_rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
-        
+        double radius = source_domain->getRadius(phi_new[i]);
         if (external)
         {
-            // External case: ψ_{n+1} = ψ_n - K[ψ_n]
-            Complex updated_psi = psi[i] - K_psi[i];
-            new_rho[i] = std::abs(updated_psi);
+            new_rho[i] = 1.0 / radius;  // External mapping
         }
         else
         {
-            // Internal case: ψ_{n+1} = ψ_n + K[ψ_n]
-            Complex updated_psi = psi[i] + K_psi[i];
-            new_rho[i] = std::abs(updated_psi);
+            new_rho[i] = radius;        // Internal mapping  
         }
     }
     
@@ -271,14 +301,15 @@ void TheodorsenMethod::computeLaurentCoefficients(const std::vector<Complex>& bo
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
     std::vector<Complex> coeffs = fftw.forward_fft(boundary_data);
     
-    // Store coefficients in Laurent series format
+    // Store coefficients in Laurent series format with normalization
     laurent_coeffs.resize(n_points);
+    double normalization = 1.0 / static_cast<double>(n_points);
     
-    // Copy coefficients with proper indexing
+    // Apply normalization to coefficients
     // FFTW returns coefficients in standard order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
     for (size_t i = 0; i < n_points; ++i)
     {
-        laurent_coeffs[i] = coeffs[i];
+        laurent_coeffs[i] = coeffs[i] * normalization;
     }
 }
 

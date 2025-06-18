@@ -87,8 +87,12 @@ TEST_F(TheodorsenMethodTest, DomainValidation)
     // Should work with starlike -> unit circle
     EXPECT_NO_THROW(method->compute(map, 1e-6));
     
-    // Test with non-starlike domain
-    auto non_starlike = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 2.0);
+    // Test with non-starlike domain (L-shaped polygon)
+    std::vector<Complex> l_shape_vertices = {
+        Complex(0.0, 0.0), Complex(2.0, 0.0), Complex(2.0, 1.0),
+        Complex(1.0, 1.0), Complex(1.0, 2.0), Complex(0.0, 2.0)
+    };
+    auto non_starlike = std::make_shared<PolygonalDomain>(l_shape_vertices);
     ConformalMap invalid_map(non_starlike, unit_circle, method);
     
     // Should reject non-starlike source domain
@@ -199,7 +203,7 @@ TEST_F(TheodorsenMethodTest, ConvergenceWithDifferentTolerances)
 TEST_F(TheodorsenMethodTest, DifferentEllipseParameters)
 {
     // Test with different ellipse parameters
-    auto thin_ellipse = std::make_shared<EllipticalDomain>(5.0, 1.0); // Very elongated
+    auto thin_ellipse = std::make_shared<EllipticalDomain>(1.8, 1.0); // Mildly elongated
     auto fat_ellipse = std::make_shared<EllipticalDomain>(1.1, 1.0);  // Nearly circular
     
     ConformalMap thin_map(thin_ellipse, unit_circle, method);

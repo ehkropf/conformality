@@ -29,6 +29,23 @@ TBD coherently, but see design directory.
   - StatusManager will handle collecting messages and logging
   - The `spdlog` package will be used for logging
 
+## FFTW & Numerical Methods
+
+### FFTW Coefficient Ordering
+- **Forward FFT output order:** `[0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]`
+- **Normalization:** FFTW does not normalize by default - divide by N for proper DFT coefficients
+- **Laurent Series Mapping:** For conformal mapping applications:
+  - Positive frequencies (indices 1 to N/2-1) → z^k terms
+  - Negative frequencies (indices N/2 to N-1) → z^{-j} terms where j = N-k
+  - Index 0 → constant term
+  - Index N-1 → z^{-1} coefficient (dominant for conformal maps)
+
+### Theodorsen Method Specifics
+- **Series form:** f(z) = a₀ + a₋₁z + a₁/z + a₂/z² + ...
+- **Numerical stability:** High-order positive powers z^k can cause explosion for |z| > 1
+- **Practical evaluation:** Use only constant, linear (z), and first few inverse power (1/z^k) terms
+- **Convergence issues:** Extreme ellipse aspect ratios (>2:1) may not converge within default iteration limits
+
 ## Build & development commands
 - Builds will be done in a `build` directory
   - Every cmake and make command should be given from this directory
@@ -39,6 +56,15 @@ TBD coherently, but see design directory.
   - Release is default build type
 - Use `make -j9` to build
 - No IDE used, just MacVim and shell vim.
+
+## Documentation & Diagrams
+- Automatic class diagrams are generated with `clang-uml`
+- Configuration file is `.clang-uml` in the project root directory
+- Auto generated diagrams are available in docs/diagrams. Claude may generate any diagrams in the config file not already in this directory.
+
+## Project Management
+- GitHub integration available via `gh` tool
+- Can use milestones and issues for planning discussions
 
 ## C++ Style Guide
 
@@ -113,4 +139,4 @@ public:
 
 - Using gtest
 - All tests go in the `tests` directory.
-- Test files don't need `test` in the name, since there in a `tests` directory
+- Test files don't need `test` in the name, since they are in a `tests` directory

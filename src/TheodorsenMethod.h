@@ -42,6 +42,7 @@ private:
     std::vector<double> phi_sequence;             // Angle sequence for sampling
     bool is_converged;                            // Convergence flag
     double residual_norm;                         // Last residual norm
+    std::shared_ptr<Domain> m_current_domain;     // Current domain being processed
 
     /**
      * @brief Sample the boundary of a starlike domain
