@@ -124,7 +124,6 @@ TEST_F(TheodorsenMethodTest, ConvergenceWithDifferentTolerances)
     EXPECT_LE(tight_residual, loose_residual);
 }
 
-
 TEST_F(TheodorsenMethodTest, DifferentEllipseParameters)
 {
     // Test with different ellipse parameters
@@ -148,6 +147,7 @@ TEST_F(TheodorsenMethodTest, DifferentEllipseParameters)
     // Fat ellipse (closer to circle) should converge faster
     EXPECT_LE(fat_iterations, thin_iterations + 5); // Allow some tolerance
 }
+
 TEST_F(TheodorsenMethodTest, DomainValidation)
 {
     // Create conformal map
