@@ -163,8 +163,6 @@ void MainWindow::renderMainLayout()
     if (ImGui::Begin("MainLayout", nullptr, window_flags))
     {
         // Three-panel layout: Control | Visualization | Status
-        float control_width = 300.0f;
-        float status_height = 100.0f;
         
         // Control Panel (left column)
         renderControlPanel();
