@@ -191,12 +191,12 @@ void MainWindow::renderControlPanel()
         // Ellipse parameters
         bool parametersChanged = false;
         
-        if (ImGui::SliderFloat("Ellipse a", &m_ellipseA, 0.5f, 5.0f))
+        if (ImGui::SliderFloat("Ellipse a", &m_ellipseA, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
         {
             parametersChanged = true;
         }
         
-        if (ImGui::SliderFloat("Ellipse b", &m_ellipseB, 0.1f, m_ellipseA))
+        if (ImGui::SliderFloat("Ellipse b", &m_ellipseB, 0.1f, m_ellipseA, "%.2f", ImGuiSliderFlags_AlwaysClamp))
         {
             parametersChanged = true;
         }
