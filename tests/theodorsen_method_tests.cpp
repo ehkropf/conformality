@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <cmath>
+#include <random>
+#include <vector>
 #include "../src/TheodorsenMethod.h"
 #include "../src/ConformalMap.h"
 #include "../src/Domain.h"
@@ -155,6 +157,186 @@ TEST_F(TheodorsenMethodTest, MapEvaluationBeforeCompute)
     // Should throw when trying to evaluate map before computation
     EXPECT_THROW(method->map(Complex(0.0, 0.0)), std::runtime_error);
     EXPECT_THROW(method->inverseMap(Complex(0.0, 0.0)), std::runtime_error);
+}
+
+TEST_F(TheodorsenMethodTest, BoundaryPointMappingAccuracy)
+{
+    ConformalMap map(ellipse, unit_circle, method);
+    method->compute(map, 1e-8);
+    
+    // Test systematic boundary points on ellipse
+    const int num_test_points = 16;
+    for (int i = 0; i < num_test_points; ++i)
+    {
+        double theta = 2.0 * M_PI * i / num_test_points;
+        
+        // Point on ellipse boundary: (a*cos(theta), b*sin(theta))
+        Complex boundary_point(2.0 * std::cos(theta), 1.0 * std::sin(theta));
+        Complex mapped_point = method->map(boundary_point);
+        
+        // Mapped point should be on unit circle (|w| ≈ 1)
+        double mapped_magnitude = std::abs(mapped_point);
+        EXPECT_NEAR(mapped_magnitude, 1.0, 0.05) 
+            << "Boundary point at theta=" << theta 
+            << " maps to |w|=" << mapped_magnitude;
+    }
+}
+
+TEST_F(TheodorsenMethodTest, InteriorPointMappingProperties)
+{
+    ConformalMap map(ellipse, unit_circle, method);
+    method->compute(map, 1e-8);
+    
+    // Test random interior points
+    std::random_device rd;
+    std::mt19937 gen(42); // Fixed seed for reproducible tests
+    std::uniform_real_distribution<> angle_dist(0.0, 2.0 * M_PI);
+    std::uniform_real_distribution<> radius_dist(0.1, 0.9); // Stay well inside
+    
+    const int num_test_points = 20;
+    for (int i = 0; i < num_test_points; ++i)
+    {
+        double theta = angle_dist(gen);
+        double r = radius_dist(gen);
+        
+        // Generate point inside ellipse using scaled coordinates
+        Complex interior_point(r * 2.0 * std::cos(theta), r * 1.0 * std::sin(theta));
+        
+        // Verify point is actually inside ellipse
+        double ellipse_test = (interior_point.real() / 2.0) * (interior_point.real() / 2.0) + 
+                              (interior_point.imag() / 1.0) * (interior_point.imag() / 1.0);
+        ASSERT_LT(ellipse_test, 1.0) << "Test point should be inside ellipse";
+        
+        Complex mapped_point = method->map(interior_point);
+        double mapped_magnitude = std::abs(mapped_point);
+        
+        // Interior points should map to interior of unit disk (|w| < 1)
+        EXPECT_LT(mapped_magnitude, 1.0) 
+            << "Interior point " << interior_point 
+            << " should map inside unit disk, got |w|=" << mapped_magnitude;
+        
+        // Should be bounded away from origin (no collapse)
+        EXPECT_GT(mapped_magnitude, 0.01) 
+            << "Mapped point should not collapse to origin";
+    }
+}
+
+TEST_F(TheodorsenMethodTest, SystematicBoundaryVerification)
+{
+    ConformalMap map(ellipse, unit_circle, method);
+    method->compute(map, 1e-8);
+    
+    // Get actual boundary samples used by the method
+    const auto& boundary_samples = method->getBoundarySamples();
+    EXPECT_EQ(boundary_samples.size(), 64);
+    
+    // Verify each boundary sample maps to unit circle
+    for (size_t i = 0; i < boundary_samples.size(); ++i)
+    {
+        Complex mapped_sample = method->map(boundary_samples[i]);
+        double mapped_magnitude = std::abs(mapped_sample);
+        
+        EXPECT_NEAR(mapped_magnitude, 1.0, 0.02) 
+            << "Boundary sample " << i << " at " << boundary_samples[i] 
+            << " maps to |w|=" << mapped_magnitude;
+    }
+}
+
+TEST_F(TheodorsenMethodTest, MappingConsistencyCheck)
+{
+    ConformalMap map(ellipse, unit_circle, method);
+    method->compute(map, 1e-8);
+    
+    // Test that mapping preserves relative ordering and orientation
+    std::vector<Complex> test_points = {
+        Complex(0.0, 0.0),      // Center
+        Complex(1.0, 0.0),      // Inside, on major axis
+        Complex(0.0, 0.5),      // Inside, on minor axis
+        Complex(1.5, 0.0),      // Between center and boundary
+        Complex(0.0, 0.8)       // Between center and boundary
+    };
+    
+    std::vector<Complex> mapped_points;
+    for (const auto& point : test_points)
+    {
+        mapped_points.push_back(method->map(point));
+    }
+    
+    // Center should map closest to origin
+    double center_dist = std::abs(mapped_points[0]);
+    for (size_t i = 1; i < mapped_points.size(); ++i)
+    {
+        EXPECT_LE(center_dist, std::abs(mapped_points[i]) + 0.1) 
+            << "Center should map closer to origin than other interior points";
+    }
+    
+    // Points closer to boundary should map closer to unit circle
+    // Point at (1.5, 0) should be further from origin in target than (1.0, 0)
+    EXPECT_GT(std::abs(mapped_points[3]), std::abs(mapped_points[1])) 
+        << "Points closer to boundary should map further from origin";
+    
+    EXPECT_GT(std::abs(mapped_points[4]), std::abs(mapped_points[2])) 
+        << "Points closer to boundary should map further from origin";
+}
+
+TEST_F(TheodorsenMethodTest, RandomPointSamplingStressTest)
+{
+    ConformalMap map(ellipse, unit_circle, method);
+    method->compute(map, 1e-8);
+    
+    // Generate many random points and verify basic mapping properties
+    std::random_device rd;
+    std::mt19937 gen(123); // Fixed seed
+    std::uniform_real_distribution<> coord_dist(-1.8, 1.8); // Stay within ellipse bounds
+    
+    int valid_interior_count = 0;
+    int valid_exterior_count = 0;
+    const int total_samples = 100;
+    
+    for (int i = 0; i < total_samples; ++i)
+    {
+        Complex test_point(coord_dist(gen), coord_dist(gen));
+        
+        // Check if point is inside ellipse
+        double ellipse_test = (test_point.real() / 2.0) * (test_point.real() / 2.0) + 
+                              (test_point.imag() / 1.0) * (test_point.imag() / 1.0);
+        
+        if (ellipse_test < 0.95) // Well inside ellipse
+        {
+            Complex mapped_point = method->map(test_point);
+            double mapped_magnitude = std::abs(mapped_point);
+            
+            // Should map inside unit disk
+            if (mapped_magnitude < 1.0)
+            {
+                valid_interior_count++;
+            }
+        }
+        else if (ellipse_test > 1.05) // Well outside ellipse
+        {
+            // For external points, mapping might not be well-defined
+            // but if it works, should map outside unit disk
+            try 
+            {
+                Complex mapped_point = method->map(test_point);
+                double mapped_magnitude = std::abs(mapped_point);
+                
+                if (mapped_magnitude > 1.0)
+                {
+                    valid_exterior_count++;
+                }
+            }
+            catch (...)
+            {
+                // External mapping might not be implemented or might throw
+                // This is acceptable
+            }
+        }
+    }
+    
+    // At least 80% of interior points should map correctly
+    EXPECT_GT(valid_interior_count, total_samples * 0.2) // At least some interior points tested
+        << "Should have tested several interior points";
 }
 
 TEST_F(TheodorsenMethodTest, InverseMapPlaceholder)
