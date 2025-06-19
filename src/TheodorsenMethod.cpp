@@ -22,7 +22,6 @@
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>
-#include <numeric>
 
 TheodorsenMethod::TheodorsenMethod(size_t num_points)
     : ConformalMapMethod()
@@ -34,14 +33,14 @@ TheodorsenMethod::TheodorsenMethod(size_t num_points)
     {
         throw std::invalid_argument("Number of points must be a power of 2 for FFT efficiency");
     }
-    
+
     // Initialize phi sequence (equally spaced angles)
     phi_sequence.resize(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
         phi_sequence[i] = 2.0 * M_PI * static_cast<double>(i) / static_cast<double>(n_points);
     }
-    
+
     m_max_iterations = 100;
 }
 
@@ -51,14 +50,14 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     auto target_domain = map_instance.getTargetDomain();
     MappingType mapping_type = map_instance.getMappingType();
     bool external = (mapping_type == MappingType::EXTERIOR_TO_INTERIOR);
-    
+
     // Store current domain for iteration
     m_current_domain = source_domain;
-    
+
     // Validate domains
     validateDomain(source_domain, 1); // Simply connected and starlike
     validateDomainCompatibility(target_domain, 1); // Target just needs connectivity check
-    
+
     // Check if target domain is unit circle
     auto circular_target = std::dynamic_pointer_cast<CircularDomain>(target_domain);
     if (!circular_target || std::abs(circular_target->getRadius() - 1.0) > 1e-12 ||
@@ -66,32 +65,32 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     {
         throw std::invalid_argument("Theodorsen's method requires unit circle as target domain");
     }
-    
+
     // Sample the boundary
     boundary_samples = sampleBoundary(source_domain, external);
-    
+
     // Compute initial boundary moduli
     std::vector<double> rho = computeBoundaryModuli(source_domain, external);
-    
+
     // Iterative refinement
     m_iteration_count = 0;
     is_converged = false;
     residual_norm = std::numeric_limits<double>::infinity();
-    
+
     while (m_iteration_count < m_max_iterations && !is_converged)
     {
         std::vector<double> old_rho = rho;
         rho = theodorsenIteration(rho, external);
-        
+
         is_converged = checkConvergence(old_rho, rho, target_accuracy);
         ++m_iteration_count;
     }
-    
+
     if (!is_converged)
     {
         throw std::runtime_error("Theodorsen's method failed to converge within maximum iterations");
     }
-    
+
     // Compute final Laurent coefficients
     std::vector<Complex> boundary_correspondence(n_points);
     for (size_t i = 0; i < n_points; ++i)
@@ -99,7 +98,7 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
         Complex exp_iphi(std::cos(phi_sequence[i]), std::sin(phi_sequence[i]));
         boundary_correspondence[i] = exp_iphi * Complex(rho[i], 0.0);
     }
-    
+
     computeLaurentCoefficients(boundary_correspondence);
     m_achieved_accuracy = residual_norm;
 }
@@ -125,45 +124,45 @@ Complex TheodorsenMethod::map(const Complex& z) const
     {
         throw std::runtime_error("Map has not been computed yet");
     }
-    
+
     // Evaluate Laurent series for Theodorsen's method: f(z) = a_{-1}*z + a_0 + a_1/z + a_2/z^2 + ...
     // FFTW coefficients are in order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
     Complex result{0.0, 0.0};
     size_t N = laurent_coeffs.size();
-    
+
     if (laurent_coeffs.empty())
     {
         return result;
     }
-    
+
     // The DFT of boundary data ρ(φ)e^{iφ} gives us coefficients for Laurent series
     // For Theodorsen conformal map from interior domain to unit disk:
     // f(z) = sum_{k=-∞}^{∞} c_k z^k where the map is analytic in the domain
-    
+
     // Add constant term
     result += laurent_coeffs[0];
-    
+
     // For mapping from interior domain to unit disk, we expect the dominant term to be z
     // and higher positive powers should decay. Let's only use the principal part of the Laurent series.
-    
+
     // Add z term (should be the dominant contribution, approximately = z for conformal map)
     if (N > 1) {
         // The coefficient for z is at index N-1 in FFTW ordering
         result += laurent_coeffs[N-1] * z;
     }
-    
+
     // Add 1/z terms (Laurent series principal part)
     if (std::abs(z) > 1e-12) {
         Complex z_inv = Complex{1.0, 0.0} / z;
         Complex z_inv_power = z_inv;
-        
+
         // Add first few 1/z^k terms only
         for (size_t k = 1; k < std::min(size_t(8), N/2); ++k) {
             result += laurent_coeffs[k] * z_inv_power;
             z_inv_power *= z_inv;
         }
     }
-    
+
     return result;
 }
 
@@ -180,16 +179,16 @@ void TheodorsenMethod::setNumPoints(size_t num_points)
     {
         throw std::invalid_argument("Number of points must be a power of 2 for FFT efficiency");
     }
-    
+
     n_points = num_points;
-    
+
     // Reinitialize phi sequence
     phi_sequence.resize(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
         phi_sequence[i] = 2.0 * M_PI * static_cast<double>(i) / static_cast<double>(n_points);
     }
-    
+
     // Clear previous computation results
     laurent_coeffs.clear();
     boundary_samples.clear();
@@ -200,17 +199,17 @@ std::vector<Complex> TheodorsenMethod::sampleBoundary(std::shared_ptr<Domain> do
 {
     auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
     Complex center = starlike_domain->getCenter();
-    
+
     std::vector<Complex> samples(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
         double angle = phi_sequence[i];
         double radius = starlike_domain->getRadius(angle);
-        
+
         Complex boundary_point = center + Complex(radius, 0.0) * Complex(std::cos(angle), std::sin(angle));
         samples[i] = boundary_point;
     }
-    
+
     return samples;
 }
 
@@ -218,20 +217,20 @@ std::vector<double> TheodorsenMethod::computeBoundaryModuli(std::shared_ptr<Doma
 {
     auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
     [[maybe_unused]] Complex center = starlike_domain->getCenter();
-    
+
     std::vector<double> rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
         double angle = phi_sequence[i];
         rho[i] = starlike_domain->getRadius(angle);
-        
+
         if (external)
         {
             // For external mapping, invert the radius
             rho[i] = 1.0 / rho[i];
         }
     }
-    
+
     return rho;
 }
 
@@ -244,22 +243,22 @@ std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<doub
         // Compute log(ρ(φ_k)) - real-valued since ρ > 0
         log_rho[i] = Complex(std::log(rho[i]), 0.0);
     }
-    
+
     // Apply conjugation operator to log(ρ(φ_k))
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
     std::vector<Complex> delta_fft = fftw.forward_fft(log_rho);
-    
+
     // Apply conjugation operator: multiply by ±i for positive/negative frequencies
     size_t m = n_points / 2;
     for (size_t k = 1; k < m; ++k)
     {
         delta_fft[k] = delta_fft[k] * Complex(0.0, -1.0); // multiply by -i
     }
-    for (size_t k = m; k < n_points; ++k)  
+    for (size_t k = m; k < n_points; ++k)
     {
         delta_fft[k] = delta_fft[k] * Complex(0.0, 1.0);  // multiply by +i
     }
-    
+
     // Get delta_{k+1} by inverse FFT (take real part)
     std::vector<Complex> delta_complex = fftw.backward_fft(delta_fft);
     std::vector<double> delta(n_points);
@@ -267,7 +266,7 @@ std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<doub
     {
         delta[i] = delta_complex[i].real();
     }
-    
+
     // Renormalize: φ_{k+1} = δ_{k+1} + θ - δ_{k+1}[0]
     double delta_0 = delta[0];
     std::vector<double> phi_new(n_points);
@@ -275,7 +274,7 @@ std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<doub
     {
         phi_new[i] = delta[i] + phi_sequence[i] - delta_0;
     }
-    
+
     // Compute new ρ values at updated φ positions
     auto source_domain = std::dynamic_pointer_cast<StarlikeDomain>(m_current_domain);
     std::vector<double> new_rho(n_points);
@@ -288,10 +287,10 @@ std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<doub
         }
         else
         {
-            new_rho[i] = radius;        // Internal mapping  
+            new_rho[i] = radius;        // Internal mapping
         }
     }
-    
+
     return new_rho;
 }
 
@@ -300,11 +299,11 @@ void TheodorsenMethod::computeLaurentCoefficients(const std::vector<Complex>& bo
     // Use FFT to compute Fourier coefficients
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
     std::vector<Complex> coeffs = fftw.forward_fft(boundary_data);
-    
+
     // Store coefficients in Laurent series format with normalization
     laurent_coeffs.resize(n_points);
     double normalization = 1.0 / static_cast<double>(n_points);
-    
+
     // Apply normalization to coefficients
     // FFTW returns coefficients in standard order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
     for (size_t i = 0; i < n_points; ++i)
@@ -318,14 +317,14 @@ bool TheodorsenMethod::checkConvergence(const std::vector<double>& old_rho, cons
     // Compute L2 norm of the difference
     double sum_sq_diff = 0.0;
     double sum_sq_old = 0.0;
-    
+
     for (size_t i = 0; i < n_points; ++i)
     {
         double diff = new_rho[i] - old_rho[i];
         sum_sq_diff += diff * diff;
         sum_sq_old += old_rho[i] * old_rho[i];
     }
-    
+
     residual_norm = std::sqrt(sum_sq_diff) / std::sqrt(sum_sq_old);
     return residual_norm < tolerance;
 }
