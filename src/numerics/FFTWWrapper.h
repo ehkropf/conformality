@@ -23,7 +23,7 @@
 #include <vector>
 #include <filesystem>
 
-#include "Types.h"
+#include "../core/Types.h"
 
 /**
  * @brief A wrapper for the FFTW library that handles 1D FFTs and wisdom management.

@@ -17,9 +17,9 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Domain.h"
-#include "../src/Boundary.h"
-#include "../src/BoundaryComponent.h"
+#include "../src/domains/Domain.h"
+#include "../src/domains/Boundary.h"
+#include "../src/domains/BoundaryComponent.h"
 #include <memory>
 #include <cmath>
 

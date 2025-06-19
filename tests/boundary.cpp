@@ -17,8 +17,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Boundary.h"
-#include "../src/BoundaryComponent.h"
+#include "../src/domains/Boundary.h"
+#include "../src/domains/BoundaryComponent.h"
 
 class BoundaryTest : public ::testing::Test
 {

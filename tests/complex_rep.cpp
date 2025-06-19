@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Types.h"
+#include "../src/core/Types.h"
 
 TEST(ComplexTest, Construction)
 {

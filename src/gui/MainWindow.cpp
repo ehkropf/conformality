@@ -2,7 +2,7 @@
 #include "VisualizationPanel.h"
 #include "GuiController.h"
 #include "Application.h"
-#include "../Types.h"
+#include "../core/Types.h"
 #include "imgui.h"
 #include "implot.h"
 #include <cmath>

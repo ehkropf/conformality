@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/FFTWWrapper.h"
+#include "../src/numerics/FFTWWrapper.h"
 #include <cmath>
 #include <filesystem>
 

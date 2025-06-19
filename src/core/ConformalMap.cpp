@@ -17,7 +17,7 @@
  */
 
 #include "ConformalMap.h"
-#include "ConformalMapMethod.h"
+#include "../methods/ConformalMapMethod.h"
 
 #include <stdexcept>
 

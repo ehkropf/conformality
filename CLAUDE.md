@@ -1,15 +1,60 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Claude Project Guide
 
 ## Project Status & Documentation
 
-**Current Phase:** Phase 1
+**Current Phase:** Phase 1 - Theodorsen method implementation with GUI
 **Project Overview:** `design/high_level_overview.md`
 **Phase 1 Documentation:** `design/phase1/` directory
 **Map Design Discussion:** `design/phase1/map_hierarchy_design_discussion.md` (led to major refactor)
 
-## Project architecture
+### Current Implementation Status
+- ✅ Core domain and mapping architecture completed
+- ✅ Theodorsen method for simply connected domains  
+- ✅ ImGui-based GUI with Metal rendering (macOS)
+- ✅ Comprehensive test suite with Google Test
+- ✅ FFTW integration for Laurent series computation
+- 🔄 Real-time parameter adjustment and visualization
+- 📋 Planned: Numerical tolerance management refactor
 
-TBD coherently, but see design directory.
+## Project Architecture
+
+**Conformality** is a C++20 conformal mapping toolset using pure composition with a single orchestrator pattern.
+
+### Core Components
+
+#### 1. Conformal Mapping System
+- **`ConformalMap`** - Single orchestrator class coordinating domain and method
+- **`ConformalMapMethod`** - Abstract base for mapping algorithms
+- **`TheodorsenMethod`** - Implements Theodorsen's method for simply connected domains
+
+#### 2. Domain System
+- **`Domain`** - Abstract base class for geometric domains (elliptical, circular, starlike)
+- **`Boundary`** - Manages domain boundaries with parameterized components
+- **`BoundaryComponent`** - Individual boundary curve segments with sampling
+
+#### 3. Numerical Infrastructure
+- **`FFTWWrapper`** - FFTW library integration for Laurent series coefficients
+- **`Grid`** - Grid generation and conformal grid visualization
+- **`RootFinder`** - Numerical root finding with configurable tolerances
+- **`Types`** - Core mathematical types and complex number utilities
+
+#### 4. GUI System (ImGui + Metal)
+- **`Application`** - Main application controller and event loop
+- **`MainWindow`** - Primary GUI window with dual-domain visualization
+- **`VisualizationPanel`** - Real-time conformal mapping display
+- **`MetalRenderer`** - Metal-based rendering backend for macOS
+- **`GuiController`** - GUI state management and parameter controls
+
+### Directory Structure
+- `src/` - Core implementation (domains, methods, numerical tools)
+- `src/gui/` - ImGui-based GUI components
+- `tests/` - Google Test suite with comprehensive coverage
+- `external/` - Third-party libraries (imgui, implot)
+- `design/` - Phase documentation and architectural decisions
 
 ## Dependencies & Libraries
 
@@ -18,7 +63,10 @@ TBD coherently, but see design directory.
   - implot
   - spdlog
 - **Libraries that must be pre-installed**
-  - FFTW (needs compiled for target system)
+  - FFTW3 (Fast Fourier Transform library, needs compiled for target system)
+  - GLFW (windowing library)
+  - Metal/MetalKit (macOS graphics - automatically available on macOS)
+  - Cocoa/IOKit/CoreVideo/QuartzCore (macOS frameworks)
 
 ## Common patterns & Utilities
 
@@ -46,16 +94,37 @@ TBD coherently, but see design directory.
 - **Practical evaluation:** Use only constant, linear (z), and first few inverse power (1/z^k) terms
 - **Convergence issues:** Extreme ellipse aspect ratios (>2:1) may not converge within default iteration limits
 
-## Build & development commands
-- Builds will be done in a `build` directory
-  - Every cmake and make command should be given from this directory
-  - Tests will be run from this directory
-- Use `cmake` to configure the build
-  - CC=clang
-  - CXX=clang++
-  - Release is default build type
-- Use `make -j9` to build
-- No IDE used, just MacVim and shell vim.
+## Build & Development Commands
+
+### Building the Project
+```bash
+# From project root, create and enter build directory
+mkdir -p build && cd build
+
+# Configure with cmake (uses clang by default)
+CC=clang CXX=clang++ cmake ..
+
+# Build with parallel jobs
+make -j9
+```
+
+### Running Tests
+```bash
+# From build directory
+./test_exec
+```
+
+### Development Workflow
+- All builds happen in the `build/` directory
+- Every cmake and make command should be run from the build directory
+- Tests are run from the build directory
+- Default build type is Release
+- Editor: MacVim and shell vim
+- CMake automatically generates compile_commands.json for editor integration
+
+### Key Build Targets
+- Main executable: `conformality` (GUI application)
+- Test executable: `test_exec` (Google Test suite)
 
 ## Documentation & Diagrams
 - Automatic class diagrams are generated with `clang-uml`
@@ -135,8 +204,23 @@ public:
 - Prefer RAII for resource management
 - When possible, always go for the best big-O number for performance
 
-## Testing guidelines
+## Testing Guidelines
 
-- Using gtest
-- All tests go in the `tests` directory.
-- Test files don't need `test` in the name, since they are in a `tests` directory
+### Framework & Structure
+- **Framework:** Google Test (gtest)
+- **Location:** All tests in the `tests/` directory
+- **Naming:** Test files don't need `test` prefix (since they're in a `tests` directory)
+- **Execution:** Run `./test_exec` from the `build/` directory
+
+### Test Coverage Areas
+- **Boundary System:** Component creation, parameterization, sampling
+- **Domain Implementations:** Elliptical, circular, and starlike domains
+- **Conformal Mapping:** Theodorsen method with internal/external mappings  
+- **Numerical Methods:** FFT wrapper, root finding, coefficient computation
+- **Status Management:** Error handling and convergence monitoring
+
+### Test Organization
+- Tests are comprehensive and cover all major system components
+- Each test file focuses on a specific module or class
+- Integration tests verify component interactions
+- Numerical tests include tolerance and convergence validation

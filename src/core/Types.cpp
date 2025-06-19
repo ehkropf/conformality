@@ -1,6 +1,6 @@
 #include "Types.h"
 
-#include "Domain.h"
+#include "../domains/Domain.h"
 
 MappingType determineMappingType(const Domain& source, const Domain& target)
 {

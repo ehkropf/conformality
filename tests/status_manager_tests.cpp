@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/StatusManager.h"
+#include "../src/core/StatusManager.h"
 
 class StatusManagerTest : public ::testing::Test
 {

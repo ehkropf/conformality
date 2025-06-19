@@ -17,7 +17,7 @@
  */
 
 #include "BoundaryComponent.h"
-#include "RootFinder.h"
+#include "../numerics/RootFinder.h"
 
 #include <cmath>
 #include <stdexcept>

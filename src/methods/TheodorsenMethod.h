@@ -20,7 +20,7 @@
 #define THEODORSEN_METHOD_HPP
 
 #include "ConformalMapMethod.h"
-#include "FFTWWrapper.h"
+#include "../numerics/FFTWWrapper.h"
 #include <vector>
 
 /**

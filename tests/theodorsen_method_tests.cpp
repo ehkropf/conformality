@@ -21,9 +21,9 @@
 #include <cmath>
 #include <random>
 #include <vector>
-#include "../src/TheodorsenMethod.h"
-#include "../src/ConformalMap.h"
-#include "../src/Domain.h"
+#include "../src/methods/TheodorsenMethod.h"
+#include "../src/core/ConformalMap.h"
+#include "../src/domains/Domain.h"
 
 class TheodorsenMethodTest : public ::testing::Test
 {

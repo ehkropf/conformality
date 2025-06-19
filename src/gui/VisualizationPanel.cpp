@@ -1,6 +1,6 @@
 #include "VisualizationPanel.h"
-#include "../ConformalMap.h"
-#include "../Grid.h"
+#include "../core/ConformalMap.h"
+#include "../numerics/Grid.h"
 #include "imgui.h"
 #include "implot.h"
 #include <cmath>

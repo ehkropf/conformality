@@ -1,8 +1,8 @@
 #include "GuiController.h"
 #include "VisualizationPanel.h"
-#include "../ConformalMap.h"
-#include "../Domain.h"
-#include "../TheodorsenMethod.h"
+#include "../core/ConformalMap.h"
+#include "../domains/Domain.h"
+#include "../methods/TheodorsenMethod.h"
 #include <cmath>
 #include <stdexcept>
 

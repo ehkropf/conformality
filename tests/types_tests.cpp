@@ -17,8 +17,8 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Types.h"
-#include "../src/Domain.h"
+#include "../src/core/Types.h"
+#include "../src/domains/Domain.h"
 
 class TypesTest : public ::testing::Test
 {

@@ -19,8 +19,8 @@
 #ifndef BOUNDARY_COMPONENT_HPP
 #define BOUNDARY_COMPONENT_HPP
 
-#include "Types.h"
-#include "StatusManager.h"
+#include "../core/Types.h"
+#include "../core/StatusManager.h"
 
 #include <functional>
 #include <vector>

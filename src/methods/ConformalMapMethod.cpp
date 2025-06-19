@@ -17,8 +17,8 @@
  */
 
 #include "ConformalMapMethod.h"
-#include "ConformalMap.h"
-#include "Domain.h"
+#include "../core/ConformalMap.h"
+#include "../domains/Domain.h"
 #include <stdexcept>
 
 ConformalMapMethod::ConformalMapMethod()

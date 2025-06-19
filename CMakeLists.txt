@@ -33,7 +33,7 @@ if(FFTW_LIB)
     endif()
 endif()
 add_library(fftw_wrapper OBJECT
-    src/FFTWWrapper.cpp
+    src/numerics/FFTWWrapper.cpp
 )
 
 find_library(GLFW_LIB glfw.3 HINTS /opt/local/lib /usr/local/lib REQUIRED)
@@ -72,20 +72,20 @@ set_property(TARGET imobjects
 #####
 # Sources
 add_library(map_objects OBJECT
-    ${CMAKE_SOURCE_DIR}/src/ConformalMap.cpp
-    ${CMAKE_SOURCE_DIR}/src/ConformalMapMethod.cpp
-    ${CMAKE_SOURCE_DIR}/src/TheodorsenMethod.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ConformalMap.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/ConformalMapMethod.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/TheodorsenMethod.cpp
 )
 add_library(util_objects OBJECT
-    ${CMAKE_SOURCE_DIR}/src/Grid.cpp
-    ${CMAKE_SOURCE_DIR}/src/RootFinder.cpp
-    ${CMAKE_SOURCE_DIR}/src/StatusManager.cpp
-    ${CMAKE_SOURCE_DIR}/src/Types.cpp
+    ${CMAKE_SOURCE_DIR}/src/numerics/Grid.cpp
+    ${CMAKE_SOURCE_DIR}/src/numerics/RootFinder.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/StatusManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
 )
 add_library(domain_objects OBJECT
-    ${CMAKE_SOURCE_DIR}/src/Domain.cpp
-    ${CMAKE_SOURCE_DIR}/src/BoundaryComponent.cpp
-    ${CMAKE_SOURCE_DIR}/src/Boundary.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/Domain.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/BoundaryComponent.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/Boundary.cpp
 )
 
 #####

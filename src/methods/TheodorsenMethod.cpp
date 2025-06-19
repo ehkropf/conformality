@@ -17,8 +17,8 @@
  */
 
 #include "TheodorsenMethod.h"
-#include "ConformalMap.h"
-#include "Domain.h"
+#include "../core/ConformalMap.h"
+#include "../domains/Domain.h"
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>

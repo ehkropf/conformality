@@ -19,7 +19,7 @@
 #ifndef GRID_HPP
 #define GRID_HPP
 
-#include "Types.h"
+#include "../core/Types.h"
 #include <vector>
 #include <functional>
 #include <unordered_map>

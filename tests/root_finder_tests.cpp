@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <complex>
-#include "../src/RootFinder.h"
+#include "../src/numerics/RootFinder.h"
 
 TEST(RootFinderTest, TernarySearchQuadratic)
 {

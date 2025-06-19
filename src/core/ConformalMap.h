@@ -19,7 +19,7 @@
 #pragma once
 
 #include "Types.h"
-#include "Domain.h"
+#include "../domains/Domain.h"
 
 #include <memory>
 

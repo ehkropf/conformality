@@ -18,9 +18,9 @@
 
 #include <gtest/gtest.h>
 #include <memory>
-#include "../src/ConformalMap.h"
-#include "../src/ConformalMapMethod.h"
-#include "../src/Domain.h"
+#include "../src/core/ConformalMap.h"
+#include "../src/methods/ConformalMapMethod.h"
+#include "../src/domains/Domain.h"
 
 // Mock implementation of ConformalMapMethod for testing
 class MockMethod : public ConformalMapMethod

@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Domain.h"
+#include "../src/domains/Domain.h"
 
 TEST(EllipticalDomainTest, Construction) {
     double a = 2.0, b = 1.0;

@@ -17,7 +17,7 @@
  */
 
 #include "Domain.h"
-#include "Types.h"
+#include "../core/Types.h"
 #include <limits>
 #include <algorithm>
 #include <cmath>

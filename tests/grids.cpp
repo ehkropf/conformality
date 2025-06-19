@@ -17,7 +17,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/Grid.h"
+#include "../src/numerics/Grid.h"
 #include <cmath>
 
 // Helper function to compare complex points
