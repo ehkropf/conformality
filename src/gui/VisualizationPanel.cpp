@@ -60,6 +60,7 @@ void VisualizationPanel::updateMap(std::shared_ptr<ConformalMap> map)
     mp_currentMap = map;
     
     // Regenerate visualization data
+    generateSourceBoundary();
     generateTargetBoundary();
     if (m_showGrid)
     {
@@ -85,62 +86,74 @@ void VisualizationPanel::renderCanonicalDomain()
     ImVec2 plotSize = ImVec2(-1, -1);
     plotSize.x = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     
-    if (ImPlot::BeginPlot("Canonical Domain (Unit Circle)", plotSize, ImPlotFlags_Equal))
+    if (ImPlot::BeginPlot("Source Domain (Ellipse)", plotSize, ImPlotFlags_Equal))
     {
         ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -3.0, 3.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -2.0, 2.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxesLimits(-3.0, 3.0, -2.0, 2.0, ImGuiCond_FirstUseEver);
         
-        // Plot unit circle boundary
-        if (!m_canonicalBoundaryX.empty() && !m_canonicalBoundaryY.empty())
+        // Plot source domain boundary (ellipse)
+        if (!m_sourceBoundaryX.empty() && !m_sourceBoundaryY.empty())
         {
-            ImPlot::PlotLine("Unit Circle", 
-                           m_canonicalBoundaryX.data(), 
-                           m_canonicalBoundaryY.data(), 
-                           static_cast<int>(m_canonicalBoundaryX.size()));
+            ImPlot::PlotLine("Ellipse Boundary", 
+                           m_sourceBoundaryX.data(), 
+                           m_sourceBoundaryY.data(), 
+                           static_cast<int>(m_sourceBoundaryX.size()));
         }
         
         // Plot conformal grid if enabled
-        if (m_showGrid)
+        if (m_showGrid && mp_currentMap)
         {
-            // Plot grid lines
+            // Plot grid lines in source domain (ellipse)
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
             
-            // Radial grid lines (from center to boundary)
-            int pointsPerLine = 50;
-            for (int i = 0; i < m_gridDensity; ++i)
-            {
-                double angle = 2.0 * M_PI * i / m_gridDensity;
-                std::vector<double> radialX, radialY;
-                
-                for (int j = 0; j <= pointsPerLine; ++j)
-                {
-                    double r = static_cast<double>(j) / pointsPerLine;
-                    radialX.push_back(r * cos(angle));
-                    radialY.push_back(r * sin(angle));
-                }
-                
-                ImPlot::PlotLine(("Radial" + std::to_string(i)).c_str(), 
-                               radialX.data(), radialY.data(), radialX.size());
-            }
+            auto sourceDomain = mp_currentMap->getSourceDomain();
+            auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
             
-            // Circular grid lines (concentric circles)
-            int numCircles = m_gridDensity / 2;
-            for (int i = 1; i < numCircles; ++i)
+            if (starlikeDomain)
             {
-                double radius = static_cast<double>(i) / numCircles;
-                std::vector<double> circleX, circleY;
+                Complex center = starlikeDomain->getCenter();
                 
-                for (int j = 0; j <= 100; ++j)
+                // Radial grid lines (from center to boundary)
+                int pointsPerLine = 50;
+                for (int i = 0; i < m_gridDensity; ++i)
                 {
-                    double angle = 2.0 * M_PI * j / 100;
-                    circleX.push_back(radius * cos(angle));
-                    circleY.push_back(radius * sin(angle));
+                    double angle = 2.0 * M_PI * i / m_gridDensity;
+                    double maxRadius = starlikeDomain->getRadius(angle);
+                    std::vector<double> radialX, radialY;
+                    
+                    for (int j = 0; j <= pointsPerLine; ++j)
+                    {
+                        double r = static_cast<double>(j) / pointsPerLine * maxRadius;
+                        Complex z = center + Complex(r * cos(angle), r * sin(angle));
+                        radialX.push_back(z.real());
+                        radialY.push_back(z.imag());
+                    }
+                    
+                    ImPlot::PlotLine(("Radial" + std::to_string(i)).c_str(), 
+                                   radialX.data(), radialY.data(), radialX.size());
                 }
                 
-                ImPlot::PlotLine(("Circle" + std::to_string(i)).c_str(), 
-                               circleX.data(), circleY.data(), circleX.size());
+                // Elliptical contour lines (scaled ellipses)
+                int numContours = m_gridDensity / 2;
+                for (int i = 1; i < numContours; ++i)
+                {
+                    double scale = static_cast<double>(i) / numContours;
+                    std::vector<double> contourX, contourY;
+                    
+                    for (int j = 0; j <= 100; ++j)
+                    {
+                        double angle = 2.0 * M_PI * j / 100;
+                        double radius = starlikeDomain->getRadius(angle) * scale;
+                        Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
+                        contourX.push_back(z.real());
+                        contourY.push_back(z.imag());
+                    }
+                    
+                    ImPlot::PlotLine(("Contour" + std::to_string(i)).c_str(), 
+                                   contourX.data(), contourY.data(), contourX.size());
+                }
             }
             
             ImPlot::PopStyleColor();
@@ -155,17 +168,17 @@ void VisualizationPanel::renderTargetDomain()
     ImVec2 plotSize = ImVec2(-1, -1);
     plotSize.x = (ImGui::GetContentRegionAvail().x);
     
-    if (ImPlot::BeginPlot("Target Domain", plotSize, ImPlotFlags_Equal))
+    if (ImPlot::BeginPlot("Target Domain (Unit Circle)", plotSize, ImPlotFlags_Equal))
     {
         ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -3.0, 3.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -2.0, 2.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-3.0, 3.0, -2.0, 2.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, ImGuiCond_FirstUseEver);
         
-        // Plot target domain boundary
+        // Plot target domain boundary (unit circle)
         if (!m_targetBoundaryX.empty() && !m_targetBoundaryY.empty())
         {
-            ImPlot::PlotLine("Target Boundary", 
+            ImPlot::PlotLine("Unit Circle", 
                            m_targetBoundaryX.data(), 
                            m_targetBoundaryY.data(), 
                            static_cast<int>(m_targetBoundaryX.size()));
@@ -176,9 +189,11 @@ void VisualizationPanel::renderTargetDomain()
         {
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
             
-            // This would plot the mapped grid lines
-            // Implementation depends on how the grid data is structured
-            // For now, we'll show placeholder text
+            // Plot the mapped grid points as scatter plot
+            ImPlot::PlotScatter("Mapped Grid", 
+                              m_targetGridX.data(), 
+                              m_targetGridY.data(), 
+                              static_cast<int>(m_targetGridX.size()));
             
             ImPlot::PopStyleColor();
         }
@@ -216,19 +231,28 @@ void VisualizationPanel::generateTargetGrid()
     m_targetGridY.clear();
     
     // Generate mapped grid points by evaluating the conformal map
-    // at grid points in the canonical domain
+    // at grid points in the source domain (ellipse)
     
+    auto sourceDomain = mp_currentMap->getSourceDomain();
+    auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
+    if (!starlikeDomain)
+    {
+        return;
+    }
+    
+    Complex center = starlikeDomain->getCenter();
     int pointsPerLine = 50;
     
-    // Map radial lines
+    // Map radial lines from ellipse center to boundary
     for (int i = 0; i < m_gridDensity; ++i)
     {
         double angle = 2.0 * M_PI * i / m_gridDensity;
+        double maxRadius = starlikeDomain->getRadius(angle);
         
         for (int j = 1; j <= pointsPerLine; ++j) // Skip center point
         {
-            double r = static_cast<double>(j) / pointsPerLine;
-            Complex z(r * cos(angle), r * sin(angle));
+            double r = static_cast<double>(j) / pointsPerLine * maxRadius;
+            Complex z = center + Complex(r * cos(angle), r * sin(angle));
             
             try
             {
@@ -243,16 +267,17 @@ void VisualizationPanel::generateTargetGrid()
         }
     }
     
-    // Map circular lines
-    int numCircles = m_gridDensity / 2;
-    for (int i = 1; i < numCircles; ++i)
+    // Map elliptical contour lines (scaled ellipses)
+    int numContours = m_gridDensity / 2;
+    for (int i = 1; i < numContours; ++i)
     {
-        double radius = static_cast<double>(i) / numCircles;
+        double scale = static_cast<double>(i) / numContours;
         
         for (int j = 0; j <= 100; ++j)
         {
             double angle = 2.0 * M_PI * j / 100;
-            Complex z(radius * cos(angle), radius * sin(angle));
+            double radius = starlikeDomain->getRadius(angle) * scale;
+            Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
             
             try
             {
@@ -283,35 +308,55 @@ void VisualizationPanel::generateCanonicalBoundary()
     }
 }
 
-void VisualizationPanel::generateTargetBoundary()
+void VisualizationPanel::generateSourceBoundary()
 {
     if (!mp_currentMap)
     {
         return;
     }
     
-    m_targetBoundaryX.clear();
-    m_targetBoundaryY.clear();
+    m_sourceBoundaryX.clear();
+    m_sourceBoundaryY.clear();
     
-    // Generate target boundary by mapping unit circle points
+    // Generate source domain boundary from source domain
+    auto sourceDomain = mp_currentMap->getSourceDomain();
+    if (!sourceDomain)
+    {
+        return;
+    }
+    
+    // Sample boundary points using domain's getRadius method
+    auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
+    if (!starlikeDomain)
+    {
+        return;
+    }
+    
+    Complex center = starlikeDomain->getCenter();
     int numPoints = 200;
     for (int i = 0; i <= numPoints; ++i)
     {
         double angle = 2.0 * M_PI * i / numPoints;
-        Complex z(cos(angle), sin(angle));
+        double radius = starlikeDomain->getRadius(angle);
         
-        try
-        {
-            Complex w = mp_currentMap->map(z);
-            m_targetBoundaryX.push_back(w.real());
-            m_targetBoundaryY.push_back(w.imag());
-        }
-        catch (...)
-        {
-            // Use unit circle point if evaluation fails
-            m_targetBoundaryX.push_back(cos(angle));
-            m_targetBoundaryY.push_back(sin(angle));
-        }
+        Complex boundary_point = center + Complex(radius, 0.0) * Complex(cos(angle), sin(angle));
+        m_sourceBoundaryX.push_back(boundary_point.real());
+        m_sourceBoundaryY.push_back(boundary_point.imag());
+    }
+}
+
+void VisualizationPanel::generateTargetBoundary()
+{
+    m_targetBoundaryX.clear();
+    m_targetBoundaryY.clear();
+    
+    // For Theodorsen method, target is always unit circle
+    int numPoints = 200;
+    for (int i = 0; i <= numPoints; ++i)
+    {
+        double angle = 2.0 * M_PI * i / numPoints;
+        m_targetBoundaryX.push_back(cos(angle));
+        m_targetBoundaryY.push_back(sin(angle));
     }
 }
 

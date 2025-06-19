@@ -30,6 +30,8 @@ private:
     // Domain boundary data
     std::vector<double> m_canonicalBoundaryX;
     std::vector<double> m_canonicalBoundaryY;
+    std::vector<double> m_sourceBoundaryX;
+    std::vector<double> m_sourceBoundaryY;
     std::vector<double> m_targetBoundaryX;
     std::vector<double> m_targetBoundaryY;
     
@@ -73,6 +75,7 @@ private:
     void generateCanonicalGrid();
     void generateTargetGrid();
     void generateCanonicalBoundary();
+    void generateSourceBoundary();
     void generateTargetBoundary();
     void clearGridData();
 };

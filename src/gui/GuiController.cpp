@@ -213,17 +213,17 @@ void GuiController::setOnStatusUpdate(std::function<void(const std::string&)> ca
 
 void GuiController::createDomains()
 {
-    // Source domain is always unit circle for Theodorsen method
-    mp_sourceDomain = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 1.0, false);
-    
-    // Target domain is ellipse with current parameters
-    mp_targetDomain = std::make_shared<EllipticalDomain>(
+    // Source domain is ellipse (what we're mapping FROM)
+    mp_sourceDomain = std::make_shared<EllipticalDomain>(
         m_ellipseA,
         m_ellipseB,
         0.0,  // No rotation for now
         Complex(0.0, 0.0),
         m_mappingType == MappingType::EXTERIOR_TO_INTERIOR  // External domain for external mapping
     );
+    
+    // Target domain is always unit circle for Theodorsen method (what we're mapping TO)
+    mp_targetDomain = std::make_shared<CircularDomain>(Complex(0.0, 0.0), 1.0, false);
 }
 
 void GuiController::createMethod()
