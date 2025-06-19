@@ -12,6 +12,7 @@ private:
     void* mp_renderPassDescriptor;
     void* mp_currentDrawable;
     GLFWwindow* mp_currentWindow;
+    bool m_isShutdown;
     
 public:
     MetalRenderer();

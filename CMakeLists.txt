@@ -95,6 +95,8 @@ add_library(gui_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/gui/MainWindow.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Renderer.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/MetalRenderer.mm
+    ${CMAKE_SOURCE_DIR}/src/gui/VisualizationPanel.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/GuiController.cpp
 )
 set_property(TARGET gui_objects
     PROPERTY INCLUDE_DIRECTORIES ${IM_INCLUDE_DIRS}

@@ -13,6 +13,7 @@ Application::Application()
     , mp_mainWindow{nullptr}
     , mp_renderer{nullptr}
     , m_shouldClose{false}
+    , m_imguiInitialized{false}
 {
 }
 
@@ -40,6 +41,7 @@ bool Application::initialize()
     }
     
     mp_mainWindow = std::make_unique<MainWindow>();
+    mp_mainWindow->setApplication(this);
     if (!mp_mainWindow->initialize())
     {
         return false;
@@ -71,6 +73,13 @@ void Application::shutdown()
         mp_renderer.reset();
     }
     
+    // Destroy ImGui context after renderer shutdown
+    if (m_imguiInitialized)
+    {
+        ImGui::DestroyContext();
+        m_imguiInitialized = false;
+    }
+    
     cleanup();
 }
 
@@ -87,6 +96,7 @@ bool Application::setupImGui()
     // Use default font for now
     io.Fonts->AddFontDefault();
     
+    m_imguiInitialized = true;
     return true;
 }
 
@@ -141,7 +151,8 @@ void Application::render()
 
 void Application::cleanup()
 {
-    ImGui::DestroyContext();
+    // Note: Renderer shutdown is called in Application::shutdown() before cleanup()
+    // ImGui context is destroyed there as well
     
     if (mp_window)
     {

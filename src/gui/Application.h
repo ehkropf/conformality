@@ -14,6 +14,7 @@ private:
     std::unique_ptr<Renderer> mp_renderer;
     
     bool m_shouldClose;
+    bool m_imguiInitialized;
     
 public:
     Application();
@@ -22,6 +23,8 @@ public:
     bool initialize();
     void run();
     void shutdown();
+    
+    void requestClose() { m_shouldClose = true; }
     
 private:
     bool setupImGui();

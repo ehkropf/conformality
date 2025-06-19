@@ -18,6 +18,7 @@ MetalRenderer::MetalRenderer()
     , mp_renderPassDescriptor{nullptr}
     , mp_currentDrawable{nullptr}
     , mp_currentWindow{nullptr}
+    , m_isShutdown{false}
 {
 }
 
@@ -105,6 +106,11 @@ void MetalRenderer::endFrame()
 
 void MetalRenderer::shutdown()
 {
+    if (m_isShutdown)
+    {
+        return; // Already shutdown, prevent double cleanup
+    }
+    
     if (mp_renderPassDescriptor)
     {
         CFRelease(mp_renderPassDescriptor);
@@ -131,6 +137,8 @@ void MetalRenderer::shutdown()
         CFRelease(mp_layer);
         mp_layer = nullptr;
     }
+    
+    m_isShutdown = true;
 }
 
 bool MetalRenderer::setupMetal(GLFWwindow* window)

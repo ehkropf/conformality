@@ -1,9 +1,24 @@
 #include "MainWindow.h"
+#include "VisualizationPanel.h"
+#include "GuiController.h"
+#include "Application.h"
+#include "../Types.h"
 #include "imgui.h"
+#include "implot.h"
 #include <cmath>
 
 MainWindow::MainWindow()
     : m_showDemoWindow{false}
+    , m_showAboutDialog{false}
+    , mp_visualizationPanel{nullptr}
+    , mp_controller{nullptr}
+    , m_statusMessage{"Ready"}
+    , mp_application{nullptr}
+    , m_ellipseA{2.0f}
+    , m_ellipseB{1.0f}
+    , m_samplePoints{256}
+    , m_mappingTypeIndex{0}
+    , m_showGrid{true}
 {
 }
 
@@ -14,7 +29,40 @@ MainWindow::~MainWindow()
 
 bool MainWindow::initialize()
 {
-    // Panel initialization will be added when implementing individual panels
+    // Initialize ImPlot
+    ImPlot::CreateContext();
+    
+    // Create visualization panel
+    mp_visualizationPanel = std::make_unique<VisualizationPanel>();
+    if (!mp_visualizationPanel->initialize())
+    {
+        return false;
+    }
+    
+    // Create controller
+    mp_controller = std::make_unique<GuiController>();
+    if (!mp_controller->initialize())
+    {
+        return false;
+    }
+    
+    // Connect visualization panel to controller
+    mp_controller->setVisualizationPanel(mp_visualizationPanel.get());
+    
+    // Set up callbacks
+    mp_controller->setOnStatusUpdate([this](const std::string& message) {
+        onStatusUpdate(message);
+    });
+    
+    mp_controller->setOnComputationComplete([this]() {
+        onComputationComplete();
+    });
+    
+    // Set initial parameters
+    mp_controller->setEllipseParameters(m_ellipseA, m_ellipseB);
+    mp_controller->setSamplePoints(m_samplePoints);
+    mp_controller->setMappingType(m_mappingTypeIndex == 0 ? MappingType::INTERIOR_TO_INTERIOR : MappingType::EXTERIOR_TO_INTERIOR);
+    
     return true;
 }
 
@@ -28,13 +76,30 @@ void MainWindow::render()
     {
         ImGui::ShowDemoWindow(&m_showDemoWindow);
     }
+    
+    // Show About dialog
+    if (m_showAboutDialog)
+    {
+        renderAboutDialog();
+    }
 }
 
 void MainWindow::shutdown()
 {
-    // Since panels are forward declared and not yet implemented,
-    // they will be nullptr. The unique_ptr destructor will handle cleanup
-    // when the actual panel classes are implemented.
+    if (mp_controller)
+    {
+        mp_controller->shutdown();
+        mp_controller.reset();
+    }
+    
+    if (mp_visualizationPanel)
+    {
+        mp_visualizationPanel->shutdown();
+        mp_visualizationPanel.reset();
+    }
+    
+    // Cleanup ImPlot context
+    ImPlot::DestroyContext();
 }
 
 void MainWindow::renderMenuBar()
@@ -50,16 +115,22 @@ void MainWindow::renderMenuBar()
             ImGui::Separator();
             if (ImGui::MenuItem("Exit"))
             {
-                // Future: Signal application to close
+                if (mp_application)
+                {
+                    mp_application->requestClose();
+                }
             }
             ImGui::EndMenu();
         }
         
         if (ImGui::BeginMenu("View"))
         {
-            if (ImGui::MenuItem("Show Grid"))
+            if (ImGui::MenuItem("Show Grid", nullptr, &m_showGrid))
             {
-                // Future: Toggle grid visibility
+                if (mp_visualizationPanel)
+                {
+                    mp_visualizationPanel->setGridVisible(m_showGrid);
+                }
             }
             ImGui::Separator();
             ImGui::MenuItem("Demo Window", nullptr, &m_showDemoWindow);
@@ -70,7 +141,7 @@ void MainWindow::renderMenuBar()
         {
             if (ImGui::MenuItem("About"))
             {
-                // Future: Show about dialog
+                m_showAboutDialog = true;
             }
             ImGui::EndMenu();
         }
@@ -91,61 +162,218 @@ void MainWindow::renderMainLayout()
     
     if (ImGui::Begin("MainLayout", nullptr, window_flags))
     {
-        // Create a simple test layout for now
-        ImGui::Text("Conformality Mapping Tool");
-        ImGui::Separator();
-        
         // Three-panel layout: Control | Visualization | Status
         float control_width = 300.0f;
         float status_height = 100.0f;
         
         // Control Panel (left column)
-        if (ImGui::BeginChild("ControlPanel", ImVec2(control_width, -status_height), true))
-        {
-            ImGui::Text("Control Panel");
-            ImGui::Separator();
-            
-            // Placeholder controls
-            static float ellipse_a = 2.0f;
-            static float ellipse_b = 1.0f;
-            
-            ImGui::SliderFloat("Ellipse a", &ellipse_a, 1.0f, 5.0f);
-            ImGui::SliderFloat("Ellipse b", &ellipse_b, 0.1f, ellipse_a);
-            
-            float eccentricity = sqrt(1.0f - (ellipse_b * ellipse_b) / (ellipse_a * ellipse_a));
-            ImGui::Text("Eccentricity: %.3f", eccentricity);
-            
-            ImGui::Separator();
-            if (ImGui::Button("Compute Mapping"))
-            {
-                // Future: Trigger computation
-            }
-        }
-        ImGui::EndChild();
+        renderControlPanel();
         
         ImGui::SameLine();
         
         // Visualization Panel (center)
-        if (ImGui::BeginChild("VisualizationPanel", ImVec2(0, -status_height), true))
+        renderVisualizationPanel();
+        
+        // Status Panel (bottom)
+        renderStatusPanel();
+    }
+    ImGui::End();
+}
+
+void MainWindow::renderControlPanel()
+{
+    float control_width = 300.0f;
+    float status_height = 100.0f;
+    
+    if (ImGui::BeginChild("ControlPanel", ImVec2(control_width, -status_height), true))
+    {
+        ImGui::Text("Control Panel");
+        ImGui::Separator();
+        
+        // Ellipse parameters
+        bool parametersChanged = false;
+        
+        if (ImGui::SliderFloat("Ellipse a", &m_ellipseA, 0.5f, 5.0f))
+        {
+            parametersChanged = true;
+        }
+        
+        if (ImGui::SliderFloat("Ellipse b", &m_ellipseB, 0.1f, m_ellipseA))
+        {
+            parametersChanged = true;
+        }
+        
+        // Show eccentricity
+        double eccentricity = 0.0;
+        if (mp_controller)
+        {
+            eccentricity = mp_controller->getEccentricity();
+        }
+        ImGui::Text("Eccentricity: %.3f", eccentricity);
+        
+        ImGui::Separator();
+        
+        // Sample points (powers of 2)
+        const char* sampleOptions[] = {"16", "32", "64", "128", "256", "512", "1024", "2048"};
+        int sampleValues[] = {16, 32, 64, 128, 256, 512, 1024, 2048};
+        int currentSampleIndex = 4; // Default to 256
+        
+        // Find current index
+        for (int i = 0; i < 8; ++i)
+        {
+            if (sampleValues[i] == m_samplePoints)
+            {
+                currentSampleIndex = i;
+                break;
+            }
+        }
+        
+        if (ImGui::Combo("Sample Points", &currentSampleIndex, sampleOptions, 8))
+        {
+            m_samplePoints = sampleValues[currentSampleIndex];
+            if (mp_controller)
+            {
+                mp_controller->setSamplePoints(m_samplePoints);
+            }
+        }
+        
+        // Mapping type
+        const char* mappingTypes[] = {"Internal", "External"};
+        if (ImGui::Combo("Mapping Type", &m_mappingTypeIndex, mappingTypes, 2))
+        {
+            if (mp_controller)
+            {
+                MappingType type = (m_mappingTypeIndex == 0) ? MappingType::INTERIOR_TO_INTERIOR : MappingType::EXTERIOR_TO_INTERIOR;
+                mp_controller->setMappingType(type);
+            }
+        }
+        
+        ImGui::Separator();
+        
+        // Grid controls
+        if (ImGui::Checkbox("Show Grid", &m_showGrid))
+        {
+            if (mp_visualizationPanel)
+            {
+                mp_visualizationPanel->setGridVisible(m_showGrid);
+            }
+        }
+        
+        // Grid density
+        static int gridDensity = 8;
+        if (ImGui::SliderInt("Grid Density", &gridDensity, 4, 16))
+        {
+            if (mp_visualizationPanel)
+            {
+                mp_visualizationPanel->setGridDensity(gridDensity);
+            }
+        }
+        
+        ImGui::Separator();
+        
+        // Compute button
+        bool isComputing = mp_controller ? mp_controller->isComputing() : false;
+        
+        if (isComputing)
+        {
+            ImGui::Text("Computing...");
+        }
+        else
+        {
+            if (ImGui::Button("Compute Mapping", ImVec2(-1, 0)))
+            {
+                if (mp_controller)
+                {
+                    mp_controller->computeMapping();
+                }
+            }
+        }
+        
+        // Update parameters if they changed
+        if (parametersChanged && mp_controller)
+        {
+            mp_controller->setEllipseParameters(m_ellipseA, m_ellipseB);
+        }
+    }
+    ImGui::EndChild();
+}
+
+void MainWindow::renderVisualizationPanel()
+{
+    float status_height = 100.0f;
+    
+    if (ImGui::BeginChild("VisualizationPanel", ImVec2(0, -status_height), true))
+    {
+        if (mp_visualizationPanel)
+        {
+            mp_visualizationPanel->render();
+        }
+        else
         {
             ImGui::Text("Visualization Panel");
             ImGui::Separator();
-            ImGui::Text("Canonical Domain | Target Domain");
-            ImGui::Text("(Plots will go here)");
+            ImGui::Text("Loading...");
         }
-        ImGui::EndChild();
-        
-        // Status Panel (bottom)
-        if (ImGui::BeginChild("StatusPanel", ImVec2(0, 0), true))
-        {
-            ImGui::Text("Status: Ready");
-            ImGui::SameLine();
-            ImGui::Text("| Convergence: N/A");
-            ImGui::SameLine();
-            ImGui::Text("| Performance: %.3f ms/frame (%.1f FPS)", 
-                       1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-        }
-        ImGui::EndChild();
     }
-    ImGui::End();
+    ImGui::EndChild();
+}
+
+void MainWindow::renderStatusPanel()
+{
+    if (ImGui::BeginChild("StatusPanel", ImVec2(0, 0), true))
+    {
+        ImGui::Text("Status: %s", m_statusMessage.c_str());
+        
+        if (mp_controller)
+        {
+            ImGui::SameLine();
+            if (mp_controller->wasLastComputationSuccessful())
+            {
+                ImGui::Text("| Convergence: %.6f", mp_controller->getLastConvergenceError());
+            }
+            else if (!mp_controller->getLastErrorMessage().empty())
+            {
+                ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
+            }
+        }
+        
+        ImGui::SameLine();
+        ImGui::Text("| Performance: %.3f ms/frame (%.1f FPS)", 
+                   1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    }
+    ImGui::EndChild();
+}
+
+void MainWindow::onStatusUpdate(const std::string& message)
+{
+    m_statusMessage = message;
+}
+
+void MainWindow::onComputationComplete()
+{
+    // Additional actions when computation completes can be added here
+}
+
+void MainWindow::renderAboutDialog()
+{
+    if (m_showAboutDialog)
+    {
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+        
+        if (ImGui::Begin("About Conformality Mapping Tool", &m_showAboutDialog, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize))
+        {
+            ImGui::Text("Conformality Mapping Tool");
+            ImGui::Text("Version: 1/∞");
+            ImGui::Separator();
+            ImGui::Text("A tool for visualizing conformal mappings");
+            ImGui::Text("from the unit circle to elliptical domains.");
+            ImGui::Separator();
+            
+            if (ImGui::Button("Close", ImVec2(120, 0)))
+            {
+                m_showAboutDialog = false;
+            }
+        }
+        ImGui::End();
+    }
 }
