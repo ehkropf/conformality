@@ -6,9 +6,10 @@ diagrams:
   conformal_map:
     type: class
     title: Conformal Map Depends
+    generate_method_arguments: abbreviated
     glob:
-      - src/*.h
-      - src/*.cpp
+      - src/**/*.h
+      - src/**/*.cpp
     include:
       dependencies:
         - ConformalMap
@@ -17,12 +18,23 @@ diagrams:
     exclude:
       namespaces:
         - std
+    plantuml:
+      before:
+        - 'skinparam classAttributeIconSize 0'
+        - 'skinparam classFontSize 12'
+        - 'skinparam class {'
+        - '  BackgroundColor White'
+        - '  BorderColor Black'
+        - '  ArrowColor Black'
+        - '}'
 
   theodorsen_method:
     type: class
     title: Theodorsen's Method Classes
+    generate_method_arguments: abbreviated
     glob:
-      - src/*.cpp
+      - src/**/*.h
+      - src/**/*.cpp
     include:
       context:
         - match:
@@ -35,8 +47,10 @@ diagrams:
   domains:
     type: class
     title: Available Domains
+    generate_method_arguments: abbreviated
     glob:
-      - src/Domain.cpp
+      - src/domains/*.h
+      - src/domains/*.cpp
     include:
       context:
         - match:
@@ -51,10 +65,10 @@ diagrams:
   all_classes:
     type: class
     title: All Conformality Classes
+    generate_method_arguments: abbreviated
     glob:
-      include:
-        - src/*.h
-        - src/*.cpp
+      - src/**/*.h
+      - src/**/*.cpp
     exclude:
       namespaces:
         - std
