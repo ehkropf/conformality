@@ -35,6 +35,13 @@ class Domain;
  */
 class ConformalMapMethod
 {
+public:
+    enum class DomainRole
+    {
+        Source,
+        Target
+    };
+
 protected:
     double m_achieved_accuracy;
     int m_max_iterations;
@@ -115,9 +122,10 @@ public:
      *
      * @param domain Domain to validate
      * @param expected_connectivity Expected connectivity (0 = simply connected, etc.)
+     * @param role Whether validating source or target domain
      * @throws std::invalid_argument if the domain is not valid for this method
      */
-    void validateDomain(std::shared_ptr<Domain> domain, int expected_connectivity) const;
+    void validateDomain(std::shared_ptr<Domain> domain, int expected_connectivity, DomainRole role) const;
 
     /**
      * @brief Validate both source and target domains for use with this method
@@ -143,13 +151,23 @@ protected:
     void validateDomainCompatibility(std::shared_ptr<Domain> domain, int expected_connectivity) const;
 
     /**
-     * @brief Validate that the domain has the required geometric properties
+     * @brief Validate that the source domain has the required geometric properties
      *
-     * Method-specific geometric validation. Must be implemented by derived classes.
+     * Method-specific validation for source domain geometry. Must be implemented by derived classes.
      *
-     * @param domain Domain to validate
-     * @throws std::invalid_argument if the domain doesn't have required properties
+     * @param domain Source domain to validate
+     * @throws std::invalid_argument if the domain doesn't have required properties for source
      */
-    virtual void validateDomainGeometry(std::shared_ptr<Domain> domain) const = 0;
+    virtual void validateSourceDomain(std::shared_ptr<Domain> domain) const = 0;
+
+    /**
+     * @brief Validate that the target domain has the required geometric properties
+     *
+     * Method-specific validation for target domain geometry. Must be implemented by derived classes.
+     *
+     * @param domain Target domain to validate
+     * @throws std::invalid_argument if the domain doesn't have required properties for target
+     */
+    virtual void validateTargetDomain(std::shared_ptr<Domain> domain) const = 0;
 };
 

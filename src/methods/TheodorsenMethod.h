@@ -26,7 +26,7 @@
 /**
  * @brief Implementation of Theodorsen's method for conformal mapping
  *
- * Theodorsen's method computes conformal maps from starlike domains to the unit disk
+ * Theodorsen's method computes conformal maps from the unit disk to starlike domains
  * using an iterative FFT-based algorithm. This implementation supports both internal
  * and external mappings.
  *
@@ -104,15 +104,15 @@ public:
 
     /**
      * @brief Evaluate the computed map at a point
-     * @param z Point in the source domain
-     * @return Complex Mapped point in the target domain
+     * @param z Point in the unit disk (source domain)
+     * @return Complex Mapped point in the starlike domain (target domain)
      */
     Complex map(const Complex& z) const override;
 
     /**
      * @brief Evaluate the inverse of the computed map at a point
-     * @param w Point in the target domain
-     * @return Complex Mapped point in the source domain
+     * @param w Point in the starlike domain (target domain)
+     * @return Complex Mapped point in the unit disk (source domain)
      */
     Complex inverseMap(const Complex& w) const override;
 
@@ -169,11 +169,18 @@ public:
 
 protected:
     /**
-     * @brief Validate that the domain has the required geometric properties for Theodorsen's method
-     * @param domain Domain to validate
+     * @brief Validate that the source domain is a unit circle
+     * @param domain Source domain to validate (must be unit circle)
+     * @throws std::invalid_argument if the domain is not a unit circle
+     */
+    void validateSourceDomain(std::shared_ptr<Domain> domain) const override;
+
+    /**
+     * @brief Validate that the target domain is starlike
+     * @param domain Target domain to validate (must be starlike)
      * @throws std::invalid_argument if the domain is not starlike
      */
-    void validateDomainGeometry(std::shared_ptr<Domain> domain) const override;
+    void validateTargetDomain(std::shared_ptr<Domain> domain) const override;
 
 private:
     /**

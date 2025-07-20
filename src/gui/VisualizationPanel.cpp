@@ -86,75 +86,33 @@ void VisualizationPanel::renderCanonicalDomain()
     ImVec2 plotSize = ImVec2(-1, -1);
     plotSize.x = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     
-    if (ImPlot::BeginPlot("Source Domain (Ellipse)", plotSize, ImPlotFlags_Equal))
+    if (ImPlot::BeginPlot("Source Domain (Unit Circle)", plotSize, ImPlotFlags_Equal))
     {
         ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -3.0, 3.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -2.0, 2.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-3.0, 3.0, -2.0, 2.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, ImGuiCond_FirstUseEver);
         
-        // Plot source domain boundary (ellipse)
-        if (!m_sourceBoundaryX.empty() && !m_sourceBoundaryY.empty())
+        // Plot source domain boundary (unit circle)
+        if (!m_canonicalBoundaryX.empty() && !m_canonicalBoundaryY.empty())
         {
-            ImPlot::PlotLine("Ellipse Boundary", 
-                           m_sourceBoundaryX.data(), 
-                           m_sourceBoundaryY.data(), 
-                           static_cast<int>(m_sourceBoundaryX.size()));
+            ImPlot::PlotLine("Unit Circle", 
+                           m_canonicalBoundaryX.data(), 
+                           m_canonicalBoundaryY.data(), 
+                           static_cast<int>(m_canonicalBoundaryX.size()));
         }
         
         // Plot conformal grid if enabled
-        if (m_showGrid && mp_currentMap)
+        if (m_showGrid && !m_canonicalGridX.empty() && !m_canonicalGridY.empty())
         {
-            // Plot grid lines in source domain (ellipse)
+            // Plot grid lines in source domain (unit circle)
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
             
-            auto sourceDomain = mp_currentMap->getSourceDomain();
-            auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
-            
-            if (starlikeDomain)
-            {
-                Complex center = starlikeDomain->getCenter();
-                
-                // Radial grid lines (from center to boundary)
-                int pointsPerLine = 50;
-                for (int i = 0; i < m_gridDensity; ++i)
-                {
-                    double angle = 2.0 * M_PI * i / m_gridDensity;
-                    double maxRadius = starlikeDomain->getRadius(angle);
-                    std::vector<double> radialX, radialY;
-                    
-                    for (int j = 0; j <= pointsPerLine; ++j)
-                    {
-                        double r = static_cast<double>(j) / pointsPerLine * maxRadius;
-                        Complex z = center + Complex(r * cos(angle), r * sin(angle));
-                        radialX.push_back(z.real());
-                        radialY.push_back(z.imag());
-                    }
-                    
-                    ImPlot::PlotLine(("Radial" + std::to_string(i)).c_str(), 
-                                   radialX.data(), radialY.data(), radialX.size());
-                }
-                
-                // Elliptical contour lines (scaled ellipses)
-                int numContours = m_gridDensity / 2;
-                for (int i = 1; i < numContours; ++i)
-                {
-                    double scale = static_cast<double>(i) / numContours;
-                    std::vector<double> contourX, contourY;
-                    
-                    for (int j = 0; j <= 100; ++j)
-                    {
-                        double angle = 2.0 * M_PI * j / 100;
-                        double radius = starlikeDomain->getRadius(angle) * scale;
-                        Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
-                        contourX.push_back(z.real());
-                        contourY.push_back(z.imag());
-                    }
-                    
-                    ImPlot::PlotLine(("Contour" + std::to_string(i)).c_str(), 
-                                   contourX.data(), contourY.data(), contourX.size());
-                }
-            }
+            // Plot canonical grid (circles and radials in unit disk)
+            ImPlot::PlotLine("Grid", 
+                           m_canonicalGridX.data(), 
+                           m_canonicalGridY.data(), 
+                           static_cast<int>(m_canonicalGridX.size()));
             
             ImPlot::PopStyleColor();
         }
@@ -168,17 +126,17 @@ void VisualizationPanel::renderTargetDomain()
     ImVec2 plotSize = ImVec2(-1, -1);
     plotSize.x = (ImGui::GetContentRegionAvail().x);
     
-    if (ImPlot::BeginPlot("Target Domain (Unit Circle)", plotSize, ImPlotFlags_Equal))
+    if (ImPlot::BeginPlot("Target Domain (Starlike)", plotSize, ImPlotFlags_Equal))
     {
         ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_X1, -3.0, 3.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, -2.0, 2.0, ImGuiCond_FirstUseEver);
+        ImPlot::SetupAxesLimits(-3.0, 3.0, -2.0, 2.0, ImGuiCond_FirstUseEver);
         
-        // Plot target domain boundary (unit circle)
+        // Plot target domain boundary (starlike)
         if (!m_targetBoundaryX.empty() && !m_targetBoundaryY.empty())
         {
-            ImPlot::PlotLine("Unit Circle", 
+            ImPlot::PlotLine("Starlike Boundary", 
                            m_targetBoundaryX.data(), 
                            m_targetBoundaryY.data(), 
                            static_cast<int>(m_targetBoundaryX.size()));

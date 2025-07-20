@@ -32,12 +32,21 @@ private:
 public:
     MockMethod() : ConformalMapMethod() {}
 
-    void validateDomainGeometry(std::shared_ptr<Domain> domain) const override
+    void validateSourceDomain(std::shared_ptr<Domain> domain) const override
     {
-        // Mock implementation - accept any domain
+        // Mock implementation - accept any domain as source
         if (!domain)
         {
-            throw std::invalid_argument("Domain cannot be null");
+            throw std::invalid_argument("Source domain cannot be null");
+        }
+    }
+
+    void validateTargetDomain(std::shared_ptr<Domain> domain) const override
+    {
+        // Mock implementation - accept any domain as target
+        if (!domain)
+        {
+            throw std::invalid_argument("Target domain cannot be null");
         }
     }
 
@@ -178,12 +187,21 @@ TEST(ConformalMapMethodTest, ValidateDomainCompatibility)
             return w;
         }
 
-        void validateDomainGeometry(std::shared_ptr<Domain> domain) const override
+        void validateSourceDomain(std::shared_ptr<Domain> domain) const override
         {
-            // Test implementation - accept any domain
+            // Test implementation - accept any domain as source
             if (!domain)
             {
-                throw std::invalid_argument("Domain cannot be null");
+                throw std::invalid_argument("Source domain cannot be null");
+            }
+        }
+
+        void validateTargetDomain(std::shared_ptr<Domain> domain) const override
+        {
+            // Test implementation - accept any domain as target
+            if (!domain)
+            {
+                throw std::invalid_argument("Target domain cannot be null");
             }
         }
 

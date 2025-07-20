@@ -70,11 +70,19 @@ void ConformalMapMethod::validateDomainCompatibility(
 
 void ConformalMapMethod::validateDomain(
     std::shared_ptr<Domain> domain,
-    int expected_connectivity
+    int expected_connectivity,
+    DomainRole role
 ) const
 {
     validateDomainCompatibility(domain, expected_connectivity);
-    validateDomainGeometry(domain);
+    if (role == DomainRole::Source)
+    {
+        validateSourceDomain(domain);
+    }
+    else
+    {
+        validateTargetDomain(domain);
+    }
 }
 
 void ConformalMapMethod::validateDomains(const ConformalMap& map_instance) const
@@ -100,6 +108,6 @@ void ConformalMapMethod::validateDomains(const ConformalMap& map_instance) const
     }
 
     // Validate individual domain geometry
-    validateDomainGeometry(source_domain);
-    validateDomainGeometry(target_domain);
+    validateSourceDomain(source_domain);
+    validateTargetDomain(target_domain);
 }

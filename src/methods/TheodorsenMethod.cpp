@@ -51,26 +51,20 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     MappingType mapping_type = map_instance.getMappingType();
     bool external = (mapping_type == MappingType::EXTERIOR_TO_INTERIOR);
 
-    // Store current domain for iteration
-    m_current_domain = source_domain;
+    // Store target domain for iteration (this is the starlike domain we map TO)
+    m_current_domain = target_domain;
 
-    // Validate domains
-    validateDomain(source_domain, 1); // Simply connected and starlike
-    validateDomainCompatibility(target_domain, 1); // Target just needs connectivity check
+    // Validate domains - source should be unit circle, target should be starlike
+    validateDomainCompatibility(source_domain, 1); // Check source connectivity
+    validateSourceDomain(source_domain);           // Check source is unit circle
+    validateDomainCompatibility(target_domain, 1); // Check target connectivity  
+    validateTargetDomain(target_domain);           // Check target is starlike
 
-    // Check if target domain is unit circle
-    auto circular_target = std::dynamic_pointer_cast<CircularDomain>(target_domain);
-    if (!circular_target || std::abs(circular_target->getRadius() - 1.0) > 1e-12 ||
-        std::abs(circular_target->getCenter()) > 1e-12)
-    {
-        throw std::invalid_argument("Theodorsen's method requires unit circle as target domain");
-    }
+    // Sample the boundary of the target domain (starlike)
+    boundary_samples = sampleBoundary(target_domain, external);
 
-    // Sample the boundary
-    boundary_samples = sampleBoundary(source_domain, external);
-
-    // Compute initial boundary moduli
-    std::vector<double> rho = computeBoundaryModuli(source_domain, external);
+    // Compute initial boundary moduli from target domain
+    std::vector<double> rho = computeBoundaryModuli(target_domain, external);
 
     // Iterative refinement
     m_iteration_count = 0;
@@ -103,18 +97,42 @@ void TheodorsenMethod::compute(ConformalMap& map_instance, double target_accurac
     m_achieved_accuracy = residual_norm;
 }
 
-void TheodorsenMethod::validateDomainGeometry(std::shared_ptr<Domain> domain) const
+void TheodorsenMethod::validateSourceDomain(std::shared_ptr<Domain> domain) const
 {
     if (!domain)
     {
-        throw std::invalid_argument("Domain cannot be null");
+        throw std::invalid_argument("Source domain cannot be null");
     }
 
-    // Check if the domain is starlike
+    auto circular_domain = std::dynamic_pointer_cast<CircularDomain>(domain);
+    if (!circular_domain)
+    {
+        throw std::invalid_argument("Theodorsen's method requires the source domain to be a circular domain");
+    }
+
+    // Check if it's a unit circle centered at origin
+    if (std::abs(circular_domain->getRadius() - 1.0) > 1e-12)
+    {
+        throw std::invalid_argument("Theodorsen's method requires the source domain to be a unit circle (radius = 1.0)");
+    }
+
+    if (std::abs(circular_domain->getCenter()) > 1e-12)
+    {
+        throw std::invalid_argument("Theodorsen's method requires the source domain to be centered at the origin");
+    }
+}
+
+void TheodorsenMethod::validateTargetDomain(std::shared_ptr<Domain> domain) const
+{
+    if (!domain)
+    {
+        throw std::invalid_argument("Target domain cannot be null");
+    }
+
     auto starlike_domain = std::dynamic_pointer_cast<StarlikeDomain>(domain);
     if (!starlike_domain)
     {
-        throw std::invalid_argument("Theodorsen's method requires a starlike domain");
+        throw std::invalid_argument("Theodorsen's method requires the target domain to be a starlike domain");
     }
 }
 
@@ -125,7 +143,8 @@ Complex TheodorsenMethod::map(const Complex& z) const
         throw std::runtime_error("Map has not been computed yet");
     }
 
-    // Evaluate Laurent series for Theodorsen's method: f(z) = a_{-1}*z + a_0 + a_1/z + a_2/z^2 + ...
+    // Evaluate Laurent series for Theodorsen's method: g(z) = a_{-1}*z + a_0 + a_1/z + a_2/z^2 + ...
+    // where g maps from unit disk U to starlike domain D
     // FFTW coefficients are in order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
     Complex result{0.0, 0.0};
     size_t N = laurent_coeffs.size();
@@ -136,15 +155,13 @@ Complex TheodorsenMethod::map(const Complex& z) const
     }
 
     // The DFT of boundary data ρ(φ)e^{iφ} gives us coefficients for Laurent series
-    // For Theodorsen conformal map from interior domain to unit disk:
-    // f(z) = sum_{k=-∞}^{∞} c_k z^k where the map is analytic in the domain
+    // For Theodorsen conformal map from unit disk to starlike domain:
+    // g(z) = sum_{k=-∞}^{∞} c_k z^k where the map is analytic in the unit disk
 
     // Add constant term
     result += laurent_coeffs[0];
 
-    // For mapping from interior domain to unit disk, we expect the dominant term to be z
-    // and higher positive powers should decay. Let's only use the principal part of the Laurent series.
-
+    // For mapping from unit disk to starlike domain, the dominant term should be z
     // Add z term (should be the dominant contribution, approximately = z for conformal map)
     if (N > 1) {
         // The coefficient for z is at index N-1 in FFTW ordering
@@ -168,9 +185,21 @@ Complex TheodorsenMethod::map(const Complex& z) const
 
 Complex TheodorsenMethod::inverseMap([[maybe_unused]] const Complex& w) const
 {
-    // TODO: Implement inverse mapping using Newton's method or similar
-    // For now, throw an exception as a placeholder
-    throw std::runtime_error("Inverse mapping not yet implemented for Theodorsen's method");
+    if (!is_converged)
+    {
+        throw std::runtime_error("Map has not been computed yet");
+    }
+    
+    // TODO: Implement inverse mapping from starlike domain back to unit disk
+    // This requires either:
+    // 1. Newton's method iteration to solve g(z) = w for z
+    // 2. Barycentric Cauchy formula discretization (as mentioned in notebook)
+    // 3. Using the boundary correspondence to interpolate back
+    
+    // For now, throw an exception with detailed information
+    throw std::runtime_error("Inverse mapping from starlike domain to unit disk not yet implemented. "
+                            "This requires iterative inversion of the Laurent series or "
+                            "barycentric Cauchy formula implementation.");
 }
 
 void TheodorsenMethod::setNumPoints(size_t num_points)
@@ -276,11 +305,11 @@ std::vector<double> TheodorsenMethod::theodorsenIteration(const std::vector<doub
     }
 
     // Compute new ρ values at updated φ positions
-    auto source_domain = std::dynamic_pointer_cast<StarlikeDomain>(m_current_domain);
+    auto target_domain = std::dynamic_pointer_cast<StarlikeDomain>(m_current_domain);
     std::vector<double> new_rho(n_points);
     for (size_t i = 0; i < n_points; ++i)
     {
-        double radius = source_domain->getRadius(phi_new[i]);
+        double radius = target_domain->getRadius(phi_new[i]);
         if (external)
         {
             new_rho[i] = 1.0 / radius;  // External mapping

@@ -188,15 +188,15 @@ void MainWindow::renderControlPanel()
         ImGui::Text("Control Panel");
         ImGui::Separator();
         
-        // Ellipse parameters
+        // Target ellipse parameters
         bool parametersChanged = false;
         
-        if (ImGui::SliderFloat("Ellipse a", &m_ellipseA, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderFloat("Target Ellipse a", &m_ellipseA, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp))
         {
             parametersChanged = true;
         }
         
-        if (ImGui::SliderFloat("Ellipse b", &m_ellipseB, 0.1f, m_ellipseA, "%.2f", ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderFloat("Target Ellipse b", &m_ellipseB, 0.1f, m_ellipseA, "%.2f", ImGuiSliderFlags_AlwaysClamp))
         {
             parametersChanged = true;
         }
