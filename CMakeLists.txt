@@ -36,6 +36,19 @@ add_library(fftw_wrapper OBJECT
     src/numerics/FFTWWrapper.cpp
 )
 
+#####
+# Eigen linear algebra library
+find_path(EIGEN3_INCLUDE_DIR
+    NAMES Eigen/Dense
+    PATHS /opt/local/include/eigen3 /usr/local/include/eigen3
+    NO_DEFAULT_PATH
+)
+if(EIGEN3_INCLUDE_DIR)
+    include_directories(${EIGEN3_INCLUDE_DIR})
+else()
+    message(FATAL_ERROR "Unable to find Eigen3 installation")
+endif()
+
 find_library(GLFW_LIB glfw.3 HINTS /opt/local/lib /usr/local/lib REQUIRED)
 find_library(METAL_LIB Metal REQUIRED)
 find_library(METALKIT_LIB MetalKit REQUIRED)
@@ -75,10 +88,14 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/core/ConformalMap.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/ConformalMapMethod.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/TheodorsenMethod.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/FornbergMC.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/FornbergMCConfiguration.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
 )
 add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/numerics/Grid.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/RootFinder.cpp
+    ${CMAKE_SOURCE_DIR}/src/numerics/CGSolver.cpp
     ${CMAKE_SOURCE_DIR}/src/core/StatusManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
 )
@@ -86,6 +103,7 @@ add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/domains/Domain.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/BoundaryComponent.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/Boundary.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/FornbergCanonicalDomain.cpp
 )
 
 #####
@@ -140,6 +158,10 @@ add_executable(test_exec
     $<TARGET_OBJECTS:fftw_wrapper>
     tests/conformal_map_tests.cpp
     tests/theodorsen_method_tests.cpp
+    tests/fornberg_mc.cpp
+    tests/pmatrixbuilder.cpp
+    tests/cgsolver.cpp
+    tests/polyval.cpp
     $<TARGET_OBJECTS:map_objects>
     tests/grids.cpp
     $<TARGET_OBJECTS:util_objects>
