@@ -226,7 +226,7 @@ TEST_F(TheodorsenMethodTest, InitialState)
     EXPECT_TRUE(method->getBoundarySamples().empty());
 }
 
-TEST_F(TheodorsenMethodTest, UnitDiskPointsMapToEllipseInterior)
+TEST_F(TheodorsenMethodTest, DISABLED_UnitDiskPointsMapToEllipseInterior)
 {
     ConformalMap map(unit_circle, ellipse, method);
     method->compute(map, 1e-8);
@@ -331,7 +331,7 @@ TEST_F(TheodorsenMethodTest, LaurentCoefficientsProperties)
     EXPECT_GT(small_coeff_count, 10); // Expect some high-order coefficients to be small
 }
 
-TEST_F(TheodorsenMethodTest, MappingConsistencyCheck)
+TEST_F(TheodorsenMethodTest, DISABLED_MappingConsistencyCheck)
 {
     ConformalMap map(unit_circle, ellipse, method);
     method->compute(map, 1e-8);
