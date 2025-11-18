@@ -153,7 +153,7 @@ TEST_F(FornbergMCTest, Construction)
 TEST_F(FornbergMCTest, ConfigurationAccess)
 {
     FornbergMC method(config);
-    
+
     // Should be able to get configuration
     const auto& retrieved_config = method.getConfiguration();
     EXPECT_EQ(retrieved_config.N, config.N);
@@ -169,7 +169,7 @@ TEST_F(FornbergMCTest, ConfigurationAccess)
 // Test domain validation - disabled because validation methods are protected
 TEST_F(FornbergMCTest, DISABLED_DomainValidation)
 {
-    // This test is disabled because validateSourceDomain and validateTargetDomain 
+    // This test is disabled because validateSourceDomain and validateTargetDomain
     // are protected methods. Domain validation will be tested through the compute() method
     // TODO: Create proper integration tests that exercise domain validation
 }
@@ -181,30 +181,30 @@ TEST_F(FornbergMCTest, FornbergCanonicalDomain)
     // Test basic construction with hole parameters
     std::vector<Complex> centers = {Complex(0.3, 0.0)};
     std::vector<double> radii = {0.1};
-    
+
     EXPECT_NO_THROW(FornbergCanonicalDomain canonical_domain(centers, radii, 64));
-    
+
     FornbergCanonicalDomain canonical_domain(centers, radii, 64);
-    
+
     // Test domain properties
     EXPECT_EQ(canonical_domain.getConnectivity(), 2);  // Unit disk + 1 hole
     EXPECT_TRUE(canonical_domain.isAnnulus());
     EXPECT_EQ(canonical_domain.getHoleCenters().size(), 1);
     EXPECT_EQ(canonical_domain.getHoleRadii().size(), 1);
     EXPECT_EQ(canonical_domain.getBoundaryPointCount(), 64);
-    
+
     // Test conformal moduli
     auto moduli = canonical_domain.getConformalModuli();
     EXPECT_EQ(moduli.size(), 2);  // One pair (center, radius)
-    
+
     // Test parameter updates
     std::vector<Complex> new_centers = {Complex(0.2, 0.1)};
     std::vector<double> new_radii = {0.08};
     EXPECT_NO_THROW(canonical_domain.updateHoleParameters(new_centers, new_radii));
-    
+
     // Test validation
     EXPECT_TRUE(canonical_domain.isValidConfiguration());
-    
+
     // Test invalid configurations
     std::vector<Complex> bad_centers = {Complex(0.0, 0.0)};
     std::vector<double> bad_radii = {1.1};  // Too large
@@ -216,15 +216,15 @@ TEST_F(FornbergMCTest, DISABLED_BasicComputeIntegration)
 {
     // This test is disabled until we have proper multiply connected domains set up
     // TODO: Implement when domain creation utilities are available
-    
+
     FornbergMC method(config);
-    
+
     // Create source and target domains
     // auto source_domain = createCanonicalDomain();
     // auto target_domain = createTestMultiplyConnectedDomain();
-    // 
+    //
     // ConformalMap map(source_domain, target_domain);
-    // 
+    //
     // EXPECT_NO_THROW(method.compute(map));
 }
 
@@ -232,13 +232,13 @@ TEST_F(FornbergMCTest, DISABLED_BasicComputeIntegration)
 TEST_F(FornbergMCTest, ConvergenceTracking)
 {
     FornbergMC method(config);
-    
+
     // Initially should not be converged
     EXPECT_FALSE(method.hasConverged());
-    
+
     // Should have empty residual history
     EXPECT_TRUE(method.getResidualHistory().empty());
-    
+
     // Current residual should be initialized to large value
     EXPECT_GT(method.getCurrentResidual(), 1e10);
 }
@@ -249,12 +249,144 @@ TEST_F(FornbergMCTest, EigenIntegration)
     // Test that we can create and use Eigen matrices
     Eigen::MatrixXcd test_matrix = Eigen::MatrixXcd::Identity(3, 3);
     Eigen::VectorXcd test_vector = Eigen::VectorXcd::Ones(3);
-    
+
     Eigen::VectorXcd result = test_matrix * test_vector;
-    
+
     // Should get identity result
     for (int i = 0; i < 3; ++i) {
         EXPECT_NEAR(result[i].real(), 1.0, 1e-15);
         EXPECT_NEAR(result[i].imag(), 0.0, 1e-15);
     }
+}
+
+// Friend test class for testing private computeFourierCoefficients() method
+class FornbergMCFourierTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.newton_tolerance = 1e-8;
+        config.verbose = false;
+    }
+
+    FornbergMCConfiguration config;
+};
+
+// Test computeFourierCoefficients() with a simple circular boundary
+TEST_F(FornbergMCFourierTest, CircularBoundaryCoefficients)
+{
+    // Create a simple annulus: unit circle with a small circular hole
+    // Outer boundary: circle at origin with radius 1.0
+    // Inner boundary: circle at (0.3, 0) with radius 0.15
+
+    auto outer_component = std::make_shared<AnalyticBoundaryComponent>(
+        [](double theta) { return Complex(std::cos(theta), std::sin(theta)); },
+        [](double theta) { return Complex(-std::sin(theta), std::cos(theta)); } // derivative
+    );
+
+    auto inner_component = std::make_shared<AnalyticBoundaryComponent>(
+        [](double theta) {
+            return Complex(0.3, 0.0) + 0.15 * Complex(std::cos(theta), std::sin(theta));
+        },
+        [](double theta) {
+            return 0.15 * Complex(-std::sin(theta), std::cos(theta)); // derivative
+        }
+    );
+
+    auto outer_boundary = std::make_shared<Boundary>(outer_component);
+    auto inner_boundary = std::make_shared<Boundary>(inner_component);
+
+    std::vector<std::shared_ptr<Boundary>> boundaries = {outer_boundary, inner_boundary};
+    auto test_domain = std::make_shared<MultiplyConnectedDomain>(boundaries);
+
+    // Create FornbergMC instance
+    FornbergMC method(config);
+
+    // Manually set up internal state to test computeFourierCoefficients()
+    // This is normally done during compute(), but we're testing the method in isolation
+
+    // Set connectivity
+    method.m_connectivity = 2;
+
+    // Set user domain
+    method.mp_user_domain = test_domain;
+
+    // Initialize S matrix with identity correspondence
+    // S(ν, j) = θ_j = 2πj/N (canonical parameters map directly to user parameters)
+    method.m_S.resize(2, config.N);
+    for (int nu = 0; nu < 2; ++nu)
+    {
+        for (int j = 0; j < config.N; ++j)
+        {
+            method.m_S(nu, j) = 2.0 * M_PI * j / config.N;
+        }
+    }
+
+    // Initialize coefficient matrix
+    method.m_a.resize(config.N, 2);
+    method.m_a.setZero();
+
+    // Call the method we're testing
+    method.computeFourierCoefficients();
+
+    // Verify results
+    const auto& coeffs = method.m_a;
+
+    // Check dimensions
+    EXPECT_EQ(coeffs.rows(), config.N);
+    EXPECT_EQ(coeffs.cols(), 2);
+
+    // Check that coefficients are not NaN or inf
+    for (int nu = 0; nu < 2; ++nu)
+    {
+        for (int j = 0; j < config.N; ++j)
+        {
+            EXPECT_FALSE(std::isnan(coeffs(j, nu).real()))
+                << "NaN found at coefficient (" << j << ", " << nu << ")";
+            EXPECT_FALSE(std::isnan(coeffs(j, nu).imag()))
+                << "NaN found at coefficient (" << j << ", " << nu << ")";
+            EXPECT_FALSE(std::isinf(coeffs(j, nu).real()))
+                << "Inf found at coefficient (" << j << ", " << nu << ")";
+            EXPECT_FALSE(std::isinf(coeffs(j, nu).imag()))
+                << "Inf found at coefficient (" << j << ", " << nu << ")";
+        }
+    }
+
+    // For the outer boundary (unit circle at origin):
+    // z(θ) = e^(iθ) = cos(θ) + i*sin(θ) has Fourier series with one dominant term
+    // The FFT should have significant magnitude at index 1 (corresponding to e^(iθ))
+
+    double max_coeff_magnitude = 0.0;
+    int max_coeff_index = 0;
+    for (int j = 0; j < config.N; ++j)
+    {
+        double mag = std::abs(coeffs(j, 0));
+        if (mag > max_coeff_magnitude)
+        {
+            max_coeff_magnitude = mag;
+            max_coeff_index = j;
+        }
+    }
+
+    // The dominant coefficient should be at index 1 (positive frequency for e^(iθ))
+    EXPECT_EQ(max_coeff_index, 1)
+        << "Dominant Fourier coefficient should be at index 1 for e^(iθ) parameterization";
+
+    // The magnitude should be approximately 1.0 (the radius)
+    EXPECT_NEAR(max_coeff_magnitude, 1.0, 0.1)
+        << "Dominant coefficient magnitude should match circle radius";
+
+    // Sum of all coefficient magnitudes should be reasonable (not exploding)
+    double total_magnitude = 0.0;
+    for (int nu = 0; nu < 2; ++nu)
+    {
+        for (int j = 0; j < config.N; ++j)
+        {
+            total_magnitude += std::abs(coeffs(j, nu));
+        }
+    }
+    EXPECT_LT(total_magnitude, 10.0)
+        << "Total coefficient magnitude should be bounded for simple circular boundaries";
 }

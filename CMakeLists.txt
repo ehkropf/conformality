@@ -175,5 +175,7 @@ target_link_libraries(test_exec
     ${FFTW_LIB}
 )
 
+target_compile_definitions(test_exec PRIVATE TESTING)
+
 include(GoogleTest)
 gtest_discover_tests(test_exec)

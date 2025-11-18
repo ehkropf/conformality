@@ -6,11 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status & Documentation
 
-**Current Branch:** `fornmc`
+**Current Branch:** `review`
 **Current Phase:** Phase 1 - Fornberg MC Implementation
 **Project Overview:** `design/overview.md`
-**Roadmap:** `design/roadmap.md`
+**High-Level Roadmap:** `design/roadmap.md`
 **Fornberg Documentation:** `design/fornberg/` directory
+
+**Active Work Tracking:** GitHub Issues and Milestones
+- View current work: `gh issue list --milestone "Phase 1: Fornberg Core Implementation"`
+- All milestones: https://github.com/ehkropf/conformality/milestones
+- Phase-specific issues: Filter by labels `phase-1`, `phase-2`, `phase-3`, `phase-4`
 
 ### Current Implementation Status
 
@@ -18,8 +23,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - ✅ Core infrastructure complete (FornbergMC, PMatrixBuilder, CGSolver, FornbergCanonicalDomain)
 - ✅ Configuration system with ~30 tunable parameters
 - ✅ Test framework in place
-- 🔄 Core algorithm methods ~60% complete (~36 TODO/FIXME markers)
+- 🔄 Core algorithm methods ~60% complete (see Phase 1 milestone issues)
 - 🎯 **Current Goal:** Complete core implementation and validate using constructive tests
+- 📋 **Task Tracking:** See GitHub issues #18-#22 for Phase 1 critical path
 
 **On Hold - Theodorsen Method:**
 - ⚠️ Formulation error requiring additional research
@@ -105,28 +111,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Special optimization for annulus case (m=2)
 
 **Key Files:**
-- `src/methods/FornbergMC.{h,cpp}` - Main algorithm (~22 TODO markers)
-- `src/methods/FornbergMCConfiguration.h` - Comprehensive configuration
-- `src/methods/PMatrixBuilder.{h,cpp}` - Matrix construction (~3 TODO markers)
-- `src/numerics/CGSolver.{h,cpp}` - Conjugate gradient solver (~4 FIXME markers)
-- `src/domains/FornbergCanonicalDomain.{h,cpp}` - Canonical domain (~2 FIXME markers)
-- `tests/fornberg_mc.cpp` - Test suite (~2 TODO markers)
+- `src/methods/FornbergMC.{h,cpp}` - Main algorithm
+- `src/methods/FornbergMCConfiguration.h` - Comprehensive configuration (~30 parameters)
+- `src/methods/PMatrixBuilder.{h,cpp}` - Matrix construction for analyticity conditions
+- `src/numerics/CGSolver.{h,cpp}` - Conjugate gradient solver
+- `src/domains/FornbergCanonicalDomain.{h,cpp}` - Canonical domain (unit disk with holes)
+- `tests/fornberg_mc.cpp` - Test suite
 - `tests/cgsolver.cpp` - CG solver tests
 - `tests/pmatrixbuilder.cpp` - Matrix builder tests
 
 **MATLAB Reference:** `design/fornberg/fornmc/` symlink (points to ~/Source/gdrive/fornmc/matlab)
 
-**Status:** See `design/fornberg/current_status.md` for detailed implementation status
-
-**Critical Missing Implementations:**
-1. `formSystem()` - System matrix and RHS construction
-2. `solveSystem()` - CG solver integration
-3. `newtonUpdate()` - Parameter update logic
-4. `sampleBoundaries()` - Boundary sampling
-5. `computeFourierCoefficients()` - FFT-based coefficient computation
-6. `redistributeBoundaryParameters()` - Adaptive point redistribution
-7. `inverseMap()` - Inverse mapping via Newton's method
-8. Logging integration throughout (~16 TODO markers)
+**Implementation Status:**
+- See GitHub milestone "Phase 1: Fornberg Core Implementation" for active tasks
+- Critical path issues: #18 (formSystem), #19 (solveSystem), #20 (newtonUpdate), #21 (Fourier coefficients), #22 (PMatrixBuilder)
+- Phase 2 issues: #25-#28 (validation, inverse map, boundary redistribution)
+- Phase 3 issues: #23-#24 (logging integration)
 
 ### Theodorsen Method (On Hold)
 
@@ -268,12 +268,18 @@ make -j9
 
 ### Design Documentation
 - **`design/overview.md`** - Project state and architecture overview
-- **`design/roadmap.md`** - Development phases and timeline
+- **`design/roadmap.md`** - High-level development phases and strategy
 - **`design/fornberg/`** - Fornberg method documentation
-  - `implementation_plan.md` - Detailed implementation plan (560 lines)
-  - `current_status.md` - Current implementation status and next steps
+  - `implementation_plan.md` - Detailed algorithm implementation plan (560 lines)
 
 **Important:** The `design/` directory has its own `.git` repository (not a subrepo) for version control during development. This directory and its git history will be removed before publishing the main project.
+
+### Task & Issue Tracking
+- **GitHub Issues:** Active work items with detailed implementation notes
+- **GitHub Milestones:** Phase tracking (Phase 1-4)
+- **Labels:** `phase-X` for phase tracking, `component:X` for module tracking, `critical path` for blocking work
+- Use `gh issue list` to view current tasks
+- Use `gh issue view <number>` to see issue details
 
 ### Class Diagrams
 - Automatic diagrams generated with `clang-uml`
@@ -288,9 +294,23 @@ make -j9
 - Test files document expected behavior
 
 ## Project Management
-- **GitHub:** Integration available via `gh` tool
-- **Issues:** Can use for planning discussions
-- **Milestones:** Track phase completion
+
+### GitHub Integration
+- **Tool:** `gh` CLI for issue/milestone management
+- **Issues:** Active work tracking with detailed implementation notes
+  - View: `gh issue list`
+  - Filter by phase: `gh issue list --label "phase-1"`
+  - View details: `gh issue view <number>`
+- **Milestones:** Phase 1-4 tracking
+  - View: `gh api repos/ehkropf/conformality/milestones`
+  - Phase 1: Core implementation (#18-#22 critical path)
+  - Phase 2: Numerical validation (#25-#28)
+  - Phase 3: Logging integration (#23-#24)
+  - Phase 4: GUI integration (Definition of Done)
+- **Labels:**
+  - Phase: `phase-1`, `phase-2`, `phase-3`, `phase-4`
+  - Component: `component:fornberg`, `component:numerics`, `component:domains`, `component:gui`
+  - Priority: `critical path`, `low priority`, `blocked`
 
 ## C++ Style Guide
 
@@ -407,58 +427,39 @@ public:
 
 ## Current Development Focus
 
-### Immediate Priorities (Phase 1)
+**Active work is tracked in GitHub issues - see milestones and labels**
 
-1. **Complete Fornberg Core Methods**
-   - Implement `formSystem()`, `solveSystem()`, `newtonUpdate()`
-   - Implement boundary sampling and Fourier coefficient computation
-   - Complete PMatrixBuilder construction logic
+### Phase 1: Core Implementation (Current)
+- **Milestone:** "Phase 1: Fornberg Core Implementation"
+- **Critical Issues:** #18-#22 (formSystem, solveSystem, newtonUpdate, Fourier coefficients, PMatrixBuilder)
+- **Goal:** Algorithm converges for simple multiply-connected domain
+- **Timeline:** Q4 2024 - Q1 2025
 
-2. **Basic Logging**
-   - Add cout-based diagnostics initially
-   - StatusManager integration can come in Phase 3
-
-3. **Simple Test Case**
-   - Get algorithm running for annulus or simple 2-connected domain
-   - Validate that Newton iteration converges
-
-### Next Steps (Phase 2)
-
-1. **Numerical Validation**
-   - Create constructive tests that validate algorithm correctness
-   - Test convergence properties and stability
-   - Validate conformal mapping properties (angle preservation, etc.)
-   - Compare algorithm behavior with expected theoretical properties
-   - **Note:** We don't have MATLAB license; validation will use constructive tests rather than fixed value comparison
-
-2. **Complete Supporting Methods**
-   - Boundary redistribution
-   - Inverse mapping
-   - Initial guess methods
+### Phase 2: Numerical Validation (Next)
+- **Milestone:** "Phase 2: Numerical Validation"
+- **Issues:** #25-#28 (boundary redistribution, inverse map, validation tests, domain validation)
+- **Goal:** Validate correctness using constructive tests (no MATLAB comparison needed)
+- **Timeline:** 4-6 weeks (Q1 2025)
 
 ### Phase 3: Integration & Polish
+- **Milestone:** "Phase 3: Integration & Polish"
+- **Issues:** #23-#24 (StatusManager logging integration)
+- **Goal:** Production-ready with comprehensive logging and error handling
+- **Timeline:** 3-4 weeks (Q1-Q2 2025)
 
-See `design/roadmap.md` for detailed Phase 3 tasks (logging integration, error handling, code quality).
+### Phase 4: GUI Integration (Definition of Done)
+- **Milestone:** "Phase 4: GUI Integration (Definition of Done)"
+- **Goal:** Representative multiply-connected examples working in GUI
+- **Timeline:** 4-6 weeks (Q2 2025)
 
-### Definition of Done (Phase 4)
-
-**Representative multiply-connected domain examples working in GUI**
-- Visual verification of correct conformal mapping
-- Real-time parameter adjustment
-- Example gallery accessible from GUI
-- Examples inspired by MATLAB reference repo (but validated constructively)
+See `design/roadmap.md` for detailed phase descriptions and `gh issue list` for current tasks.
 
 ## Known Issues & Limitations
 
 ### Theodorsen Method
 - ⚠️ **Critical:** Has formulation error requiring research
 - On hold until Fornberg implementation complete
-
-### Fornberg Method
-- ~36 TODO/FIXME markers in core implementation
-- Needs numerical validation using constructive tests
-- Logging integration incomplete
-- GUI integration pending
+- Issue #29 tracks inverse mapping (low priority)
 
 ### Platform Support
 - Currently macOS only (Metal renderer)
@@ -480,3 +481,4 @@ See `design/roadmap.md` for detailed Phase 3 tasks (logging integration, error h
 
 **Author:** Everett Kropf (ehkropf@gmail.com)
 **License:** AGPL v3 - See LICENSE file
+- Always be sure to strip trailing whitespace from files after editing. Even better if you just leave no trailing whitespace to begin with.

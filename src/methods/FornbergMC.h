@@ -31,11 +31,16 @@ class PMatrixBuilder;
 class CGSolver;
 class FornbergCanonicalDomain;
 
+// Test helper forward declaration
+#ifdef TESTING
+#include <gtest/gtest_prod.h>
+#endif
+
 /**
  * @brief Implementation of Fornberg-like method for multiply connected domains
  *
- * This class implements the Fornberg-like method for numerical conformal mapping 
- * of bounded multiply connected domains. The method uses Newton iteration to solve 
+ * This class implements the Fornberg-like method for numerical conformal mapping
+ * of bounded multiply connected domains. The method uses Newton iteration to solve
  * for boundary correspondences S_ν(θ) and conformal moduli (c_ν, ρ_ν), employing
  * analyticity conditions on Fourier coefficients to enforce conformality.
  *
@@ -52,35 +57,40 @@ class FornbergCanonicalDomain;
  */
 class FornbergMC : public ConformalMapMethod
 {
+#ifdef TESTING
+    // Friend declaration for testing private methods
+    FRIEND_TEST(FornbergMCFourierTest, CircularBoundaryCoefficients);
+#endif
+
 private:
     // Configuration
     FornbergMCConfiguration m_config;
     std::shared_ptr<MultiplyConnectedDomain> mp_user_domain{nullptr};        // Target domain (user's actual domain)
     std::shared_ptr<FornbergCanonicalDomain> mp_canonical_domain{nullptr};   // Source domain (unit disk + holes)
-    
+
     // Matrix construction components
     std::unique_ptr<PMatrixBuilder> mp_matrix_builder{nullptr};
     std::unique_ptr<CGSolver> mp_cg_solver{nullptr};
-    
+
     // Newton iteration state
     Eigen::MatrixXd m_S;                    // Boundary correspondences S_ν(θ)
     Eigen::VectorXcd m_conformal_moduli;    // Centers c_ν and radii ρ_ν
-    
-    // Linear system components  
+
+    // Linear system components
     Eigen::MatrixXcd m_D;                   // System matrix
     Eigen::VectorXcd m_g;                   // RHS vector
     Eigen::VectorXd m_U;                    // Solution vector
-    
+
     // Series coefficients
     Eigen::MatrixXcd m_a;                   // Fourier coefficients a_{ν,j}
-    
+
     // Algorithm state
     int m_connectivity{0};                     // Number of boundary components
     bool m_is_annulus{false};                  // Whether domain is an annulus (m=2)
     bool m_is_converged{false};                // Convergence flag
     double m_current_residual{std::numeric_limits<double>::max()};  // Current Newton update norm
     std::vector<double> m_residual_history; // Newton residual history
-    
+
     // Boundary parameterization
     std::vector<std::vector<Complex>> m_boundary_samples; // Sampled boundary points
     std::vector<std::vector<double>> m_parameter_values;  // Parameter values θ
@@ -197,7 +207,7 @@ protected:
 
     /**
      * @brief Validate that the target domain is a bounded multiply connected domain
-     * @param domain Target domain to validate  
+     * @param domain Target domain to validate
      * @throws std::invalid_argument if the domain is not compatible
      */
     void validateTargetDomain(std::shared_ptr<Domain> domain) const override;
