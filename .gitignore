@@ -13,3 +13,5 @@ fornmc/
 design/
 docs/diagrams/
 CMakePresets.json
+fftw.wisdom
+imgui.ini
