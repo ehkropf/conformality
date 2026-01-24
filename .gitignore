@@ -8,3 +8,9 @@ run*.sh
 build/
 design/
 docs/diagrams/
+<<<<<<< Updated upstream
+=======
+CMakePresets.json
+fftw.wisdom
+imgui.ini
+>>>>>>> Stashed changes

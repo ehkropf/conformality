@@ -1,11 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working with this repository.
 
+<<<<<<< Updated upstream
 # Claude Project Guide
+=======
+## Project Overview
+>>>>>>> Stashed changes
 
-## Project Status & Documentation
+**Conformality** is a C++20 conformal mapping toolset implementing the Fornberg MC method for multiply-connected domains. Uses pure composition with a single orchestrator pattern.
 
+<<<<<<< Updated upstream
 **Current Phase:** Phase 1 - Theodorsen method implementation with GUI
 **Project Overview:** `design/high_level_overview.md`
 **Phase 1 Documentation:** `design/phase1/` directory
@@ -97,31 +102,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Development Commands
 
 ### Building the Project
+=======
+## Prerequisites
+
+**Required (macOS):**
+>>>>>>> Stashed changes
 ```bash
-# From project root, create and enter build directory
-mkdir -p build && cd build
+# MacPorts
+sudo port install fftw-3 eigen3 glfw
 
-# Configure with cmake (uses clang by default)
-CC=clang CXX=clang++ cmake ..
-
-# Build with parallel jobs
-make -j9
+# Or Homebrew
+brew install fftw eigen glfw
 ```
 
-### Running Tests
+**Verify installation:**
 ```bash
+<<<<<<< Updated upstream
 # From build directory
 ./test_exec
+=======
+ls /opt/local/lib/libfftw3.* || ls /usr/local/lib/libfftw3.*   # FFTW
+ls /opt/local/include/eigen3 || ls /usr/local/include/eigen3   # Eigen
 ```
 
-### Development Workflow
-- All builds happen in the `build/` directory
-- Every cmake and make command should be run from the build directory
-- Tests are run from the build directory
-- Default build type is Release
-- Editor: MacVim and shell vim
-- CMake automatically generates compile_commands.json for editor integration
+## Quick Commands
 
+Use skills for common tasks:
+- `/build` - Build the project (add "clean" or "reconfigure" as needed)
+- `/test` - Run tests (optionally with gtest filter)
+- `/gui` - Launch the GUI application
+- `/project-status` - Check GitHub issues and milestones
+
+### Manual Build
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j$(sysctl -n hw.ncpu)
+ctest --test-dir build         # Run tests
+./build/conformality_gui       # Run GUI
+>>>>>>> Stashed changes
+```
+
+## Directory Structure
+
+<<<<<<< Updated upstream
 ### Key Build Targets
 - Main executable: `conformality` (GUI application)
 - Test executable: `test_exec` (Google Test suite)
@@ -187,10 +210,22 @@ public:
         // Function body
     }
 };
+=======
+```
+src/core/      - ConformalMap, Types, StatusManager
+src/methods/   - TheodorsenMethod, FornbergMC, PMatrixBuilder
+src/domains/   - Domain, Boundary, FornbergCanonicalDomain
+src/numerics/  - FFTWWrapper, Grid, RootFinder, CGSolver, Polyval
+src/gui/       - ImGui-based GUI components
+tests/         - Google Test suite
+external/      - Third-party (imgui, implot, spdlog)
+design/        - Design docs and MATLAB reference
+>>>>>>> Stashed changes
 ```
 
-## C++ Best Practices
+## Key Entry Points
 
+<<<<<<< Updated upstream
 ### Memory & Resources
 
 - Use smart pointers (`std::unique_ptr`, `std::shared_ptr`) for dynamic memory
@@ -203,15 +238,32 @@ public:
 - Use `const` and `constexpr` extensively (declare const-ness unless value will change)
 - Prefer RAII for resource management
 - When possible, always go for the best big-O number for performance
+=======
+| To understand... | Start here |
+|------------------|------------|
+| Overall architecture | `src/core/ConformalMap.h` - single orchestrator |
+| Current algorithm work | `src/methods/FornbergMC.h` + `PMatrixBuilder.h` |
+| Algorithm configuration | `src/methods/FornbergMCConfiguration.h` |
+| Domain representation | `src/domains/Domain.h` → `MultiplyConnectedDomain` |
+| Numerical core | `src/numerics/FFTWWrapper.h`, `CGSolver.h` |
+| GUI application | `src/gui/Application.cpp` → `MainWindow.cpp` |
 
-## Testing Guidelines
+## C++ Style
 
-### Framework & Structure
-- **Framework:** Google Test (gtest)
-- **Location:** All tests in the `tests/` directory
-- **Naming:** Test files don't need `test` prefix (since they're in a `tests` directory)
-- **Execution:** Run `./test_exec` from the `build/` directory
+**C++20** - Guidelines, not rules. Break them if it improves readability.
+>>>>>>> Stashed changes
 
+| Element | Convention | Example |
+|---------|------------|---------|
+| Variables | `snake_case` | `point_count` |
+| Classes | `PascalCase` | `ConformalMap` |
+| Functions | `camelCase` | `computeCoefficients` |
+| Private members | `m_` prefix | `m_value` |
+| Pointers | `p_` prefix | `mp_data` (member ptr) |
+
+**Formatting:** 120 char lines, braces on own lines, curly bracket init preferred
+
+<<<<<<< Updated upstream
 ### Test Coverage Areas
 - **Boundary System:** Component creation, parameterization, sampling
 - **Domain Implementations:** Elliptical, circular, and starlike domains
@@ -224,3 +276,48 @@ public:
 - Each test file focuses on a specific module or class
 - Integration tests verify component interactions
 - Numerical tests include tolerance and convergence validation
+=======
+## Key Patterns
+
+- **Error handling:** `std::invalid_argument` (validation), `std::runtime_error` (runtime)
+- **Ownership:** `shared_ptr` for domains/methods, `unique_ptr` for internals
+- **Libraries:** Eigen (linear algebra), FFTW via `FFTWWrapper`, spdlog (logging)
+- **Test builds:** `TESTING` preprocessor define enabled for test executable
+
+## Reference Documentation
+
+Detailed information in `.claude/references/conformality/`:
+
+| Topic | File |
+|-------|------|
+| Fornberg algorithm | `fornberg-method.md` |
+| Theodorsen method (on hold) | `theodorsen-method.md` |
+| FFTW & numerics | `fftw-numerics.md` |
+| Testing guidelines | `testing.md` |
+| Architecture | `architecture.md` |
+| Project phases | `project-phases.md` |
+
+## Gotchas
+
+- **FFTW wisdom:** `fftw.wisdom` file generated in working directory at runtime
+- **ImGui config:** `imgui.ini` file generated in working directory at runtime
+- **macOS Metal:** GUI uses Metal backend; won't build on Linux/Windows without porting
+- **Disabled tests:** Some tests prefixed `DISABLED_` until implementation complete
+- **MATLAB reference:** `design/fornberg/fornmc/` is a symlink to reference implementation
+- **Design directory:** Has its own `.git` for development (will be removed before publish)
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `Unable to find fftw3.h` | Install FFTW: `port install fftw-3` or `brew install fftw` |
+| `Unable to find Eigen3` | Install Eigen: `port install eigen3` or `brew install eigen` |
+| `GLFW not found` | Install GLFW: `port install glfw` or `brew install glfw` |
+| CMake can't find libs | Check paths in CMakeLists.txt match your install (`/opt/local` vs `/usr/local`) |
+| Tests crash on FFT | Delete `fftw.wisdom` and re-run (wisdom file may be stale) |
+
+## Notes
+
+- Strip trailing whitespace from all files
+- License: AGPL v3
+>>>>>>> Stashed changes
