@@ -1,11 +1,15 @@
 *.swo
 *.swp
 *.pdf
+*.svg
+*.png
 .DS_Store
 .claude
+.vscode
 CLAUDE.local.md
 run*.sh
 build/
+fornmc/
 design/
 docs/diagrams/
 CMakePresets.json
