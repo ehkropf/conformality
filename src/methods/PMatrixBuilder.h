@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "ConformalModuli.h"
 #include "FornbergMCConfiguration.h"
 #include <Eigen/Dense>
 #include <vector>
@@ -72,15 +73,17 @@ public:
     /**
      * @brief Build P_ν matrix for a specific boundary component
      * @param nu Component index (0-based)
+     * @param moduli Conformal moduli (centers and radii of inner circles)
      * @return P_ν matrix for component nu
      */
-    Eigen::MatrixXcd buildPMatrix(int nu) const;
+    Eigen::MatrixXcd buildPMatrix(int nu, const ConformalModuli& moduli) const;
 
     /**
      * @brief Build all P_ν matrices
+     * @param moduli Conformal moduli (centers and radii of inner circles)
      * @return Vector of P_ν matrices for all components
      */
-    std::vector<Eigen::MatrixXcd> buildAllPMatrices() const;
+    std::vector<Eigen::MatrixXcd> buildAllPMatrices(const ConformalModuli& moduli) const;
 
     /**
      * @brief Get frequency indices for a boundary component
@@ -93,9 +96,15 @@ public:
      * @brief Apply normalization conditions to the system
      * @param system_matrix System matrix to modify
      * @param rhs_vector Right-hand side vector to modify
+     * @param norm_cond_value Normalization condition value (norm_cond(3) in MATLAB)
+     *
+     * For the general (non-annulus) case, this adds a final normalization row
+     * to enforce the global constraint. For the annulus case, no extra rows
+     * are needed since c(1)=0 already fixes degrees of freedom.
      */
-    void applyNormalizationConditions(Eigen::MatrixXcd& system_matrix, 
-                                    Eigen::VectorXcd& rhs_vector) const;
+    void applyNormalizationConditions(Eigen::MatrixXcd& system_matrix,
+                                      Eigen::VectorXcd& rhs_vector,
+                                      double norm_cond_value) const;
 
     /**
      * @brief Get the size of the constructed system
@@ -133,16 +142,29 @@ private:
     /**
      * @brief Build P matrix for general multiply connected case
      * @param nu Component index
+     * @param moduli Conformal moduli
      * @return P_ν matrix for general case
      */
-    Eigen::MatrixXcd buildGeneralPMatrix(int nu) const;
+    Eigen::MatrixXcd buildGeneralPMatrix(int nu, const ConformalModuli& moduli) const;
 
     /**
      * @brief Build P matrix for annulus case (optimized)
      * @param nu Component index (should be 0 or 1 for annulus)
+     * @param moduli Conformal moduli
      * @return P_ν matrix for annulus case
      */
-    Eigen::MatrixXcd buildAnnulusPMatrix(int nu) const;
+    Eigen::MatrixXcd buildAnnulusPMatrix(int nu, const ConformalModuli& moduli) const;
+
+    /**
+     * @brief Fill upper-triangular structure for P matrix subblocks
+     * @param P_ Matrix to fill (first column must be pre-filled)
+     * @param rho Radius parameter
+     *
+     * Implements the do_tri helper from MATLAB make_Pnu.m.
+     * Fills columns 2 to M using the recurrence relation:
+     * P_(i,j) = P_(i-1,j-1) * (i-1) * rho / (j-1)
+     */
+    void doTri(Eigen::MatrixXcd& P_, double rho) const;
 
     /**
      * @brief Set up normalization conditions based on connectivity
