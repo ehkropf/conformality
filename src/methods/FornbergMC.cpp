@@ -696,6 +696,7 @@ void FornbergMC::newtonUpdate()
         }
         catch (const std::exception& e)
         {
+            // TODO: Replace with spdlog::warn() when logging infrastructure is integrated
             std::cerr << "Warning: Failed to update canonical domain - "
                       << e.what() << ". Keeping current parameters." << std::endl;
         }
