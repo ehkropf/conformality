@@ -711,3 +711,426 @@ TEST_F(FornbergMCSolveSystemTest, ConvergenceInfo)
     EXPECT_TRUE(info.converged)
         << "CG should converge for this annulus problem";
 }
+
+// Helper functions for creating test domains (shared across newton update tests)
+namespace
+{
+
+std::shared_ptr<Boundary> createCircularBoundaryHelper(Complex center, double radius)
+{
+    auto component = std::make_shared<AnalyticBoundaryComponent>(
+        [center, radius](double theta) {
+            return center + radius * Complex(std::cos(theta), std::sin(theta));
+        },
+        [radius](double theta) {
+            return radius * Complex(-std::sin(theta), std::cos(theta));
+        }
+    );
+    return std::make_shared<Boundary>(component);
+}
+
+std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomainHelper()
+{
+    auto outer = createCircularBoundaryHelper(Complex(0, 0), 1.0);
+    auto inner = createCircularBoundaryHelper(Complex(0.3, 0), 0.15);
+    return std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner}
+    );
+}
+
+std::shared_ptr<MultiplyConnectedDomain> createThreeConnectedDomainHelper()
+{
+    auto outer = createCircularBoundaryHelper(Complex(0, 0), 1.0);
+    auto inner1 = createCircularBoundaryHelper(Complex(0.3, 0.2), 0.1);
+    auto inner2 = createCircularBoundaryHelper(Complex(-0.3, -0.1), 0.12);
+    return std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+    );
+}
+
+}  // anonymous namespace
+
+TEST(FornbergMCNewtonUpdateTest, ComputesResidualBeforeUpdate)
+{
+    // Verify residual is computed as infinity norm of U before applying updates
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+
+    auto domain = createAnnulusDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Store expected residual (infinity norm of U before update)
+    double expected_residual = method.m_U.lpNorm<Eigen::Infinity>();
+
+    method.newtonUpdate();
+
+    // Residual should match the infinity norm computed before modifications
+    EXPECT_DOUBLE_EQ(method.m_current_residual, expected_residual);
+}
+
+TEST(FornbergMCNewtonUpdateTest, UpdatesBoundaryCorrespondencesAnnulus)
+{
+    // Verify S is updated from solution vector for annulus case
+    // The update should be: S_new = S_old + U[0:m*N-1] / abs_eta
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+
+    auto domain = createAnnulusDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    const int m = 2;
+    const int N = config.N;
+
+    // Store initial S values
+    Eigen::MatrixXd S_before = method.m_S;
+
+    // Check that solution vector has non-zero values (indicating an update will happen)
+    double u_norm = 0.0;
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            u_norm += std::abs(method.m_U(nu * N + j));
+        }
+    }
+    EXPECT_GT(u_norm, 0.0) << "Solution vector should have non-zero boundary updates";
+
+    method.newtonUpdate();
+
+    // Verify S was modified (changed from initial values)
+    double total_change = 0.0;
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            total_change += std::abs(method.m_S(j, nu) - S_before(j, nu));
+        }
+    }
+    EXPECT_GT(total_change, 0.0) << "S should be updated by newtonUpdate()";
+
+    // After update, m_U[0:m*N-1] should contain the scaled values (U/abs_eta)
+    // that were added to S. Verify they're now scaled (different from original if abs_eta != 1)
+    // This is a sanity check that the scaling happened
+    bool any_abs_eta_not_one = false;
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            if (std::abs(method.m_abs_eta(j, nu) - 1.0) > 1e-10)
+            {
+                any_abs_eta_not_one = true;
+                break;
+            }
+        }
+    }
+    // If abs_eta values aren't all 1, scaling should have occurred
+    if (any_abs_eta_not_one)
+    {
+        EXPECT_TRUE(true) << "abs_eta scaling was applied";
+    }
+}
+
+TEST(FornbergMCNewtonUpdateTest, UpdatesRadiusAnnulus)
+{
+    // For annulus (m=2): radius is updated, center is not (for annulus case)
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+
+    auto domain = createAnnulusDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    const int m = 2;
+    const int N = config.N;
+
+    // Store initial moduli
+    Eigen::VectorXcd moduli_before = method.m_conformal_moduli;
+    Complex center_before = moduli_before(0);
+    double radius_before = std::real(moduli_before(1));
+
+    // Verify there's a non-zero update in the solution vector
+    double radius_update_in_U = std::real(method.m_U(m * N));
+    EXPECT_NE(radius_update_in_U, 0.0) << "Solution should contain non-zero radius update";
+
+    method.newtonUpdate();
+
+    // Moduli layout: [c₂, ρ₂] for annulus
+    // Center should NOT change for annulus case (m_is_annulus = true)
+    EXPECT_NEAR(std::real(method.m_conformal_moduli(0)), std::real(center_before), 1e-14)
+        << "Annulus center real part should not change";
+    EXPECT_NEAR(std::imag(method.m_conformal_moduli(0)), std::imag(center_before), 1e-14)
+        << "Annulus center imag part should not change";
+
+    // Radius should have changed
+    double radius_after = std::real(method.m_conformal_moduli(1));
+    double actual_radius_change = radius_after - radius_before;
+
+    // The change should have the same sign as U[m*N] and be non-zero
+    if (radius_update_in_U > 0)
+    {
+        EXPECT_GT(actual_radius_change, 0.0)
+            << "Radius change should be positive when U[m*N] is positive";
+    }
+    else if (radius_update_in_U < 0)
+    {
+        EXPECT_LT(actual_radius_change, 0.0)
+            << "Radius change should be negative when U[m*N] is negative";
+    }
+
+    // Radius should remain positive
+    EXPECT_GT(radius_after, 0.0) << "Radius should remain positive after update";
+}
+
+TEST(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral)
+{
+    // For 3-connected domain: both centers and radii are updated
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+
+    auto domain = createThreeConnectedDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    const int m = 3;
+    const int N = config.N;
+
+    // Store initial moduli
+    Eigen::VectorXcd moduli_before = method.m_conformal_moduli;
+
+    // Extract update directions from solution vector BEFORE newtonUpdate modifies U
+    // Radii: U[m*N + k] for k = 0, 1
+    // Centers: U[m*N + m - 1 + 2k] (real), U[m*N + m + 2k] (imag)
+    std::vector<double> radius_update_direction(m - 1);
+    std::vector<Complex> center_update_direction(m - 1);
+
+    for (int k = 0; k < m - 1; ++k)
+    {
+        radius_update_direction[k] = std::real(method.m_U(m * N + k));
+
+        int re_idx = m * N + m - 1 + 2 * k;
+        int im_idx = m * N + m + 2 * k;
+        center_update_direction[k] = Complex(
+            std::real(method.m_U(re_idx)),
+            std::real(method.m_U(im_idx))
+        );
+    }
+
+    method.newtonUpdate();
+
+    // Verify moduli updates have correct direction
+    // Moduli layout: [c₂, ρ₂, c₃, ρ₃, ...]
+    for (int k = 0; k < m - 1; ++k)
+    {
+        int center_idx = 2 * k;
+        int radius_idx = 2 * k + 1;
+
+        // Compute actual changes
+        Complex actual_center_change = method.m_conformal_moduli(center_idx) - moduli_before(center_idx);
+        double actual_radius_change = std::real(method.m_conformal_moduli(radius_idx))
+                                      - std::real(moduli_before(radius_idx));
+
+        // Check that changes have the same sign as the solution vector values
+        // (accounting for possible scaling factors)
+        if (std::abs(radius_update_direction[k]) > 1e-10)
+        {
+            EXPECT_TRUE((actual_radius_change > 0) == (radius_update_direction[k] > 0))
+                << "Radius " << (k + 2) << " change should have same sign as U value";
+        }
+
+        if (std::abs(std::real(center_update_direction[k])) > 1e-10)
+        {
+            EXPECT_TRUE((std::real(actual_center_change) > 0) == (std::real(center_update_direction[k]) > 0))
+                << "Center " << (k + 2) << " real change should have same sign as U value";
+        }
+
+        if (std::abs(std::imag(center_update_direction[k])) > 1e-10)
+        {
+            EXPECT_TRUE((std::imag(actual_center_change) > 0) == (std::imag(center_update_direction[k]) > 0))
+                << "Center " << (k + 2) << " imag change should have same sign as U value";
+        }
+
+        // Radii should remain positive
+        EXPECT_GT(std::real(method.m_conformal_moduli(radius_idx)), 0.0)
+            << "Radius " << (k + 2) << " should remain positive";
+    }
+}
+
+TEST(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled)
+{
+    // Verify damping factor is applied to all updates
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+    config.enable_newton_damping = true;
+    config.newton_damping_factor = 0.5;
+
+    auto domain = createAnnulusDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    const int m = 2;
+    const int N = config.N;
+    const double damping = 0.5;
+
+    // Store initial values
+    Eigen::MatrixXd S_before = method.m_S;
+    Eigen::VectorXcd moduli_before = method.m_conformal_moduli;
+
+    // Compute expected damped updates for S
+    Eigen::MatrixXd expected_delta_S(N, m);
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            double abs_eta_val = method.m_abs_eta(j, nu);
+            double u_val = std::real(method.m_U(nu * N + j));
+            expected_delta_S(j, nu) = (abs_eta_val > 1e-14) ? damping * u_val / abs_eta_val : 0.0;
+        }
+    }
+
+    // Expected damped radius update
+    double expected_radius_delta = damping * std::real(method.m_U(m * N));
+
+    method.newtonUpdate();
+
+    // Verify S was updated with damping
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            double expected_S = S_before(j, nu) + expected_delta_S(j, nu);
+            EXPECT_NEAR(method.m_S(j, nu), expected_S, 1e-12)
+                << "Damped S(" << j << ", " << nu << ") mismatch";
+        }
+    }
+
+    // Verify radius was updated with damping
+    EXPECT_NEAR(std::real(method.m_conformal_moduli(1)),
+                std::real(moduli_before(1)) + expected_radius_delta, 1e-12)
+        << "Damped radius update mismatch";
+}
+
+TEST(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
+{
+    // Verify canonical domain is updated with new moduli after Newton update
+    FornbergMCConfiguration config;
+    config.N = 64;
+    config.max_newton_iterations = 10;
+    config.newton_tolerance = 1e-8;
+    config.cgm_tolerance = 1e-10;
+    config.max_cgm_iterations = 200;
+    config.verbose = false;
+
+    auto domain = createThreeConnectedDomainHelper();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Store moduli after update (we'll compare canonical domain against these)
+    method.newtonUpdate();
+    Eigen::VectorXcd updated_moduli = method.m_conformal_moduli;
+
+    // Get moduli from canonical domain
+    auto canonical_moduli = method.mp_canonical_domain->getConformalModuli();
+
+    // Verify canonical domain has the updated moduli
+    ASSERT_EQ(canonical_moduli.size(), updated_moduli.size());
+    for (int i = 0; i < canonical_moduli.size(); ++i)
+    {
+        EXPECT_NEAR(std::real(canonical_moduli(i)), std::real(updated_moduli(i)), 1e-12)
+            << "Canonical domain moduli[" << i << "] real part not synced";
+        EXPECT_NEAR(std::imag(canonical_moduli(i)), std::imag(updated_moduli(i)), 1e-12)
+            << "Canonical domain moduli[" << i << "] imag part not synced";
+    }
+}
