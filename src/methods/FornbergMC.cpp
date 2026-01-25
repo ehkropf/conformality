@@ -550,14 +550,63 @@ void FornbergMC::formSystem()
 
 void FornbergMC::solveSystem()
 {
-    // Stub implementation for system solution
-    // TODO: Debug log "Solving linear system with CG method"
+    // Precondition checks
+    if (!mp_cg_solver)
+    {
+        throw std::runtime_error(
+            "FornbergMC::solveSystem: CGSolver not initialized");
+    }
 
-    // TODO: Implement CG solution using CGSolver
-    // This involves:
-    // 1. Setting up function handle for D†D*x = D†*g
-    // 2. Calling custom CG solver with convergence monitoring
-    // 3. Handling best-iterate tracking for non-convergent cases
+    if (m_D.rows() == 0 || m_g.size() == 0)
+    {
+        throw std::runtime_error(
+            "FornbergMC::solveSystem: System not formed");
+    }
+
+    // Create D_function: applies D to a real vector
+    auto D_function = [this](const Eigen::VectorXd& x) -> Eigen::VectorXcd {
+        return m_D * x;
+    };
+
+    // Create D_adjoint_function: applies D† to a complex vector
+    auto D_adjoint_function = [this](const Eigen::VectorXcd& y) -> Eigen::VectorXcd {
+        return m_D.adjoint() * y;
+    };
+
+    // Compute transformed RHS: D† * g
+    Eigen::VectorXcd g_transformed = m_D.adjoint() * m_g;
+
+    // Solve the system
+    Eigen::VectorXd solution = mp_cg_solver->solveComplexSystem(
+        D_function,
+        D_adjoint_function,
+        g_transformed
+    );
+
+    // Store solution in m_U (as complex with zero imaginary part)
+    m_U = solution.cast<std::complex<double>>();
+
+    // Log convergence information
+    const auto& info = mp_cg_solver->getLastConvergenceInfo();
+
+    if (!info.converged)
+    {
+        std::cerr << "Warning: CG solver did not converge after "
+                  << info.iterations << " iterations. "
+                  << "Residual: " << info.final_residual;
+        if (info.used_best_iterate)
+        {
+            std::cerr << " (using best iterate from iteration "
+                      << info.best_iterate_index << ")";
+        }
+        std::cerr << '\n';
+    }
+    else if (m_config.verbose)
+    {
+        std::cout << "CG converged in " << info.iterations
+                  << " iterations, residual: " << info.final_residual
+                  << '\n';
+    }
 }
 
 void FornbergMC::newtonUpdate()

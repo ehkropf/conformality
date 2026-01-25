@@ -524,3 +524,190 @@ TEST_F(FornbergMCFourierTest, CircularBoundaryCoefficients)
     EXPECT_LT(total_magnitude, 10.0)
         << "Total coefficient magnitude should be bounded for simple circular boundaries";
 }
+
+// Friend test class for testing solveSystem() method
+class FornbergMCSolveSystemTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.newton_tolerance = 1e-8;
+        config.cgm_tolerance = 1e-10;
+        config.max_cgm_iterations = 200;
+        config.verbose = false;
+    }
+
+    // Create a circular boundary centered at the given point with given radius
+    std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
+    {
+        auto component = std::make_shared<AnalyticBoundaryComponent>(
+            [center, radius](double theta) {
+                return center + radius * Complex(std::cos(theta), std::sin(theta));
+            },
+            [radius](double theta) {
+                return radius * Complex(-std::sin(theta), std::cos(theta));
+            }
+        );
+        return std::make_shared<Boundary>(component);
+    }
+
+    // Create an annulus domain (2-connected)
+    std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner}
+        );
+    }
+
+    // Create a 3-connected domain (unit disk with 2 holes)
+    std::shared_ptr<MultiplyConnectedDomain> createThreeConnectedDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(0.3, 0.2), 0.1);
+        auto inner2 = createCircularBoundary(Complex(-0.3, -0.1), 0.12);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+        );
+    }
+
+    FornbergMCConfiguration config;
+};
+
+TEST_F(FornbergMCSolveSystemTest, SolutionDimensions)
+{
+    // Annulus case: m=2, N=64
+    // U should have size m*N+1 = 129 (annulus case)
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Solution dimensions should match system columns
+    EXPECT_EQ(method.m_U.size(), method.m_D.cols());
+    EXPECT_EQ(method.m_U.size(), 129);  // m*N + 1 for annulus
+}
+
+TEST_F(FornbergMCSolveSystemTest, ReducesResidual)
+{
+    // This is an OVERDETERMINED system (D has more rows than columns).
+    // We solve the least-squares problem: min ||D*U - g||
+    // via the normal equations: D†D*U = D†g
+    //
+    // The CG solver operates on the REAL system: 2*real(D†D)*x = 2*real(D†g)
+    // So we verify the real part of the normal equations residual.
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    // Compute the RHS of the real normal equations: 2*real(D† * g)
+    Eigen::VectorXcd Dtg = method.m_D.adjoint() * method.m_g;
+    Eigen::VectorXd real_rhs = 2.0 * Dtg.real();
+
+    // Compute initial real normal equations residual with zero vector
+    double initial_real_residual = real_rhs.norm();  // ||2*real(D†g) - 0||
+
+    // Solve the system
+    method.solveSystem();
+
+    // Get the real solution vector (m_U has zero imaginary parts)
+    Eigen::VectorXd U_real = method.m_U.real();
+
+    // Compute the real matrix-vector product: 2*real(D†D)*U
+    // This is what the CG solver computes internally
+    Eigen::VectorXcd DU = method.m_D * U_real;
+    Eigen::VectorXcd DtDU = method.m_D.adjoint() * DU;
+    Eigen::VectorXd real_lhs = 2.0 * DtDU.real();
+
+    // The real normal equations residual
+    double final_real_residual = (real_lhs - real_rhs).norm();
+
+    // The solution should reduce the real normal equations residual
+    EXPECT_LT(final_real_residual, initial_real_residual)
+        << "CG solution should reduce the real normal equations residual";
+
+    // The relative real normal equations residual should be small
+    double relative_residual = final_real_residual / real_rhs.norm();
+    EXPECT_LT(relative_residual, 1e-6)
+        << "Relative real normal equations residual should be small (tolerance: "
+        << config.cgm_tolerance << ")";
+
+    // Also verify the least-squares residual is reduced from zero initial guess
+    double initial_ls_residual = method.m_g.norm();  // ||D*0 - g|| = ||g||
+    double final_ls_residual = (method.m_D * method.m_U - method.m_g).norm();
+    EXPECT_LT(final_ls_residual, initial_ls_residual)
+        << "Least-squares residual should be reduced from zero initial guess";
+}
+
+TEST_F(FornbergMCSolveSystemTest, ConvergenceInfo)
+{
+    // Verify that convergence information is properly populated
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Get convergence info from the CG solver
+    const auto& info = method.mp_cg_solver->getLastConvergenceInfo();
+
+    // Should have performed some iterations
+    EXPECT_GT(info.iterations, 0);
+
+    // Residual history should be populated
+    EXPECT_FALSE(info.residual_history.empty());
+
+    // Final residual should be recorded
+    EXPECT_GE(info.final_residual, 0.0);
+
+    // For this well-conditioned problem, we expect convergence
+    EXPECT_TRUE(info.converged)
+        << "CG should converge for this annulus problem";
+}

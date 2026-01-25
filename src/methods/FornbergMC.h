@@ -63,6 +63,9 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCFormSystemTest, DimensionsAnnulus);
     FRIEND_TEST(FornbergMCFormSystemTest, DimensionsGeneral);
     FRIEND_TEST(FornbergMCFormSystemTest, NonZeroOutput);
+    FRIEND_TEST(FornbergMCSolveSystemTest, SolutionDimensions);
+    FRIEND_TEST(FornbergMCSolveSystemTest, ReducesResidual);
+    FRIEND_TEST(FornbergMCSolveSystemTest, ConvergenceInfo);
 #endif
 
 private:
