@@ -259,6 +259,139 @@ TEST_F(FornbergMCTest, EigenIntegration)
     }
 }
 
+// Friend test class for testing formSystem() method
+class FornbergMCFormSystemTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.newton_tolerance = 1e-8;
+        config.cgm_tolerance = 1e-8;
+        config.verbose = false;
+    }
+
+    // Create a circular boundary centered at the given point with given radius
+    std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
+    {
+        auto component = std::make_shared<AnalyticBoundaryComponent>(
+            [center, radius](double theta) {
+                return center + radius * Complex(std::cos(theta), std::sin(theta));
+            },
+            [radius](double theta) {
+                return radius * Complex(-std::sin(theta), std::cos(theta));
+            }
+        );
+        return std::make_shared<Boundary>(component);
+    }
+
+    // Create an annulus domain (2-connected)
+    std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner}
+        );
+    }
+
+    // Create a 3-connected domain (unit disk with 2 holes)
+    std::shared_ptr<MultiplyConnectedDomain> createThreeConnectedDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(0.3, 0.2), 0.1);
+        auto inner2 = createCircularBoundary(Complex(-0.3, -0.1), 0.12);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+        );
+    }
+
+    FornbergMCConfiguration config;
+};
+
+TEST_F(FornbergMCFormSystemTest, DimensionsAnnulus)
+{
+    // Annulus (m=2, N=64)
+    // Expected: D is (m*M x m*N+1) = (64 x 129)
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    EXPECT_EQ(method.getSystemMatrix().rows(), 64);
+    EXPECT_EQ(method.getSystemMatrix().cols(), 129);
+    EXPECT_EQ(method.getRHSVector().size(), 64);
+}
+
+TEST_F(FornbergMCFormSystemTest, DimensionsGeneral)
+{
+    // 3-connected domain (m=3, N=64)
+    // Expected: D is (m*M+2 x m*N+3*(m-1)) = (98 x 198)
+    auto domain = createThreeConnectedDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    EXPECT_EQ(method.getSystemMatrix().rows(), 98);
+    EXPECT_EQ(method.getSystemMatrix().cols(), 198);
+    EXPECT_EQ(method.getRHSVector().size(), 98);
+}
+
+TEST_F(FornbergMCFormSystemTest, NonZeroOutput)
+{
+    // Verify D and g are populated (not all zeros)
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+
+    // Set up internal state for testing
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+
+    // Create canonical domain from user domain
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    EXPECT_GT(method.getSystemMatrix().norm(), 0.0);
+    EXPECT_GT(method.getRHSVector().norm(), 0.0);
+}
+
 // Friend test class for testing private computeFourierCoefficients() method
 class FornbergMCFourierTest : public ::testing::Test
 {

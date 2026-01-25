@@ -274,34 +274,227 @@ void FornbergMC::initializeNewtonIteration()
 
     initializeConformalModuli();
 
-    // Initialize matrices and vectors
-    int system_size = m_connectivity * m_config.N; // Approximate size
-    m_S.resize(m_connectivity, m_config.N);
-    m_conformal_moduli.resize(2 * (m_connectivity - 1)); // c_ν, ρ_ν pairs
-    m_D.resize(system_size, system_size);
-    m_g.resize(system_size);
-    m_U.resize(system_size);
-    m_a.resize(m_config.N, m_connectivity);
+    // Correct system dimensions (D matrix is rectangular, not square)
+    const int N = m_config.N;
+    const int M = N / 2;
+    const int m = m_connectivity;
 
-    // TODO: Log "Initialized system matrices: D(" + system_size + "x" + system_size + "), coefficients a(" + m_config.N + "x" + m_connectivity + ")"
+    int num_rows, num_cols;
+    if (m_is_annulus)
+    {
+        num_rows = m * M;
+        num_cols = m * N + 1;  // Only rho for annulus (c fixed at 0)
+    }
+    else
+    {
+        num_rows = m * M + 2;              // +2 normalization rows
+        num_cols = m * N + 3 * (m - 1);    // +rho, +Re(c), +Im(c) per inner boundary
+    }
+
+    m_S.resize(m, N);
+    m_conformal_moduli.resize(2 * (m - 1));
+    m_D.resize(num_rows, num_cols);
+    m_g.resize(num_rows);
+    m_U.resize(num_cols);
+    m_abs_eta.resize(m, N);
+    m_a.resize(N, m);
+
+    // Initialize S to identity (uniform theta spacing)
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            m_S(nu, j) = 2.0 * M_PI * j / N;
+        }
+    }
+
+    // TODO: Log "Initialized system matrices: D(" + num_rows + "x" + num_cols + "), coefficients a(" + N + "x" + m + ")"
 }
 
 void FornbergMC::formSystem()
 {
-    // TODO: Fix system size in initializeNewtonIteration() when implementing this method
-    // D matrix is NOT square - dimensions depend on annulus case:
-    // Non-annulus: D is (m*M+2) × (m*N + 3*(m-1)) where M = N/2
-    // Annulus: D is (m*M) × (m*N + 1 + (m>=3)*2 + (m>=4)*3*(m-3))
+    const int N = m_config.N;
+    const int M = N / 2;
+    const int m = m_connectivity;
 
-    // Stub implementation for system formation
-    // TODO: Debug log "Forming linear system D*U = g"
+    // Zero out system
+    m_D.setZero();
+    m_g.setZero();
 
-    // TODO: Implement system formation using PMatrixBuilder
-    // This involves:
-    // 1. Constructing P_ν matrices for analyticity conditions
-    // 2. Setting up discretized boundary conditions
-    // 3. Handling annulus case optimization if applicable
-    // 4. Forming D matrix and g vector
+    // Fourier grid: q_k = exp(-i * 2*pi*k / N)
+    Eigen::VectorXcd q(N);
+    for (int k = 0; k < N; ++k)
+    {
+        double theta = -2.0 * M_PI * k / N;
+        q(k) = Complex(std::cos(theta), std::sin(theta));
+    }
+
+    // Sample target boundary at current S values
+    const auto& boundaries = mp_user_domain->getBoundaries();
+    Eigen::MatrixXcd xi(N, m);   // boundary positions
+    Eigen::MatrixXcd eta(N, m);  // normalized tangents
+
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            double S_j = m_S(nu, j);
+            xi(j, nu) = boundaries[nu]->evaluate(S_j);
+            Complex tangent = boundaries[nu]->evaluateDerivative(S_j);
+            double abs_t = std::abs(tangent);
+            m_abs_eta(nu, j) = abs_t;
+            eta(j, nu) = (abs_t > 1e-14) ? tangent / abs_t : Complex(1.0, 0.0);
+        }
+    }
+
+    // Build ConformalModuli struct for PMatrixBuilder
+    ConformalModuli moduli;
+    moduli.c.resize(m - 1);
+    moduli.rho.resize(m - 1);
+    for (int i = 0; i < m - 1; ++i)
+    {
+        moduli.c(i) = m_conformal_moduli(2 * i);
+        moduli.rho(i) = std::real(m_conformal_moduli(2 * i + 1));
+    }
+
+    // Build normalization rows p1/pnu (MATLAB namap.m lines 49-51, 92-93)
+    // Only needed for general (non-annulus) case
+    Eigen::RowVectorXcd p1;
+    std::vector<Eigen::RowVectorXcd> pnu_vectors;
+
+    if (!m_is_annulus)
+    {
+        // Using z_0 = 0 (normalization point at origin)
+        constexpr Complex z_0(0.0, 0.0);
+
+        // p1 for outer boundary: [1, z_0, z_0^2, ..., z_0^(M-1), 0, 0, ..., 0]
+        // When z_0 = 0: p1 = [1, 0, 0, ..., 0]
+        p1 = Eigen::RowVectorXcd::Zero(N);
+        p1(0) = 1.0;
+        // If z_0 != 0, would need: for (int k = 1; k < M; ++k) p1(k) = std::pow(z_0, k);
+
+        // pnu vectors for inner boundaries (one per inner boundary)
+        // pnu[M:N-1] = (rho/(z_0-c))^(M:-1:1)
+        pnu_vectors.resize(m - 1);
+        for (int nu_idx = 0; nu_idx < m - 1; ++nu_idx)
+        {
+            pnu_vectors[nu_idx] = Eigen::RowVectorXcd::Zero(N);
+            Complex c_val = moduli.c(nu_idx);
+            double rho_val = moduli.rho(nu_idx);
+            Complex ratio = rho_val / (z_0 - c_val);  // = rho / (-c) when z_0 = 0
+
+            for (int k = 0; k < M; ++k)
+            {
+                // MATLAB: pnu(M+1:N) = ratio.^(M:-1:1)
+                // C++ 0-based: pnu(M+k) = ratio^(M-k) for k=0..M-1
+                pnu_vectors[nu_idx](M + k) = std::pow(ratio, M - k);
+            }
+        }
+    }
+
+    FFTWWrapper& fftw = FFTWWrapper::get_instance();
+
+    // Annulus: m*M rows (no normalization rows)
+    // General: m*M+1 rows (includes p1/pnu row)
+    const int num_constraint_rows = m_is_annulus ? (m * M) : (m * M + 1);
+
+    for (int nu = 0; nu < m; ++nu)
+    {
+        // Get base P_nu from builder (m*M × N)
+        Eigen::MatrixXcd P_base = mp_matrix_builder->buildPMatrix(nu, moduli);
+
+        Eigen::MatrixXcd P_nu;
+        if (m_is_annulus)
+        {
+            // Annulus case: use P_base directly (no p1/pnu extension)
+            P_nu = P_base;
+        }
+        else
+        {
+            // General case: extend with p1 (outer) or pnu (inner) to get (m*M+1 × N)
+            P_nu.resize(num_constraint_rows, N);
+            P_nu.topRows(m * M) = P_base;
+            if (nu == 0)
+            {
+                P_nu.row(m * M) = p1;
+            }
+            else
+            {
+                P_nu.row(m * M) = pnu_vectors[nu - 1];
+            }
+        }
+
+        int col_offset = nu * N;
+
+        // Build D block: P_nu * FFT(diag(eta_nu))
+        // Each column k is P_nu * FFT(e_k * eta(k,nu))
+        for (int k = 0; k < N; ++k)
+        {
+            std::vector<Complex> col_k(N, Complex(0.0, 0.0));
+            col_k[k] = eta(k, nu);
+            std::vector<Complex> fft_col = fftw.forward_fft(col_k);
+            Eigen::VectorXcd fft_vec = Eigen::Map<Eigen::VectorXcd>(fft_col.data(), N);
+            m_D.block(0, col_offset + k, num_constraint_rows, 1) = P_nu * fft_vec;
+        }
+
+        // RHS contribution: g -= P_nu * FFT(xi_nu)
+        std::vector<Complex> xi_col(N);
+        for (int j = 0; j < N; ++j) xi_col[j] = xi(j, nu);
+        std::vector<Complex> fft_xi = fftw.forward_fft(xi_col);
+        Eigen::VectorXcd fft_xi_vec = Eigen::Map<Eigen::VectorXcd>(fft_xi.data(), N);
+        m_g.head(num_constraint_rows) -= P_nu * fft_xi_vec;
+
+        // For inner boundaries, add moduli derivative columns
+        if (nu >= 1)
+        {
+            double rho_nu = moduli.rho(nu - 1);
+
+            // Compute S derivative: Sdiff(j) = (S(j+1) - S(j)) * N/(2*pi)
+            Eigen::VectorXd S_diff(N);
+            for (int j = 0; j < N; ++j)
+            {
+                int j_next = (j + 1) % N;
+                S_diff(j) = (m_S(nu, j_next) - m_S(nu, j)) * N / (2.0 * M_PI);
+            }
+
+            // zeta = i * |eta| * eta * Sdiff / rho
+            std::vector<Complex> zeta(N);
+            for (int j = 0; j < N; ++j)
+            {
+                zeta[j] = Complex(0, 1) * m_abs_eta(nu, j) * eta(j, nu) * S_diff(j) / rho_nu;
+            }
+            std::vector<Complex> fft_zeta = fftw.forward_fft(zeta);
+            Eigen::VectorXcd fft_zeta_vec = Eigen::Map<Eigen::VectorXcd>(fft_zeta.data(), N);
+
+            // Column for rho derivative
+            int rho_col = m * N + (nu - 1);
+            m_D.block(0, rho_col, num_constraint_rows, 1) = P_nu * fft_zeta_vec;
+
+            if (!m_is_annulus)
+            {
+                // Columns for c derivative (Re and Im parts)
+                std::vector<Complex> q_zeta(N);
+                for (int j = 0; j < N; ++j) q_zeta[j] = q(j) * zeta[j];
+                std::vector<Complex> fft_q_zeta = fftw.forward_fft(q_zeta);
+                Eigen::VectorXcd fft_q_zeta_vec = Eigen::Map<Eigen::VectorXcd>(fft_q_zeta.data(), N);
+
+                int re_c_col = m * N + (m - 1) + 2 * (nu - 1);
+                int im_c_col = re_c_col + 1;
+                m_D.block(0, re_c_col, num_constraint_rows, 1) = P_nu * fft_q_zeta_vec;
+                m_D.block(0, im_c_col, num_constraint_rows, 1) = Complex(0, 1) * P_nu * fft_q_zeta_vec;
+            }
+        }
+    }
+
+    // Apply normalization (adds constraint rows for general case)
+    // Using default norm_cond = [1, 0, 0] from MATLAB reference:
+    // - z_0 = 0 (normalization point at origin, affects p1/pnu via constructor)
+    // - norm_value = 0 (added to g(end-1))
+    if (!m_is_annulus)
+    {
+        constexpr double norm_value = 0.0;  // norm_cond(3) = 0
+        mp_matrix_builder->applyNormalizationConditions(m_D, m_g, norm_value);
+    }
 }
 
 void FornbergMC::solveSystem()

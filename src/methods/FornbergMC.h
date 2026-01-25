@@ -60,6 +60,9 @@ class FornbergMC : public ConformalMapMethod
 #ifdef TESTING
     // Friend declaration for testing private methods
     FRIEND_TEST(FornbergMCFourierTest, CircularBoundaryCoefficients);
+    FRIEND_TEST(FornbergMCFormSystemTest, DimensionsAnnulus);
+    FRIEND_TEST(FornbergMCFormSystemTest, DimensionsGeneral);
+    FRIEND_TEST(FornbergMCFormSystemTest, NonZeroOutput);
 #endif
 
 private:
@@ -90,6 +93,9 @@ private:
     bool m_is_converged{false};                // Convergence flag
     double m_current_residual{std::numeric_limits<double>::max()};  // Current Newton update norm
     std::vector<double> m_residual_history; // Newton residual history
+
+    // Auxiliary data for Newton updates
+    Eigen::MatrixXd m_abs_eta;  // |eta| values (boundary derivative magnitudes), size: (m_connectivity, N)
 
     // Boundary parameterization
     std::vector<std::vector<Complex>> m_boundary_samples; // Sampled boundary points
@@ -195,6 +201,33 @@ public:
     bool isAnnulusCase() const
     {
         return m_is_annulus;
+    }
+
+    /**
+     * @brief Get the system matrix D (for testing)
+     * @return Reference to the D matrix
+     */
+    const Eigen::MatrixXcd& getSystemMatrix() const
+    {
+        return m_D;
+    }
+
+    /**
+     * @brief Get the RHS vector g (for testing)
+     * @return Reference to the g vector
+     */
+    const Eigen::VectorXcd& getRHSVector() const
+    {
+        return m_g;
+    }
+
+    /**
+     * @brief Get the boundary correspondence matrix S (for testing)
+     * @return Reference to the S matrix
+     */
+    const Eigen::MatrixXd& getBoundaryCorrespondences() const
+    {
+        return m_S;
     }
 
 protected:
