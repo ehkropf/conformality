@@ -76,13 +76,13 @@ private:
     std::unique_ptr<CGSolver> mp_cg_solver{nullptr};
 
     // Newton iteration state
-    Eigen::MatrixXd m_S;                    // Boundary correspondences S_ν(θ)
+    Eigen::MatrixXd m_S;                    // Boundary correspondences S_ν(θ), size: (N, m) to match MATLAB
     Eigen::VectorXcd m_conformal_moduli;    // Centers c_ν and radii ρ_ν
 
     // Linear system components
     Eigen::MatrixXcd m_D;                   // System matrix
     Eigen::VectorXcd m_g;                   // RHS vector
-    Eigen::VectorXd m_U;                    // Solution vector
+    Eigen::VectorXcd m_U;                   // Solution vector (complex to match D*U=g)
 
     // Series coefficients
     Eigen::MatrixXcd m_a;                   // Fourier coefficients a_{ν,j}
@@ -95,7 +95,7 @@ private:
     std::vector<double> m_residual_history; // Newton residual history
 
     // Auxiliary data for Newton updates
-    Eigen::MatrixXd m_abs_eta;  // |eta| values (boundary derivative magnitudes), size: (m_connectivity, N)
+    Eigen::MatrixXd m_abs_eta;  // |eta| values (boundary derivative magnitudes), size: (N, m_connectivity) to match MATLAB
 
     // Boundary parameterization
     std::vector<std::vector<Complex>> m_boundary_samples; // Sampled boundary points

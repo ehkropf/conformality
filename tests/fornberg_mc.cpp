@@ -447,13 +447,14 @@ TEST_F(FornbergMCFourierTest, CircularBoundaryCoefficients)
     method.mp_user_domain = test_domain;
 
     // Initialize S matrix with identity correspondence
-    // S(ν, j) = θ_j = 2πj/N (canonical parameters map directly to user parameters)
-    method.m_S.resize(2, config.N);
+    // S(j, ν) = θ_j = 2πj/N (canonical parameters map directly to user parameters)
+    // Note: S uses (N, m) layout to match MATLAB column-per-boundary convention
+    method.m_S.resize(config.N, 2);
     for (int nu = 0; nu < 2; ++nu)
     {
         for (int j = 0; j < config.N; ++j)
         {
-            method.m_S(nu, j) = 2.0 * M_PI * j / config.N;
+            method.m_S(j, nu) = 2.0 * M_PI * j / config.N;
         }
     }
 
