@@ -615,13 +615,79 @@ void FornbergMC::newtonUpdate()
     // This must be done BEFORE applying updates to state variables
     m_current_residual = m_U.lpNorm<Eigen::Infinity>();
 
-    // TODO: Implement Newton update of boundary correspondences and conformal moduli
-    // This involves:
-    // 1. Extracting updates for S_ν from solution vector U
-    // 2. Updating conformal moduli c_ν, ρ_ν
-    // 3. Applying damping if enabled
+    const int m = m_connectivity;
+    const int N = m_config.N;
 
-    // For now, just update the canonical domain with current moduli
+    // Step 1: Scale boundary updates by 1/abs_eta (matches MATLAB: U(1:m*N)./abs_eta(:))
+    constexpr double kEpsilon = 1e-14;
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            double abs_eta_val = m_abs_eta(j, nu);
+            if (abs_eta_val > kEpsilon)
+            {
+                m_U(nu * N + j) /= abs_eta_val;
+            }
+        }
+    }
+
+    // Step 2: Determine damping factor
+    double damping = m_config.enable_newton_damping ? m_config.newton_damping_factor : 1.0;
+
+    // Step 3: Update boundary correspondences S_ν(θ)
+    // MATLAB: obj.S = obj.S + reshape(obj.U(1:m*N), N, m)
+    for (int nu = 0; nu < m; ++nu)
+    {
+        for (int j = 0; j < N; ++j)
+        {
+            m_S(j, nu) += damping * std::real(m_U(nu * N + j));
+        }
+    }
+
+    // Step 4: Update conformal moduli
+    // Solution vector layout after S updates:
+    //   m*N to m*N+m-2: radii updates (δρ₂, δρ₃, ..., δρ_m)
+    //   m*N+m-1 onwards: center updates as interleaved Re/Im pairs
+
+    // Update radii (all cases): solution[m*N+k] → moduli[2*k+1]
+    // MATLAB: obj.rho = obj.rho + obj.U(m*N+1:m*N+m-1)
+    for (int k = 0; k < m - 1; ++k)
+    {
+        int sol_idx = m * N + k;
+        int mod_idx = 2 * k + 1;  // Radii are at odd indices in interleaved storage
+        double radius_update = damping * std::real(m_U(sol_idx));
+        m_conformal_moduli(mod_idx) += radius_update;
+
+        // Validate radius remains positive
+        if (std::real(m_conformal_moduli(mod_idx)) <= 0.0)
+        {
+            std::cerr << "Warning: Radius for boundary " << (k + 2)
+                      << " became non-positive. Newton iteration may be unstable."
+                      << std::endl;
+        }
+    }
+
+    // Update centers (m >= 3 only): solution[m*N+m-1+2k, m*N+m+2k] → moduli[2*k]
+    // MATLAB: obj.c = obj.c + obj.U(m*N+m:2:end) + 1i*obj.U(m*N+m+1:2:end)
+    if (!m_is_annulus)
+    {
+        for (int k = 0; k < m - 1; ++k)
+        {
+            int re_idx = m * N + m - 1 + 2 * k;  // Real part of δc_{k+2}
+            int im_idx = m * N + m + 2 * k;      // Imaginary part of δc_{k+2}
+            int mod_idx = 2 * k;                  // Centers are at even indices
+
+            Complex center_update(
+                damping * std::real(m_U(re_idx)),
+                damping * std::real(m_U(im_idx))
+            );
+            m_conformal_moduli(mod_idx) += center_update;
+        }
+    }
+    // Annulus case (m=2): c₂ stays at 0, no center updates needed
+
+    // Step 5: Sync canonical domain with updated moduli
     if (mp_canonical_domain && m_conformal_moduli.size() > 0)
     {
         try
