@@ -332,3 +332,136 @@ TEST_F(PMatrixBuilderTest, NormalizationConditionsAnnulus)
     EXPECT_TRUE(D.isApprox(D_orig, kMatrixElementTol));
     EXPECT_TRUE(g.isApprox(g_orig, kMatrixElementTol));
 }
+
+TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
+{
+    // Test that frequency indices follow FFTW output order:
+    // [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
+    // This is a regression test for issue #34
+
+    config.N = 8;  // Use N=8 for clear test case (N/2 = 4)
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Get frequency indices for first component
+    const auto& freq_indices = builder.getFrequencyIndices(0);
+
+    ASSERT_EQ(freq_indices.size(), config.N);
+
+    // Positive frequencies and zero: indices 0 to N/2-1 should map to [0, 1, 2, 3]
+    for (int j = 0; j < config.N / 2; ++j)
+    {
+        EXPECT_EQ(freq_indices[j], j)
+            << "Positive frequency at index " << j << " should equal " << j;
+    }
+
+    // Negative frequencies including Nyquist: indices N/2 to N-1 should map to [-N/2, -N/2+1, ..., -1]
+    // For N=8: indices 4,5,6,7 should map to [-4, -3, -2, -1]
+    for (int j = config.N / 2; j < config.N; ++j)
+    {
+        int expected_freq = j - config.N;
+        EXPECT_EQ(freq_indices[j], expected_freq)
+            << "Negative frequency at index " << j << " should equal " << expected_freq;
+    }
+
+    // Critical test: Nyquist frequency at index N/2 should be -N/2, not N/2
+    // This is the bug from issue #34
+    EXPECT_EQ(freq_indices[config.N / 2], -config.N / 2)
+        << "Nyquist frequency at index N/2=" << config.N / 2
+        << " should be -N/2=" << -config.N / 2 << ", not N/2";
+
+    // Verify all connectivity components have consistent frequency ordering
+    for (int nu = 1; nu < connectivity; ++nu)
+    {
+        const auto& comp_indices = builder.getFrequencyIndices(nu);
+        EXPECT_EQ(comp_indices, freq_indices)
+            << "Component " << nu << " should have same frequency indices as component 0";
+    }
+}
+
+// Regression test: Verify frequency indices are consistent across all components with
+// connectivity > 2. The original bug fix was tested only with connectivity=2, which
+// executes the initialization loop just twice. This test ensures the fix works across
+// multiple loop iterations.
+TEST_F(PMatrixBuilderTest, FrequencyIndicesMultipleComponents)
+{
+    config.N = 8;
+    int connectivity = 4;  // Test with higher connectivity to verify loop executes multiple times
+    PMatrixBuilder builder(config, connectivity, false);
+
+    const auto& ref_indices = builder.getFrequencyIndices(0);
+
+    // Verify all components have identical frequency ordering
+    // This ensures the initialization loop in PMatrixBuilder::initializeFrequencyIndices()
+    // works correctly for all connectivity values, not just connectivity=2
+    for (int nu = 1; nu < connectivity; ++nu)
+    {
+        const auto& comp_indices = builder.getFrequencyIndices(nu);
+        EXPECT_EQ(comp_indices, ref_indices)
+            << "Component " << nu << " should have same frequency indices as component 0";
+
+        // Also verify each component has correct FFTW ordering
+        EXPECT_EQ(comp_indices[0], 0) << "Component " << nu << " should start with DC (0)";
+        EXPECT_EQ(comp_indices[config.N / 2], -config.N / 2)
+            << "Component " << nu << " Nyquist should be -N/2";
+    }
+}
+
+// Regression test: Verify frequency index calculation handles N/2 integer division correctly
+// for various power-of-2 values of N (FFTW requires N to be a power of 2). Tests that the
+// Nyquist frequency bug fix works across different N values.
+TEST_F(PMatrixBuilderTest, FrequencyIndicesPowerOfTwoN)
+{
+    int connectivity = 2;
+
+    // Test with multiple power-of-2 values for N (up to maximum supported value)
+    for (int N : {2, 4, 8, 16, 32, 64, 128, 256, 512})
+    {
+        config.N = N;
+        PMatrixBuilder builder(config, connectivity, false);
+
+        const auto& indices = builder.getFrequencyIndices(0);
+        ASSERT_EQ(indices.size(), N) << "For N=" << N << ", size should be N";
+
+        // Verify DC component
+        EXPECT_EQ(indices[0], 0) << "For N=" << N << ", DC component should be 0";
+
+        // Verify Nyquist frequency at index N/2 maps to -N/2
+        EXPECT_EQ(indices[N / 2], -N / 2)
+            << "For N=" << N << ", Nyquist at index " << N / 2 << " should be -" << N / 2;
+
+        // Verify positive frequencies [0, N/2)
+        for (int j = 0; j < N / 2; ++j)
+        {
+            EXPECT_EQ(indices[j], j)
+                << "For N=" << N << ", positive frequency at index " << j << " should be " << j;
+        }
+
+        // Verify negative frequencies [N/2, N)
+        for (int j = N / 2; j < N; ++j)
+        {
+            int expected = j - N;  // Maps to negative frequency
+            EXPECT_EQ(indices[j], expected)
+                << "For N=" << N << ", negative frequency at index " << j
+                << " should be " << expected;
+        }
+    }
+}
+
+// Regression test: Verify annulus mode uses identical frequency indexing to general mode.
+// While PMatrixBuilder::initializeFrequencyIndices() currently has no annulus-specific logic,
+// this test prevents future regressions if annulus-specific optimizations are added.
+TEST_F(PMatrixBuilderTest, FrequencyIndicesAnnulusConsistency)
+{
+    config.N = 8;
+    PMatrixBuilder general_builder(config, 2, false);
+    PMatrixBuilder annulus_builder(config, 2, true);
+
+    const auto& general_indices = general_builder.getFrequencyIndices(0);
+    const auto& annulus_indices = annulus_builder.getFrequencyIndices(0);
+
+    EXPECT_EQ(annulus_indices, general_indices)
+        << "Annulus mode should use identical frequency indexing to general mode";
+    EXPECT_EQ(annulus_indices[config.N / 2], -config.N / 2)
+        << "Annulus Nyquist frequency should be -N/2";
+}
