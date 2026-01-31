@@ -493,9 +493,10 @@ TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusNu1)
     PMatrixBuilder builder(config, connectivity, true);
 
     // Annulus mode baseline test: verifies annulus mode doesn't throw with valid input.
-    // Note: With connectivity=2, the interaction loop in buildAnnulusPMatrix never executes,
-    // so the coincident center validation at line ~425 is unreachable. This test serves
-    // as a regression baseline to ensure annulus mode continues to work correctly.
+    // Note: With connectivity=2 and nu=1, the interaction loop in buildAnnulusPMatrix
+    // has range [1, 0) and never executes, so the coincident center validation in that
+    // interaction block is not tested by this case. This test serves as a regression
+    // baseline to ensure annulus mode continues to work correctly.
     auto moduli = createAnnulusModuli(0.3);
     EXPECT_NO_THROW(builder.buildPMatrix(1, moduli));
 }
@@ -541,4 +542,34 @@ TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersMultipleLoopIterations)
     moduli.rho.setConstant(0.12);
 
     EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, CoincidentCircleErrorMessageIncludesDiagnostics)
+{
+    int connectivity = 3;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Verify that the enhanced error messages include diagnostic information:
+    // actual distance value, threshold, and actionable guidance.
+    ConformalModuli moduli;
+    moduli.c.resize(2);
+    moduli.rho.resize(2);
+    moduli.c(0) = std::complex<double>(0.3, 0.2);
+    moduli.c(1) = moduli.c(0) + 1e-15;
+    moduli.rho(0) = 0.15;
+    moduli.rho(1) = 0.12;
+
+    try
+    {
+        builder.buildPMatrix(1, moduli);
+        FAIL() << "Expected std::invalid_argument";
+    }
+    catch (const std::invalid_argument& e)
+    {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("distance"), std::string::npos) << "Error message should include 'distance'";
+        EXPECT_NE(msg.find("1e-14"), std::string::npos) << "Error message should include threshold '1e-14'";
+        EXPECT_NE(msg.find("Ensure circle centers are distinct"), std::string::npos)
+            << "Error message should include actionable guidance";
+    }
 }
