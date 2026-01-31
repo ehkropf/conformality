@@ -296,7 +296,9 @@ Eigen::MatrixXcd PMatrixBuilder::buildGeneralPMatrix(int nu, const ConformalModu
             {
                 throw std::invalid_argument(
                     "PMatrixBuilder::buildGeneralPMatrix: Inner boundary centers c(" + std::to_string(nu - 1) +
-                    ") and c(" + std::to_string(L) + ") are too close. Domain may be degenerate.");
+                    ") and c(" + std::to_string(L) + ") are too close (distance " +
+                    std::to_string(std::abs(c_diff)) + " < 1e-14). " +
+                    "Ensure circle centers are distinct. Domain may be degenerate.");
             }
             std::complex<double> pl_cvl = rho_L / c_diff;
 
@@ -424,7 +426,9 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
             {
                 throw std::invalid_argument(
                     "PMatrixBuilder::buildAnnulusPMatrix: Inner boundary centers c(" + std::to_string(nu - 1) +
-                    ") and c(" + std::to_string(L) + ") are too close. Domain may be degenerate.");
+                    ") and c(" + std::to_string(L) + ") are too close (distance " +
+                    std::to_string(std::abs(c_diff)) + " < 1e-14). " +
+                    "Ensure circle centers are distinct. Domain may be degenerate.");
             }
             std::complex<double> pl_cvl = rho_L / c_diff;
 
@@ -492,7 +496,9 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
             {
                 throw std::invalid_argument(
                     "PMatrixBuilder::buildAnnulusPMatrix: Inner boundary centers c(" + std::to_string(nu - 1) +
-                    ") and c(" + std::to_string(L) + ") are too close. Domain may be degenerate.");
+                    ") and c(" + std::to_string(L) + ") are too close (distance " +
+                    std::to_string(std::abs(c_diff)) + " < 1e-14). " +
+                    "Ensure circle centers are distinct. Domain may be degenerate.");
             }
             std::complex<double> pl_cvl = rho_L / c_diff;
 

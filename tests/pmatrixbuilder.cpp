@@ -466,23 +466,24 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesAnnulusConsistency)
         << "Annulus Nyquist frequency should be -N/2";
 }
 
-// Regression test for issue #35: Validate that coincident circle centers are detected
-// and throw std::invalid_argument (not std::runtime_error)
+// Regression test for issue #35: Validates that the coincident circle center
+// validation throws std::invalid_argument (changed from std::runtime_error to
+// align with CLAUDE.md error handling guidelines for validation errors)
 TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersGeneral)
 {
     int connectivity = 3;
     PMatrixBuilder builder(config, connectivity, false);
 
-    // Create moduli with two circles having nearly identical centers
+    // Create moduli with two circles having nearly identical centers.
+    // The separation of 1e-15 is below the 1e-14 tolerance threshold.
     ConformalModuli moduli;
     moduli.c.resize(2);
     moduli.rho.resize(2);
     moduli.c(0) = std::complex<double>(0.3, 0.2);
-    moduli.c(1) = std::complex<double>(0.3, 0.2) + 1e-15;  // Nearly coincident
+    moduli.c(1) = std::complex<double>(0.3, 0.2) + 1e-15;  // Below 1e-14 threshold
     moduli.rho(0) = 0.15;
     moduli.rho(1) = 0.12;
 
-    // Building P matrix for nu=1 should detect coincident centers and throw invalid_argument
     EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
 }
 
@@ -491,29 +492,53 @@ TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusNu1)
     int connectivity = 2;
     PMatrixBuilder builder(config, connectivity, true);
 
-    // Annulus case: can't test coincident centers with only 2 components
-    // since nu=1 only interacts with L=0 which is skipped in the loop (L == nu-1)
-    // This test verifies annulus mode works for connectivity=2
+    // Annulus mode baseline test: verifies annulus mode doesn't throw with valid input.
+    // Note: With connectivity=2, the interaction loop in buildAnnulusPMatrix never executes,
+    // so the coincident center validation at line ~425 is unreachable. This test serves
+    // as a regression baseline to ensure annulus mode continues to work correctly.
     auto moduli = createAnnulusModuli(0.3);
     EXPECT_NO_THROW(builder.buildPMatrix(1, moduli));
 }
 
-TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusHigherBoundaries)
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersHigherConnectivity)
 {
     int connectivity = 4;
-    PMatrixBuilder builder(config, connectivity, false);  // Use general mode for connectivity > 2
+    PMatrixBuilder builder(config, connectivity, false);
 
-    // Create moduli with circles at indices 1 and 2 nearly coincident
+    // Test coincident center detection with higher connectivity (4 boundaries).
+    // Circles at indices 1 and 2 are nearly coincident (below 1e-14 tolerance).
+    // This exercises the validation in buildGeneralPMatrix for nu>=2 cases.
     ConformalModuli moduli;
     moduli.c.resize(3);
     moduli.rho.resize(3);
     moduli.c(0) = std::complex<double>(0.0, 0.0);
     moduli.c(1) = std::complex<double>(0.5, 0.3);
-    moduli.c(2) = std::complex<double>(0.5, 0.3) + 1e-15;  // Nearly coincident with c(1)
+    moduli.c(2) = std::complex<double>(0.5, 0.3) + 1e-15;  // Below 1e-14 threshold
     moduli.rho(0) = 0.3;
     moduli.rho(1) = 0.15;
     moduli.rho(2) = 0.12;
 
-    // Building P matrix for nu=2 should detect coincident centers and throw invalid_argument
+    // Building P matrix for nu=2 triggers validation of c(1) vs c(2)
+    EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersMultipleLoopIterations)
+{
+    int connectivity = 5;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Test that validation works correctly across multiple loop iterations.
+    // Circles at indices 1 and 3 are coincident, but 0 and 2 are not.
+    // When building nu=2, loop tests L=0,1,3 (skips L=2=nu-1).
+    // Should detect coincidence at L=3 iteration, not just first iteration.
+    ConformalModuli moduli;
+    moduli.c.resize(4);
+    moduli.rho.resize(4);
+    moduli.c(0) = std::complex<double>(0.2, 0.1);
+    moduli.c(1) = std::complex<double>(0.5, 0.3);
+    moduli.c(2) = std::complex<double>(-0.3, 0.4);
+    moduli.c(3) = std::complex<double>(0.5, 0.3) + 1e-15;  // ≈ c(1), below 1e-14 threshold
+    moduli.rho.setConstant(0.12);
+
     EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
 }
