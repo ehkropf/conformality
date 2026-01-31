@@ -379,7 +379,10 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
     }
 }
 
-// Test that frequency indices are consistent across multiple components with higher connectivity
+// Regression test: Verify frequency indices are consistent across all components with
+// connectivity > 2. The original bug fix was tested only with connectivity=2, which
+// executes the initialization loop just twice. This test ensures the fix works across
+// multiple loop iterations.
 TEST_F(PMatrixBuilderTest, FrequencyIndicesMultipleComponents)
 {
     config.N = 8;
@@ -389,8 +392,8 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesMultipleComponents)
     const auto& ref_indices = builder.getFrequencyIndices(0);
 
     // Verify all components have identical frequency ordering
-    // This ensures the initialization loop (PMatrixBuilder.cpp:160-177) works correctly
-    // for all connectivity values, not just connectivity=2
+    // This ensures the initialization loop in PMatrixBuilder::initializeFrequencyIndices()
+    // works correctly for all connectivity values, not just connectivity=2
     for (int nu = 1; nu < connectivity; ++nu)
     {
         const auto& comp_indices = builder.getFrequencyIndices(nu);
@@ -404,13 +407,15 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesMultipleComponents)
     }
 }
 
-// Test frequency indices with various N values to verify no edge cases in integer division
+// Regression test: Verify frequency index calculation handles N/2 integer division correctly
+// for various power-of-2 values of N (FFTW requires N to be a power of 2). Tests that the
+// Nyquist frequency bug fix works across different N values.
 TEST_F(PMatrixBuilderTest, FrequencyIndicesPowerOfTwoN)
 {
     int connectivity = 2;
 
-    // Test with multiple power-of-2 values for N
-    for (int N : {2, 4, 8, 16, 32})
+    // Test with multiple power-of-2 values for N (up to maximum supported value)
+    for (int N : {2, 4, 8, 16, 32, 64, 128, 256, 512})
     {
         config.N = N;
         PMatrixBuilder builder(config, connectivity, false);
@@ -441,4 +446,22 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesPowerOfTwoN)
                 << " should be " << expected;
         }
     }
+}
+
+// Regression test: Verify annulus mode uses identical frequency indexing to general mode.
+// While PMatrixBuilder::initializeFrequencyIndices() currently has no annulus-specific logic,
+// this test prevents future regressions if annulus-specific optimizations are added.
+TEST_F(PMatrixBuilderTest, FrequencyIndicesAnnulusConsistency)
+{
+    config.N = 8;
+    PMatrixBuilder general_builder(config, 2, false);
+    PMatrixBuilder annulus_builder(config, 2, true);
+
+    const auto& general_indices = general_builder.getFrequencyIndices(0);
+    const auto& annulus_indices = annulus_builder.getFrequencyIndices(0);
+
+    EXPECT_EQ(annulus_indices, general_indices)
+        << "Annulus mode should use identical frequency indexing to general mode";
+    EXPECT_EQ(annulus_indices[config.N / 2], -config.N / 2)
+        << "Annulus Nyquist frequency should be -N/2";
 }
