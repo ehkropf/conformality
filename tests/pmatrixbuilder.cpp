@@ -369,4 +369,13 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
     EXPECT_EQ(freq_indices[config.N / 2], -config.N / 2)
         << "Nyquist frequency at index N/2=" << config.N / 2
         << " should be -N/2=" << -config.N / 2 << ", not N/2";
+
+    // Verify all connectivity components have consistent frequency ordering
+    for (int nu = 1; nu < connectivity; ++nu)
+    {
+        const auto& comp_indices = builder.getFrequencyIndices(nu);
+        EXPECT_EQ(comp_indices, freq_indices)
+            << "Component " << nu << " should have same frequency indices as component 0";
+    }
 }
+
