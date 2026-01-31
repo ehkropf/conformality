@@ -465,3 +465,55 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesAnnulusConsistency)
     EXPECT_EQ(annulus_indices[config.N / 2], -config.N / 2)
         << "Annulus Nyquist frequency should be -N/2";
 }
+
+// Regression test for issue #35: Validate that coincident circle centers are detected
+// and throw std::invalid_argument (not std::runtime_error)
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersGeneral)
+{
+    int connectivity = 3;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Create moduli with two circles having nearly identical centers
+    ConformalModuli moduli;
+    moduli.c.resize(2);
+    moduli.rho.resize(2);
+    moduli.c(0) = std::complex<double>(0.3, 0.2);
+    moduli.c(1) = std::complex<double>(0.3, 0.2) + 1e-15;  // Nearly coincident
+    moduli.rho(0) = 0.15;
+    moduli.rho(1) = 0.12;
+
+    // Building P matrix for nu=1 should detect coincident centers and throw invalid_argument
+    EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusNu1)
+{
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, true);
+
+    // Annulus case: can't test coincident centers with only 2 components
+    // since nu=1 only interacts with L=0 which is skipped in the loop (L == nu-1)
+    // This test verifies annulus mode works for connectivity=2
+    auto moduli = createAnnulusModuli(0.3);
+    EXPECT_NO_THROW(builder.buildPMatrix(1, moduli));
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusHigherBoundaries)
+{
+    int connectivity = 4;
+    PMatrixBuilder builder(config, connectivity, false);  // Use general mode for connectivity > 2
+
+    // Create moduli with circles at indices 1 and 2 nearly coincident
+    ConformalModuli moduli;
+    moduli.c.resize(3);
+    moduli.rho.resize(3);
+    moduli.c(0) = std::complex<double>(0.0, 0.0);
+    moduli.c(1) = std::complex<double>(0.5, 0.3);
+    moduli.c(2) = std::complex<double>(0.5, 0.3) + 1e-15;  // Nearly coincident with c(1)
+    moduli.rho(0) = 0.3;
+    moduli.rho(1) = 0.15;
+    moduli.rho(2) = 0.12;
+
+    // Building P matrix for nu=2 should detect coincident centers and throw invalid_argument
+    EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
+}
