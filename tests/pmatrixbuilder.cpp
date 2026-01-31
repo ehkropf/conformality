@@ -379,3 +379,66 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
     }
 }
 
+// Test that frequency indices are consistent across multiple components with higher connectivity
+TEST_F(PMatrixBuilderTest, FrequencyIndicesMultipleComponents)
+{
+    config.N = 8;
+    int connectivity = 4;  // Test with higher connectivity to verify loop executes multiple times
+    PMatrixBuilder builder(config, connectivity, false);
+
+    const auto& ref_indices = builder.getFrequencyIndices(0);
+
+    // Verify all components have identical frequency ordering
+    // This ensures the initialization loop (PMatrixBuilder.cpp:160-177) works correctly
+    // for all connectivity values, not just connectivity=2
+    for (int nu = 1; nu < connectivity; ++nu)
+    {
+        const auto& comp_indices = builder.getFrequencyIndices(nu);
+        EXPECT_EQ(comp_indices, ref_indices)
+            << "Component " << nu << " should have same frequency indices as component 0";
+
+        // Also verify each component has correct FFTW ordering
+        EXPECT_EQ(comp_indices[0], 0) << "Component " << nu << " should start with DC (0)";
+        EXPECT_EQ(comp_indices[config.N / 2], -config.N / 2)
+            << "Component " << nu << " Nyquist should be -N/2";
+    }
+}
+
+// Test frequency indices with various N values to verify no edge cases in integer division
+TEST_F(PMatrixBuilderTest, FrequencyIndicesPowerOfTwoN)
+{
+    int connectivity = 2;
+
+    // Test with multiple power-of-2 values for N
+    for (int N : {2, 4, 8, 16, 32})
+    {
+        config.N = N;
+        PMatrixBuilder builder(config, connectivity, false);
+
+        const auto& indices = builder.getFrequencyIndices(0);
+        ASSERT_EQ(indices.size(), N) << "For N=" << N << ", size should be N";
+
+        // Verify DC component
+        EXPECT_EQ(indices[0], 0) << "For N=" << N << ", DC component should be 0";
+
+        // Verify Nyquist frequency at index N/2 maps to -N/2
+        EXPECT_EQ(indices[N / 2], -N / 2)
+            << "For N=" << N << ", Nyquist at index " << N / 2 << " should be -" << N / 2;
+
+        // Verify positive frequencies [0, N/2)
+        for (int j = 0; j < N / 2; ++j)
+        {
+            EXPECT_EQ(indices[j], j)
+                << "For N=" << N << ", positive frequency at index " << j << " should be " << j;
+        }
+
+        // Verify negative frequencies [N/2, N)
+        for (int j = N / 2; j < N; ++j)
+        {
+            int expected = j - N;  // Maps to negative frequency
+            EXPECT_EQ(indices[j], expected)
+                << "For N=" << N << ", negative frequency at index " << j
+                << " should be " << expected;
+        }
+    }
+}
