@@ -332,3 +332,41 @@ TEST_F(PMatrixBuilderTest, NormalizationConditionsAnnulus)
     EXPECT_TRUE(D.isApprox(D_orig, kMatrixElementTol));
     EXPECT_TRUE(g.isApprox(g_orig, kMatrixElementTol));
 }
+
+TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
+{
+    // Test that frequency indices follow FFTW output order:
+    // [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
+    // This is a regression test for issue #34
+
+    config.N = 8;  // Use N=8 for clear test case (N/2 = 4)
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Get frequency indices for first component
+    const auto& freq_indices = builder.getFrequencyIndices(0);
+
+    ASSERT_EQ(freq_indices.size(), config.N);
+
+    // Positive frequencies and zero: indices 0 to N/2-1 should map to [0, 1, 2, 3]
+    for (int j = 0; j < config.N / 2; ++j)
+    {
+        EXPECT_EQ(freq_indices[j], j)
+            << "Positive frequency at index " << j << " should equal " << j;
+    }
+
+    // Negative frequencies including Nyquist: indices N/2 to N-1 should map to [-N/2, -N/2+1, ..., -1]
+    // For N=8: indices 4,5,6,7 should map to [-4, -3, -2, -1]
+    for (int j = config.N / 2; j < config.N; ++j)
+    {
+        int expected_freq = j - config.N;
+        EXPECT_EQ(freq_indices[j], expected_freq)
+            << "Negative frequency at index " << j << " should equal " << expected_freq;
+    }
+
+    // Critical test: Nyquist frequency at index N/2 should be -N/2, not N/2
+    // This is the bug from issue #34
+    EXPECT_EQ(freq_indices[config.N / 2], -config.N / 2)
+        << "Nyquist frequency at index N/2=" << config.N / 2
+        << " should be -N/2=" << -config.N / 2 << ", not N/2";
+}

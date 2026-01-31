@@ -165,13 +165,13 @@ void PMatrixBuilder::initializeFrequencyIndices()
         m_frequency_indices[nu].resize(m_N);
         for (int j = 0; j < m_N; ++j)
         {
-            if (j <= m_N/2)
+            if (j < m_N/2)
             {
                 m_frequency_indices[nu][j] = j;  // Positive frequencies and zero
             }
             else
             {
-                m_frequency_indices[nu][j] = j - m_N;  // Negative frequencies
+                m_frequency_indices[nu][j] = j - m_N;  // Negative frequencies (including Nyquist)
             }
         }
     }
