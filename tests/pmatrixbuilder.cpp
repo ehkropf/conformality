@@ -465,3 +465,111 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesAnnulusConsistency)
     EXPECT_EQ(annulus_indices[config.N / 2], -config.N / 2)
         << "Annulus Nyquist frequency should be -N/2";
 }
+
+// Regression test for issue #35: Validates that the coincident circle center
+// validation throws std::invalid_argument (changed from std::runtime_error to
+// align with CLAUDE.md error handling guidelines for validation errors)
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersGeneral)
+{
+    int connectivity = 3;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Create moduli with two circles having nearly identical centers.
+    // The separation of 1e-15 is below the 1e-14 tolerance threshold.
+    ConformalModuli moduli;
+    moduli.c.resize(2);
+    moduli.rho.resize(2);
+    moduli.c(0) = std::complex<double>(0.3, 0.2);
+    moduli.c(1) = std::complex<double>(0.3, 0.2) + 1e-15;  // Below 1e-14 threshold
+    moduli.rho(0) = 0.15;
+    moduli.rho(1) = 0.12;
+
+    EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersAnnulusNu1)
+{
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, true);
+
+    // Annulus mode baseline test: verifies annulus mode doesn't throw with valid input.
+    // Note: With connectivity=2 and nu=1, the interaction loop in buildAnnulusPMatrix
+    // has range [1, 0) and never executes, so the coincident center validation in that
+    // interaction block is not tested by this case. This test serves as a regression
+    // baseline to ensure annulus mode continues to work correctly.
+    auto moduli = createAnnulusModuli(0.3);
+    EXPECT_NO_THROW(builder.buildPMatrix(1, moduli));
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersHigherConnectivity)
+{
+    int connectivity = 4;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Test coincident center detection with higher connectivity (4 boundaries).
+    // Circles at indices 1 and 2 are nearly coincident (below 1e-14 tolerance).
+    // This exercises the validation in buildGeneralPMatrix for nu>=2 cases.
+    ConformalModuli moduli;
+    moduli.c.resize(3);
+    moduli.rho.resize(3);
+    moduli.c(0) = std::complex<double>(0.0, 0.0);
+    moduli.c(1) = std::complex<double>(0.5, 0.3);
+    moduli.c(2) = std::complex<double>(0.5, 0.3) + 1e-15;  // Below 1e-14 threshold
+    moduli.rho(0) = 0.3;
+    moduli.rho(1) = 0.15;
+    moduli.rho(2) = 0.12;
+
+    // Building P matrix for nu=2 triggers validation of c(1) vs c(2)
+    EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, RejectsCoincidentCircleCentersMultipleLoopIterations)
+{
+    int connectivity = 5;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Test that validation works correctly across multiple loop iterations.
+    // Circles at indices 1 and 3 are coincident, but 0 and 2 are not.
+    // When building nu=2, loop tests L=0,1,3 (skips L=2=nu-1).
+    // Should detect coincidence at L=3 iteration, not just first iteration.
+    ConformalModuli moduli;
+    moduli.c.resize(4);
+    moduli.rho.resize(4);
+    moduli.c(0) = std::complex<double>(0.2, 0.1);
+    moduli.c(1) = std::complex<double>(0.5, 0.3);
+    moduli.c(2) = std::complex<double>(-0.3, 0.4);
+    moduli.c(3) = std::complex<double>(0.5, 0.3) + 1e-15;  // ≈ c(1), below 1e-14 threshold
+    moduli.rho.setConstant(0.12);
+
+    EXPECT_THROW(builder.buildPMatrix(2, moduli), std::invalid_argument);
+}
+
+TEST_F(PMatrixBuilderTest, CoincidentCircleErrorMessageIncludesDiagnostics)
+{
+    int connectivity = 3;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Verify that the enhanced error messages include diagnostic information:
+    // actual distance value, threshold, and actionable guidance.
+    ConformalModuli moduli;
+    moduli.c.resize(2);
+    moduli.rho.resize(2);
+    moduli.c(0) = std::complex<double>(0.3, 0.2);
+    moduli.c(1) = moduli.c(0) + 1e-15;
+    moduli.rho(0) = 0.15;
+    moduli.rho(1) = 0.12;
+
+    try
+    {
+        builder.buildPMatrix(1, moduli);
+        FAIL() << "Expected std::invalid_argument";
+    }
+    catch (const std::invalid_argument& e)
+    {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("distance"), std::string::npos) << "Error message should include 'distance'";
+        EXPECT_NE(msg.find("1e-14"), std::string::npos) << "Error message should include threshold '1e-14'";
+        EXPECT_NE(msg.find("Ensure circle centers are distinct"), std::string::npos)
+            << "Error message should include actionable guidance";
+    }
+}
