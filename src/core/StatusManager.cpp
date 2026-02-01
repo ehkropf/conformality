@@ -19,6 +19,7 @@
 #include "StatusManager.h"
 
 #include <algorithm>
+#include <cassert>
 
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
@@ -44,11 +45,13 @@ spdlog::level::level_enum toSpdlogLevel(StatusLevel level)
 StatusManager::StatusManager()
 {
     mp_logger = spdlog::default_logger();
+    assert(mp_logger != nullptr && "spdlog default logger should never be null");
 }
 
 StatusManager::StatusManager(size_t maxMsgs) : maxMessages(maxMsgs)
 {
     mp_logger = spdlog::default_logger();
+    assert(mp_logger != nullptr && "spdlog default logger should never be null");
 }
 
 void StatusManager::enableLogging(LogOutput output, const std::string& filePath, StatusLevel minLevel)
@@ -73,7 +76,14 @@ void StatusManager::enableLogging(LogOutput output, const std::string& filePath,
         {
             throw std::invalid_argument("File path required for FILE or BOTH log output");
         }
-        sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath, true));
+        try
+        {
+            sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath, true));
+        }
+        catch (const spdlog::spdlog_ex& e)
+        {
+            throw std::runtime_error("Failed to create log file '" + filePath + "': " + e.what());
+        }
     }
 
     mp_logger = std::make_shared<spdlog::logger>("conformality", sinks.begin(), sinks.end());
