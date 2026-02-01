@@ -694,8 +694,10 @@ void FornbergMC::newtonUpdate()
         {
             mp_canonical_domain->setConformalModuli(m_conformal_moduli);
         }
-        catch (const std::exception& e)
+        catch (const std::runtime_error& e)
         {
+            // Only catch runtime errors - validation errors (std::invalid_argument)
+            // should propagate as they indicate programming bugs
             // TODO: Replace with spdlog::warn() when logging infrastructure is integrated
             std::cerr << "Warning: Failed to update canonical domain - "
                       << e.what() << ". Keeping current parameters." << std::endl;
