@@ -395,3 +395,67 @@ TEST_F(StatusManagerTest, FlushSafeWhenLoggingDisabled)
     // No logging enabled - flush should be safe (no-op)
     EXPECT_NO_THROW(manager.flush());
 }
+
+TEST_F(StatusManagerTest, DisableLoggingAfterEnabling)
+{
+    TestFileCleanup cleanup("test_disable_logging.log");
+
+    StatusManager manager;
+    manager.enableLogging(LogOutput::FILE, cleanup.path());
+    manager.reportInfo("Test", "Should be logged");
+    manager.flush();
+
+    // Disable logging
+    manager.enableLogging(LogOutput::NONE);
+    manager.reportInfo("Test", "Should NOT be logged");
+    manager.flush();
+
+    std::ifstream logFile(cleanup.path());
+    std::string content((std::istreambuf_iterator<char>(logFile)),
+                        std::istreambuf_iterator<char>());
+
+    EXPECT_TRUE(content.find("Should be logged") != std::string::npos);
+    EXPECT_TRUE(content.find("Should NOT be logged") == std::string::npos);
+
+    // Verify getLogOutput reflects the change
+    EXPECT_EQ(manager.getLogOutput(), LogOutput::NONE);
+}
+
+TEST_F(StatusManagerTest, DumpLevelCanBeExplicitlyEnabled)
+{
+    TestFileCleanup cleanup("test_dump_enabled.log");
+
+    StatusManager manager;
+    manager.enableLogging(LogOutput::FILE, cleanup.path(), StatusLevel::DUMP);
+
+    manager.reportDump("Test", "Dump message should appear");
+    manager.flush();
+
+    std::ifstream logFile(cleanup.path());
+    std::string content((std::istreambuf_iterator<char>(logFile)),
+                        std::istreambuf_iterator<char>());
+
+    EXPECT_TRUE(content.find("Dump message should appear") != std::string::npos);
+}
+
+TEST_F(StatusManagerTest, ConsoleOnlyDoesNotCreateFile)
+{
+    const std::string testPath = "test_console_no_file.log";
+    // Ensure file doesn't exist
+    if (std::filesystem::exists(testPath))
+    {
+        std::filesystem::remove(testPath);
+    }
+
+    StatusManager manager;
+    // Pass a file path but use CONSOLE output - file should be ignored
+    manager.enableLogging(LogOutput::CONSOLE, testPath);
+    manager.reportInfo("Test", "Console only message");
+    manager.flush();
+
+    // File should NOT be created for CONSOLE-only output
+    EXPECT_FALSE(std::filesystem::exists(testPath));
+
+    // Verify getLogOutput returns correct value
+    EXPECT_EQ(manager.getLogOutput(), LogOutput::CONSOLE);
+}

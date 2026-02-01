@@ -175,9 +175,9 @@ public:
 class StatusManager : public IStatusManager
 {
 private:
-    std::vector<StatusMessage> messages;  /**< Storage for status messages */
-    size_t maxMessages{1000};             /**< Maximum number of messages to store */
-    std::shared_ptr<spdlog::logger> mp_logger; /**< spdlog logger instance */
+    std::vector<StatusMessage> m_messages;  /**< Storage for status messages */
+    size_t m_maxMessages{1000};             /**< Maximum number of messages to store */
+    std::shared_ptr<spdlog::logger> mp_logger; /**< spdlog logger instance; defaults to spdlog's default logger until enableLogging() is called */
     LogOutput m_logOutput{LogOutput::NONE};    /**< Current log output configuration */
 
 public:
@@ -287,7 +287,13 @@ public:
      * @brief Set the maximum number of messages to store
      * @param maxMsgs New maximum message count
      */
-    void setMaxMessages(size_t maxMsgs) { maxMessages = maxMsgs; }
+    void setMaxMessages(size_t maxMsgs) { m_maxMessages = maxMsgs; }
+
+    /**
+     * @brief Get the current log output configuration
+     * @return Current LogOutput setting
+     */
+    LogOutput getLogOutput() const { return m_logOutput; }
 
     /**
      * @brief Flush any pending log output
