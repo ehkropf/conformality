@@ -44,6 +44,70 @@ diagrams:
       namespaces:
         - std
 
+  fornberg_mc:
+    type: class
+    title: Fornberg MC Method
+    generate_method_arguments: abbreviated
+    glob:
+      - src/**/*.h
+      - src/**/*.cpp
+    include:
+      context:
+        - match:
+            radius: 3
+            pattern: FornbergMC
+        - match:
+            radius: 2
+            pattern: PMatrixBuilder
+        - match:
+            radius: 2
+            pattern: FornbergMCConfiguration
+        - match:
+            radius: 2
+            pattern: FornbergCanonicalDomain
+    exclude:
+      namespaces:
+        - std
+        - Eigen
+      elements:
+        - IStatusManager
+    plantuml:
+      before:
+        - 'skinparam classAttributeIconSize 0'
+        - 'skinparam classFontSize 11'
+        - 'skinparam class {'
+        - '  BackgroundColor White'
+        - '  BorderColor Black'
+        - '  ArrowColor Black'
+        - '}'
+
+  numerics:
+    type: class
+    title: Numerical Utilities
+    generate_method_arguments: abbreviated
+    glob:
+      - src/numerics/*.h
+      - src/numerics/*.cpp
+    include:
+      elements:
+        - FFTWWrapper
+        - CGSolver
+        - Grid
+        - RootFinder
+    exclude:
+      namespaces:
+        - std
+        - Eigen
+    plantuml:
+      before:
+        - 'skinparam classAttributeIconSize 0'
+        - 'skinparam classFontSize 12'
+        - 'skinparam class {'
+        - '  BackgroundColor White'
+        - '  BorderColor Black'
+        - '  ArrowColor Black'
+        - '}'
+
   domains:
     type: class
     title: Available Domains
