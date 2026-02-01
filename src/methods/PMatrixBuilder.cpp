@@ -42,6 +42,15 @@ Eigen::MatrixXcd PMatrixBuilder::buildPMatrix(int nu, const ConformalModuli& mod
         throw std::invalid_argument("PMatrixBuilder: Invalid component index " + std::to_string(nu));
     }
 
+    // Validate moduli size matches connectivity
+    int expected_size = m_connectivity - 1;
+    if (static_cast<int>(moduli.c.size()) != expected_size ||
+        static_cast<int>(moduli.rho.size()) != expected_size)
+    {
+        throw std::invalid_argument("PMatrixBuilder: moduli size mismatch - expected " +
+                                   std::to_string(expected_size) + " entries");
+    }
+
     if (m_is_annulus)
     {
         return buildAnnulusPMatrix(nu, moduli);
@@ -54,6 +63,15 @@ Eigen::MatrixXcd PMatrixBuilder::buildPMatrix(int nu, const ConformalModuli& mod
 
 std::vector<Eigen::MatrixXcd> PMatrixBuilder::buildAllPMatrices(const ConformalModuli& moduli) const
 {
+    // Validate moduli size matches connectivity
+    int expected_size = m_connectivity - 1;
+    if (static_cast<int>(moduli.c.size()) != expected_size ||
+        static_cast<int>(moduli.rho.size()) != expected_size)
+    {
+        throw std::invalid_argument("PMatrixBuilder: moduli size mismatch - expected " +
+                                   std::to_string(expected_size) + " entries");
+    }
+
     std::vector<Eigen::MatrixXcd> P_matrices;
     P_matrices.reserve(m_connectivity);
 
