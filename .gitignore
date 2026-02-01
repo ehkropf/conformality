@@ -8,6 +8,7 @@
 .vscode
 CLAUDE.md
 CLAUDE.local.md
+.claude.local.md
 run*.sh
 build/
 fornmc/
