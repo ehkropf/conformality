@@ -17,6 +17,8 @@
  */
 
 #include <gtest/gtest.h>
+#include <fstream>
+#include <filesystem>
 #include "../src/core/StatusManager.h"
 
 class StatusManagerTest : public ::testing::Test
@@ -184,3 +186,109 @@ TEST_F(StatusManagerTest, TieredMessageFiltering)
     EXPECT_EQ(fromError[0].level, StatusLevel::ERROR);
 }
 
+TEST_F(StatusManagerTest, EnableLoggingRequiresFilePathForFileOutput)
+{
+    EXPECT_THROW(p_statusManager->enableLogging(LogOutput::FILE), std::invalid_argument);
+    EXPECT_THROW(p_statusManager->enableLogging(LogOutput::BOTH), std::invalid_argument);
+    EXPECT_NO_THROW(p_statusManager->enableLogging(LogOutput::NONE));
+    EXPECT_NO_THROW(p_statusManager->enableLogging(LogOutput::CONSOLE));
+}
+
+TEST_F(StatusManagerTest, FileLoggingWritesToFile)
+{
+    std::string testLogFile = "test_status_manager.log";
+
+    // Clean up any existing test file
+    if (std::filesystem::exists(testLogFile))
+    {
+        std::filesystem::remove(testLogFile);
+    }
+
+    StatusManager manager;
+    manager.enableLogging(LogOutput::FILE, testLogFile, StatusLevel::DEBUG);
+
+    manager.reportInfo("TestComponent", "Test file logging message", "with details");
+    manager.reportWarning("TestComponent", "Test warning");
+
+    // Force logger to flush
+    manager.flush();
+
+    // Read the log file and verify content
+    ASSERT_TRUE(std::filesystem::exists(testLogFile));
+
+    std::ifstream logFile(testLogFile);
+    std::string content((std::istreambuf_iterator<char>(logFile)),
+                        std::istreambuf_iterator<char>());
+
+    EXPECT_TRUE(content.find("TestComponent") != std::string::npos);
+    EXPECT_TRUE(content.find("Test file logging message") != std::string::npos);
+    EXPECT_TRUE(content.find("with details") != std::string::npos);
+    EXPECT_TRUE(content.find("Test warning") != std::string::npos);
+
+    // Clean up
+    std::filesystem::remove(testLogFile);
+}
+
+TEST_F(StatusManagerTest, LogLevelFiltering)
+{
+    std::string testLogFile = "test_level_filter.log";
+
+    if (std::filesystem::exists(testLogFile))
+    {
+        std::filesystem::remove(testLogFile);
+    }
+
+    StatusManager manager;
+    // Set minimum level to WARNING (should skip DEBUG and INFO)
+    manager.enableLogging(LogOutput::FILE, testLogFile, StatusLevel::WARNING);
+
+    manager.reportDebug("Test", "Debug message");
+    manager.reportInfo("Test", "Info message");
+    manager.reportWarning("Test", "Warning message");
+    manager.reportError("Test", "Error message");
+
+    manager.flush();
+
+    std::ifstream logFile(testLogFile);
+    std::string content((std::istreambuf_iterator<char>(logFile)),
+                        std::istreambuf_iterator<char>());
+
+    // Debug and Info should NOT appear (filtered by level)
+    EXPECT_TRUE(content.find("Debug message") == std::string::npos);
+    EXPECT_TRUE(content.find("Info message") == std::string::npos);
+
+    // Warning and Error SHOULD appear
+    EXPECT_TRUE(content.find("Warning message") != std::string::npos);
+    EXPECT_TRUE(content.find("Error message") != std::string::npos);
+
+    std::filesystem::remove(testLogFile);
+}
+
+TEST_F(StatusManagerTest, MemoryStorageStillWorksWithLoggingEnabled)
+{
+    std::string testLogFile = "test_memory_storage.log";
+
+    if (std::filesystem::exists(testLogFile))
+    {
+        std::filesystem::remove(testLogFile);
+    }
+
+    StatusManager manager;
+    manager.enableLogging(LogOutput::FILE, testLogFile);
+
+    manager.reportInfo("Test", "Message 1");
+    manager.reportWarning("Test", "Message 2");
+    manager.reportError("Test", "Message 3");
+
+    // Verify messages are still stored in memory
+    auto messages = manager.getMessages();
+    EXPECT_EQ(messages.size(), 3);
+    EXPECT_EQ(messages[0].message, "Message 1");
+    EXPECT_EQ(messages[1].message, "Message 2");
+    EXPECT_EQ(messages[2].message, "Message 3");
+
+    EXPECT_TRUE(manager.hasWarnings());
+    EXPECT_TRUE(manager.hasErrors());
+
+    std::filesystem::remove(testLogFile);
+}

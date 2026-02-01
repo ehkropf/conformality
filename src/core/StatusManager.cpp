@@ -17,7 +17,69 @@
  */
 
 #include "StatusManager.h"
+
 #include <algorithm>
+
+#include <spdlog/sinks/basic_file_sink.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+
+namespace
+{
+
+spdlog::level::level_enum toSpdlogLevel(StatusLevel level)
+{
+    switch (level)
+    {
+        case StatusLevel::DUMP:    return spdlog::level::trace;
+        case StatusLevel::DEBUG:   return spdlog::level::debug;
+        case StatusLevel::INFO:    return spdlog::level::info;
+        case StatusLevel::WARNING: return spdlog::level::warn;
+        case StatusLevel::ERROR:   return spdlog::level::err;
+    }
+    return spdlog::level::info;
+}
+
+} // namespace
+
+StatusManager::StatusManager()
+{
+    mp_logger = spdlog::default_logger();
+}
+
+StatusManager::StatusManager(size_t maxMsgs) : maxMessages(maxMsgs)
+{
+    mp_logger = spdlog::default_logger();
+}
+
+void StatusManager::enableLogging(LogOutput output, const std::string& filePath, StatusLevel minLevel)
+{
+    m_logOutput = output;
+
+    if (output == LogOutput::NONE)
+    {
+        return;
+    }
+
+    std::vector<spdlog::sink_ptr> sinks;
+
+    if (output == LogOutput::CONSOLE || output == LogOutput::BOTH)
+    {
+        sinks.push_back(std::make_shared<spdlog::sinks::stderr_color_sink_mt>());
+    }
+
+    if (output == LogOutput::FILE || output == LogOutput::BOTH)
+    {
+        if (filePath.empty())
+        {
+            throw std::invalid_argument("File path required for FILE or BOTH log output");
+        }
+        sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_mt>(filePath, true));
+    }
+
+    mp_logger = std::make_shared<spdlog::logger>("conformality", sinks.begin(), sinks.end());
+    mp_logger->set_level(toSpdlogLevel(minLevel));
+    mp_logger->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] [%n] %v");
+}
 
 void StatusManager::reportDump(const std::string& component, const std::string& message,
                               const std::string& details)
@@ -87,6 +149,14 @@ bool StatusManager::hasErrors() const
                        [](const StatusMessage& msg) { return msg.level == StatusLevel::ERROR; });
 }
 
+void StatusManager::flush()
+{
+    if (mp_logger)
+    {
+        mp_logger->flush();
+    }
+}
+
 void StatusManager::addMessage(const StatusMessage& msg)
 {
     messages.push_back(msg);
@@ -94,5 +164,16 @@ void StatusManager::addMessage(const StatusMessage& msg)
     if (messages.size() > maxMessages)
     {
         messages.erase(messages.begin());
+    }
+
+    // Output via spdlog if logging is enabled
+    if (m_logOutput != LogOutput::NONE && mp_logger)
+    {
+        std::string logMsg = "[" + msg.component + "] " + msg.message;
+        if (!msg.details.empty())
+        {
+            logMsg += " | " + msg.details;
+        }
+        mp_logger->log(toSpdlogLevel(msg.level), logMsg);
     }
 }
