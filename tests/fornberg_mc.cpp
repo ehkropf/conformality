@@ -1134,3 +1134,8 @@ TEST(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
             << "Canonical domain moduli[" << i << "] imag part not synced";
     }
 }
+
+// GH-45: Newton damping investigation complete
+// Decision: Default to undamped Newton (enable_newton_damping = false) for MATLAB parity in Phase 1.
+// Defer damping as robustness enhancement to Phase 2.
+// See investigation summary: scratchpad/issue-45-investigation.md
