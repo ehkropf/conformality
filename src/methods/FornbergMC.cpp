@@ -419,7 +419,7 @@ void FornbergMC::formSystem()
             Complex denom = z_0 - c_val;
             if (std::abs(denom) < 1e-14)
             {
-                throw std::runtime_error(
+                throw std::invalid_argument(
                     "FornbergMC::formSystem: Inner boundary center c(" + std::to_string(nu_idx) +
                     ") is too close to normalization point z_0. Domain may be degenerate.");
             }

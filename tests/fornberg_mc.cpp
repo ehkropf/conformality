@@ -392,6 +392,30 @@ TEST_F(FornbergMCFormSystemTest, NonZeroOutput)
     EXPECT_GT(method.getRHSVector().norm(), 0.0);
 }
 
+TEST_F(FornbergMCFormSystemTest, ThrowsOnDegenerateDomain)
+{
+    // Validation for c near z_0 only happens in general (non-annulus) case.
+    // Create a 3-connected domain where one inner boundary center is at z_0 = 0.
+    auto domain = createThreeConnectedDomain();
+
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+
+    // Create canonical domain with one center at z_0 = 0
+    std::vector<Complex> hole_centers = {Complex(0.0, 0.0), Complex(-0.3, 0.0)};
+    std::vector<double> hole_radii = {0.1, 0.12};
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        hole_centers, hole_radii, config.N
+    );
+
+    method.initializeNewtonIteration();
+
+    EXPECT_THROW(method.formSystem(), std::invalid_argument);
+}
+
 // Friend test class for testing private computeFourierCoefficients() method
 class FornbergMCFourierTest : public ::testing::Test
 {
