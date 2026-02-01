@@ -30,8 +30,8 @@ struct FornbergMCConfiguration
     // Newton iteration parameters
     double newton_tolerance = 1e-12;        // Convergence threshold for ||update||
     int max_newton_iterations = 50;         // Maximum Newton steps before failure
-    bool enable_newton_damping = true;      // Adaptive step size reduction for stability
-    double newton_damping_factor = 0.5;     // Step reduction multiplier when unstable
+    bool enable_newton_damping = false;     // MATLAB uses undamped Newton (Phase 1 parity). Consider enabling in Phase 2 for robustness.
+    double newton_damping_factor = 0.5;     // Step reduction multiplier when damping enabled
     
     // Conjugate gradient solver parameters  
     double cgm_tolerance = 1e-12;           // Relative residual tolerance for CG
