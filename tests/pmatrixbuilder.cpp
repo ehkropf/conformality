@@ -660,3 +660,66 @@ TEST_F(PMatrixBuilderTest, ModuliSizeValidationErrorMessage)
             << "Error message should include expected size (connectivity-1)";
     }
 }
+
+// Critical test: Verify rejection of completely empty moduli arrays.
+// For connectivity=2 (annulus), expected moduli size is 1, but empty arrays
+// (size 0) should be rejected to prevent out-of-bounds access.
+TEST_F(PMatrixBuilderTest, RejectsEmptyModuliForConnectivityTwo)
+{
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Empty moduli arrays (should have size 1 for connectivity=2)
+    ConformalModuli moduli;
+    moduli.c.resize(0);
+    moduli.rho.resize(0);
+
+    EXPECT_THROW(builder.buildPMatrix(0, moduli), std::invalid_argument);
+    EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
+    EXPECT_THROW(builder.buildAllPMatrices(moduli), std::invalid_argument);
+}
+
+// Critical test: Verify all component indices reject wrong-sized moduli.
+// Tests with higher connectivity (4 boundaries) to ensure the validation
+// works correctly for all nu values, not just the first few.
+TEST_F(PMatrixBuilderTest, RejectsWrongSizedModuliForAllComponents)
+{
+    int connectivity = 4;  // Higher connectivity for thorough testing
+    PMatrixBuilder builder(config, connectivity, false);
+
+    // Moduli too small (1 entry instead of 3)
+    ConformalModuli moduli;
+    moduli.c.resize(1);
+    moduli.rho.resize(1);
+    moduli.c(0) = std::complex<double>(0.3, 0.2);
+    moduli.rho(0) = 0.15;
+
+    // Verify each component index rejects wrong-sized moduli
+    for (int nu = 0; nu < connectivity; ++nu)
+    {
+        EXPECT_THROW(builder.buildPMatrix(nu, moduli), std::invalid_argument)
+            << "Component " << nu << " should reject wrong-sized moduli";
+    }
+
+    // Also verify buildAllPMatrices rejects
+    EXPECT_THROW(builder.buildAllPMatrices(moduli), std::invalid_argument);
+}
+
+// Important test: Verify annulus mode rejects wrong-sized moduli.
+// While validation happens before the mode split, this test ensures
+// the validation path works correctly in annulus mode and prevents
+// regressions from future refactoring.
+TEST_F(PMatrixBuilderTest, RejectsWrongSizedModuliInAnnulusMode)
+{
+    int connectivity = 2;
+    PMatrixBuilder builder(config, connectivity, true);  // Annulus mode
+
+    // Empty moduli (should have size 1 for connectivity=2)
+    ConformalModuli moduli;
+    moduli.c.resize(0);
+    moduli.rho.resize(0);
+
+    EXPECT_THROW(builder.buildPMatrix(0, moduli), std::invalid_argument);
+    EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
+    EXPECT_THROW(builder.buildAllPMatrices(moduli), std::invalid_argument);
+}
