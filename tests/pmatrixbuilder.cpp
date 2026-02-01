@@ -87,6 +87,48 @@ TEST_F(PMatrixBuilderTest, Construction)
     EXPECT_GT(builder.getSystemSize(), 0);
 }
 
+// GH-52: Verify PMatrixBuilder rejects non-power-of-2 N values
+TEST_F(PMatrixBuilderTest, ConstructorRejectsNonPowerOfTwoN)
+{
+    int connectivity = 3;
+    bool is_annulus = false;
+    FornbergMCConfiguration test_config = config;
+
+    // Non-power-of-2 values should be rejected
+    test_config.N = 7;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    test_config.N = 9;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    test_config.N = 15;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    test_config.N = 100;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    // Zero and negative values should also be rejected
+    test_config.N = 0;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    test_config.N = -1;
+    EXPECT_THROW(PMatrixBuilder(test_config, connectivity, is_annulus), std::invalid_argument);
+
+    // Valid power-of-2 values should work
+    // N=1 passes validation (2^0=1) but causes M=N/2=0, which is impractical
+    test_config.N = 1;
+    EXPECT_NO_THROW(PMatrixBuilder(test_config, connectivity, is_annulus));
+
+    test_config.N = 2;  // Smallest practical value (M=1)
+    EXPECT_NO_THROW(PMatrixBuilder(test_config, connectivity, is_annulus));
+
+    test_config.N = 32;
+    EXPECT_NO_THROW(PMatrixBuilder(test_config, connectivity, is_annulus));
+
+    test_config.N = 128;
+    EXPECT_NO_THROW(PMatrixBuilder(test_config, connectivity, is_annulus));
+}
+
 TEST_F(PMatrixBuilderTest, MatrixBuilding)
 {
     int connectivity = 3;
