@@ -712,56 +712,62 @@ TEST_F(FornbergMCSolveSystemTest, ConvergenceInfo)
         << "CG should converge for this annulus problem";
 }
 
-// Helper functions for creating test domains (shared across newton update tests)
-namespace
+// Friend test class for testing newtonUpdate() method
+class FornbergMCNewtonUpdateTest : public ::testing::Test
 {
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.newton_tolerance = 1e-8;
+        config.cgm_tolerance = 1e-10;
+        config.max_cgm_iterations = 200;
+        config.verbose = false;
+    }
 
-std::shared_ptr<Boundary> createCircularBoundaryHelper(Complex center, double radius)
-{
-    auto component = std::make_shared<AnalyticBoundaryComponent>(
-        [center, radius](double theta) {
-            return center + radius * Complex(std::cos(theta), std::sin(theta));
-        },
-        [radius](double theta) {
-            return radius * Complex(-std::sin(theta), std::cos(theta));
-        }
-    );
-    return std::make_shared<Boundary>(component);
-}
+    // Create a circular boundary centered at the given point with given radius
+    std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
+    {
+        auto component = std::make_shared<AnalyticBoundaryComponent>(
+            [center, radius](double theta) {
+                return center + radius * Complex(std::cos(theta), std::sin(theta));
+            },
+            [radius](double theta) {
+                return radius * Complex(-std::sin(theta), std::cos(theta));
+            }
+        );
+        return std::make_shared<Boundary>(component);
+    }
 
-std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomainHelper()
-{
-    auto outer = createCircularBoundaryHelper(Complex(0, 0), 1.0);
-    auto inner = createCircularBoundaryHelper(Complex(0.3, 0), 0.15);
-    return std::make_shared<MultiplyConnectedDomain>(
-        std::vector<std::shared_ptr<Boundary>>{outer, inner}
-    );
-}
+    // Create an annulus domain (2-connected)
+    std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner}
+        );
+    }
 
-std::shared_ptr<MultiplyConnectedDomain> createThreeConnectedDomainHelper()
-{
-    auto outer = createCircularBoundaryHelper(Complex(0, 0), 1.0);
-    auto inner1 = createCircularBoundaryHelper(Complex(0.3, 0.2), 0.1);
-    auto inner2 = createCircularBoundaryHelper(Complex(-0.3, -0.1), 0.12);
-    return std::make_shared<MultiplyConnectedDomain>(
-        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
-    );
-}
+    // Create a 3-connected domain (unit disk with 2 holes)
+    std::shared_ptr<MultiplyConnectedDomain> createThreeConnectedDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(0.3, 0.2), 0.1);
+        auto inner2 = createCircularBoundary(Complex(-0.3, -0.1), 0.12);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+        );
+    }
 
-}  // anonymous namespace
+    FornbergMCConfiguration config;
+};
 
-TEST(FornbergMCNewtonUpdateTest, ComputesResidualBeforeUpdate)
+TEST_F(FornbergMCNewtonUpdateTest, ComputesResidualBeforeUpdate)
 {
     // Verify residual is computed as infinity norm of U before applying updates
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
-
-    auto domain = createAnnulusDomainHelper();
+    auto domain = createAnnulusDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
@@ -785,19 +791,11 @@ TEST(FornbergMCNewtonUpdateTest, ComputesResidualBeforeUpdate)
     EXPECT_DOUBLE_EQ(method.m_current_residual, expected_residual);
 }
 
-TEST(FornbergMCNewtonUpdateTest, UpdatesBoundaryCorrespondencesAnnulus)
+TEST_F(FornbergMCNewtonUpdateTest, UpdatesBoundaryCorrespondencesAnnulus)
 {
     // Verify S is updated from solution vector for annulus case
     // The update should be: S_new = S_old + U[0:m*N-1] / abs_eta
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
-
-    auto domain = createAnnulusDomainHelper();
+    auto domain = createAnnulusDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
@@ -864,18 +862,10 @@ TEST(FornbergMCNewtonUpdateTest, UpdatesBoundaryCorrespondencesAnnulus)
     }
 }
 
-TEST(FornbergMCNewtonUpdateTest, UpdatesRadiusAnnulus)
+TEST_F(FornbergMCNewtonUpdateTest, UpdatesRadiusAnnulus)
 {
     // For annulus (m=2): radius is updated, center is not (for annulus case)
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
-
-    auto domain = createAnnulusDomainHelper();
+    auto domain = createAnnulusDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
@@ -931,18 +921,10 @@ TEST(FornbergMCNewtonUpdateTest, UpdatesRadiusAnnulus)
     EXPECT_GT(radius_after, 0.0) << "Radius should remain positive after update";
 }
 
-TEST(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral)
+TEST_F(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral)
 {
     // For 3-connected domain: both centers and radii are updated
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
-
-    auto domain = createThreeConnectedDomainHelper();
+    auto domain = createThreeConnectedDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
@@ -1021,20 +1003,13 @@ TEST(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral)
     }
 }
 
-TEST(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled)
+TEST_F(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled)
 {
     // Verify damping factor is applied to all updates
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
     config.enable_newton_damping = true;
     config.newton_damping_factor = 0.5;
 
-    auto domain = createAnnulusDomainHelper();
+    auto domain = createAnnulusDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
@@ -1091,18 +1066,10 @@ TEST(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled)
         << "Damped radius update mismatch";
 }
 
-TEST(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
+TEST_F(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
 {
     // Verify canonical domain is updated with new moduli after Newton update
-    FornbergMCConfiguration config;
-    config.N = 64;
-    config.max_newton_iterations = 10;
-    config.newton_tolerance = 1e-8;
-    config.cgm_tolerance = 1e-10;
-    config.max_cgm_iterations = 200;
-    config.verbose = false;
-
-    auto domain = createThreeConnectedDomainHelper();
+    auto domain = createThreeConnectedDomain();
     FornbergMC method(config);
 
     method.mp_user_domain = domain;
