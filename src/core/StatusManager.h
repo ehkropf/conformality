@@ -19,8 +19,22 @@
 #ifndef STATUS_MANAGER_H
 #define STATUS_MANAGER_H
 
+#include <memory>
 #include <string>
 #include <vector>
+
+#include <spdlog/spdlog.h>
+
+/**
+ * @brief Configuration for log output destinations
+ */
+enum class LogOutput
+{
+    NONE,    /**< No logging output (memory storage only) */
+    CONSOLE, /**< Log to console (stderr) */
+    FILE,    /**< Log to file */
+    BOTH     /**< Log to both console and file */
+};
 
 /**
  * @brief Enumeration of status message levels
@@ -161,20 +175,31 @@ public:
 class StatusManager : public IStatusManager
 {
 private:
-    std::vector<StatusMessage> messages;  /**< Storage for status messages */
-    size_t maxMessages{1000};            /**< Maximum number of messages to store */
+    std::vector<StatusMessage> m_messages;  /**< Storage for status messages */
+    size_t m_maxMessages{1000};             /**< Maximum number of messages to store */
+    std::shared_ptr<spdlog::logger> mp_logger; /**< spdlog logger instance; defaults to spdlog's default logger until enableLogging() is called */
+    LogOutput m_logOutput{LogOutput::NONE};    /**< Current log output configuration */
 
 public:
     /**
      * @brief Default constructor with default message limit
      */
-    StatusManager() = default;
+    StatusManager();
 
     /**
      * @brief Constructor with custom message limit
      * @param maxMsgs Maximum number of messages to store
      */
-    explicit StatusManager(size_t maxMsgs) : maxMessages(maxMsgs) {}
+    explicit StatusManager(size_t maxMsgs);
+
+    /**
+     * @brief Enable logging output
+     * @param output Log output destination (CONSOLE, FILE, or BOTH)
+     * @param filePath Path to log file (required if output includes FILE)
+     * @param minLevel Minimum level to log (default: DEBUG, skipping DUMP)
+     */
+    void enableLogging(LogOutput output, const std::string& filePath = "",
+                       StatusLevel minLevel = StatusLevel::DEBUG);
 
     /**
      * @brief Report a dump message
@@ -262,7 +287,20 @@ public:
      * @brief Set the maximum number of messages to store
      * @param maxMsgs New maximum message count
      */
-    void setMaxMessages(size_t maxMsgs) { maxMessages = maxMsgs; }
+    void setMaxMessages(size_t maxMsgs) { m_maxMessages = maxMsgs; }
+
+    /**
+     * @brief Get the current log output configuration
+     * @return Current LogOutput setting
+     */
+    LogOutput getLogOutput() const { return m_logOutput; }
+
+    /**
+     * @brief Flush any pending log output
+     *
+     * Forces any buffered log messages to be written to their destinations.
+     */
+    void flush();
 
 private:
     /**

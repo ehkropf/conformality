@@ -9,6 +9,16 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wformat")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 #####
+# spdlog logging library (fetched early so object libraries can use it)
+include(FetchContent)
+FetchContent_Declare(
+  spdlog
+  URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.1.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(spdlog)
+
+#####
 # Libraries, etc.
 set(IM_INCLUDE_DIRS
     /opt/local/include
@@ -92,6 +102,8 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/methods/FornbergMCConfiguration.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
 )
+target_link_libraries(map_objects PUBLIC spdlog::spdlog_header_only)
+
 add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/numerics/Grid.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/RootFinder.cpp
@@ -99,12 +111,15 @@ add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/core/StatusManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
 )
+target_link_libraries(util_objects PUBLIC spdlog::spdlog_header_only)
+
 add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/domains/Domain.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/BoundaryComponent.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/Boundary.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/FornbergCanonicalDomain.cpp
 )
+target_link_libraries(domain_objects PUBLIC spdlog::spdlog_header_only)
 
 #####
 # GUI objects
@@ -116,9 +131,8 @@ add_library(gui_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/gui/VisualizationPanel.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/GuiController.cpp
 )
-set_property(TARGET gui_objects
-    PROPERTY INCLUDE_DIRECTORIES ${IM_INCLUDE_DIRS}
-)
+target_include_directories(gui_objects PRIVATE ${IM_INCLUDE_DIRS})
+target_link_libraries(gui_objects PUBLIC spdlog::spdlog_header_only)
 
 # GUI executable
 add_executable(conformality_gui
@@ -133,11 +147,11 @@ add_executable(conformality_gui
 target_link_libraries(conformality_gui
     ${IM_LINK_LIBS}
     ${FFTW_LIB}
+    spdlog::spdlog_header_only
 )
 
 #####
 # Testing section
-include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/90a41521142c978131f38c6da07b4eb96a9f1ff6.zip
@@ -173,6 +187,7 @@ add_executable(test_exec
 target_link_libraries(test_exec
     GTest::gtest_main
     ${FFTW_LIB}
+    spdlog::spdlog_header_only
 )
 
 target_compile_definitions(test_exec PRIVATE TESTING)
