@@ -18,9 +18,11 @@
 
 #pragma once
 
+#include "../core/StatusManager.h"
 #include "../methods/FornbergMCConfiguration.h"
 #include <Eigen/Dense>
 #include <functional>
+#include <memory>
 #include <vector>
 
 /**
@@ -63,7 +65,8 @@ public:
 
 private:
     const FornbergMCConfiguration& m_config;
-    
+    std::shared_ptr<IStatusManager> mp_statusManager;
+
     // Solver state
     mutable ConvergenceInfo m_last_convergence_info;
     mutable Eigen::VectorXd m_best_iterate;
@@ -149,6 +152,15 @@ public:
      * @return True if test passed
      */
     bool runSelfTest(int size = 100) const;
+
+    /**
+     * @brief Set the status manager for logging
+     * @param manager Shared pointer to status manager (nullptr to disable logging)
+     */
+    void setStatusManager(std::shared_ptr<IStatusManager> manager)
+    {
+        mp_statusManager = manager;
+    }
 
 private:
     /**

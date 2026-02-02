@@ -17,18 +17,18 @@
  */
 
 #include "CGSolver.h"
-// #include "../core/StatusManager.h"
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 CGSolver::CGSolver(const FornbergMCConfiguration& config)
     : m_config{config}
+    , mp_statusManager{nullptr}
     , m_best_residual{std::numeric_limits<double>::max()}
     , m_best_iteration{-1}
 {
-    // StatusManager requires instance and component name - remove for now
-    // TODO: Add proper logging integration
 }
 
 Eigen::VectorXd CGSolver::solve(const MatrixVectorProduct& A_function, 
@@ -50,10 +50,30 @@ Eigen::VectorXd CGSolver::solve(const MatrixVectorProduct& A_function,
     
     // Store convergence information
     m_last_convergence_info = info;
-    
-    // FIXME: Logging removed for compilation
-    // TODO: Add proper logging integration
-    
+
+    // Log final convergence status
+    if (mp_statusManager)
+    {
+        std::ostringstream oss;
+        oss << std::scientific << std::setprecision(6);
+        if (info.converged)
+        {
+            oss << "Converged in " << info.iterations << " iterations, "
+                << "relative residual = " << info.relative_residual;
+            mp_statusManager->reportInfo("CGSolver", oss.str());
+        }
+        else
+        {
+            oss << "Did not converge after " << info.iterations << " iterations, "
+                << "relative residual = " << info.relative_residual;
+            if (info.used_best_iterate)
+            {
+                oss << " (using best iterate from iteration " << info.best_iterate_index << ")";
+            }
+            mp_statusManager->reportWarning("CGSolver", oss.str());
+        }
+    }
+
     return solution;
 }
 
@@ -63,49 +83,66 @@ Eigen::VectorXd CGSolver::solveComplexSystem(
     const Eigen::VectorXcd& g,
     const Eigen::VectorXd& x0) const
 {
-    // Debug logging removed for compilation
-    
     // Create real system function: 2*real(D†D)*x
     auto real_A_function = createRealSystemFunction(D_function, D_adjoint_function);
-    
+
     // Convert complex RHS to real: 2*real(g)
     Eigen::VectorXd real_b = 2.0 * g.real();
-    
+
     // Solve the real system
     return solve(real_A_function, real_b, x0);
 }
 
 bool CGSolver::runSelfTest(int size) const
 {
-    // FIXME: Logging removed for compilation
-    
+    if (mp_statusManager)
+    {
+        mp_statusManager->reportDebug("CGSolver", "Running self-test with system size " + std::to_string(size));
+    }
+
     try
     {
         // Create a simple test system: A = I + 0.1*ones, x_true = ones, b = A*x_true
         Eigen::VectorXd x_true = Eigen::VectorXd::Ones(size);
-        
+
         auto test_A_function = [size](const Eigen::VectorXd& x) -> Eigen::VectorXd
         {
             return x + 0.1 * x.sum() * Eigen::VectorXd::Ones(size);
         };
-        
+
         Eigen::VectorXd b = test_A_function(x_true);
         Eigen::VectorXd x0 = Eigen::VectorXd::Zero(size);
-        
+
         // Solve the test system
         Eigen::VectorXd x_computed = solve(test_A_function, b, x0);
-        
+
         // Check error
         double error = (x_computed - x_true).norm();
         bool passed = error < 1e-10;
-        
-        // FIXME: Logging removed for compilation
-        
+
+        if (mp_statusManager)
+        {
+            std::ostringstream oss;
+            oss << std::scientific << std::setprecision(6);
+            oss << "Self-test " << (passed ? "passed" : "failed") << ", error = " << error;
+            if (passed)
+            {
+                mp_statusManager->reportInfo("CGSolver", oss.str());
+            }
+            else
+            {
+                mp_statusManager->reportWarning("CGSolver", oss.str());
+            }
+        }
+
         return passed;
     }
     catch (const std::exception& e)
     {
-        // FIXME: Logging removed for compilation
+        if (mp_statusManager)
+        {
+            mp_statusManager->reportError("CGSolver", "Self-test failed with exception", e.what());
+        }
         return false;
     }
 }
@@ -145,9 +182,17 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     {
         updateBestIterate(x, initial_residual, 0);
     }
-    
-    // Debug logging removed for compilation
-    
+
+    // Log initial state
+    if (mp_statusManager)
+    {
+        std::ostringstream oss;
+        oss << std::scientific << std::setprecision(6);
+        oss << "Starting CG: n=" << n << ", initial residual=" << initial_residual
+            << ", b_norm=" << b_norm;
+        mp_statusManager->reportDebug("CGSolver", oss.str());
+    }
+
     // CG iteration loop
     for (int iter = 0; iter < m_config.max_cgm_iterations; ++iter)
     {
@@ -158,7 +203,13 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Check for breakdown
         if (std::abs(pAp) < 1e-14)
         {
-            // Warning logging removed for compilation
+            if (mp_statusManager)
+            {
+                std::ostringstream oss;
+                oss << std::scientific << std::setprecision(6);
+                oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp;
+                mp_statusManager->reportWarning("CGSolver", oss.str());
+            }
             break;
         }
         
@@ -193,7 +244,14 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Check for restart condition
         if (shouldRestart(info.residual_history, iter + 1))
         {
-            // Debug logging removed for compilation
+            if (mp_statusManager)
+            {
+                std::ostringstream oss;
+                oss << std::scientific << std::setprecision(6);
+                oss << "CG restart triggered at iteration " << (iter + 1)
+                    << ", residual=" << current_residual;
+                mp_statusManager->reportDebug("CGSolver", oss.str());
+            }
             return performRestart(A_function, b, x, m_config.max_cgm_iterations - (iter + 1), info);
         }
         
@@ -281,9 +339,19 @@ void CGSolver::updateBestIterate(const Eigen::VectorXd& x, double residual, int 
 {
     if (residual < m_best_residual)
     {
+        double improvement = (m_best_iteration >= 0) ? (m_best_residual - residual) / m_best_residual : 1.0;
         m_best_residual = residual;
         m_best_iterate = x;
         m_best_iteration = iteration;
+
+        // Log significant improvements in best iterate (when enabled and significant)
+        if (mp_statusManager && (iteration == 0 || improvement > 0.1))
+        {
+            std::ostringstream oss;
+            oss << std::scientific << std::setprecision(6);
+            oss << "New best iterate at iteration " << iteration << ", residual=" << residual;
+            mp_statusManager->reportDebug("CGSolver", oss.str());
+        }
     }
 }
 

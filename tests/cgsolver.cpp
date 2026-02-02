@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include "../src/numerics/CGSolver.h"
 #include "../src/methods/FornbergMCConfiguration.h"
+#include "../src/core/StatusManager.h"
 #include "../src/core/Types.h"
 
 class CGSolverTest : public ::testing::Test
@@ -153,4 +154,85 @@ TEST_F(CGSolverTest, ComplexSystemConvergenceInfo)
     const auto& info = solver.getLastConvergenceInfo();
     EXPECT_TRUE(info.converged);
     EXPECT_GT(info.iterations, 0);
+}
+
+TEST_F(CGSolverTest, StatusManagerLogging)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+    CGSolver solver(config);
+    solver.setStatusManager(statusManager);
+
+    // Run a simple solve which should generate log messages
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    solver.solve(identity_function, b);
+
+    // Check that log messages were generated
+    auto messages = statusManager->getMessages();
+    EXPECT_FALSE(messages.empty()) << "Expected log messages from CGSolver";
+
+    // Should have at least debug messages for starting CG and convergence info
+    auto debugMessages = statusManager->getMessages(StatusLevel::DEBUG);
+    EXPECT_FALSE(debugMessages.empty()) << "Expected DEBUG messages from CGSolver";
+
+    // Check for expected component name in messages
+    bool found_cgsolver_message = false;
+    for (const auto& msg : messages)
+    {
+        if (msg.component == "CGSolver")
+        {
+            found_cgsolver_message = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_cgsolver_message) << "Expected messages with component 'CGSolver'";
+
+    // Should have an INFO message for successful convergence
+    auto infoMessages = statusManager->getMessages(StatusLevel::INFO);
+    EXPECT_FALSE(infoMessages.empty()) << "Expected INFO message for convergence";
+}
+
+TEST_F(CGSolverTest, StatusManagerSelfTestLogging)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+    CGSolver solver(config);
+    solver.setStatusManager(statusManager);
+
+    // Run self-test which should log messages
+    bool result = solver.runSelfTest(50);
+    EXPECT_TRUE(result);
+
+    // Check that log messages were generated
+    auto messages = statusManager->getMessages();
+    EXPECT_FALSE(messages.empty()) << "Expected log messages from CGSolver self-test";
+
+    // Check for debug message about starting self-test
+    bool found_selftest_start = false;
+    for (const auto& msg : messages)
+    {
+        if (msg.message.find("self-test") != std::string::npos ||
+            msg.message.find("Self-test") != std::string::npos)
+        {
+            found_selftest_start = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_selftest_start) << "Expected self-test message";
+}
+
+TEST_F(CGSolverTest, NoLoggingWithoutStatusManager)
+{
+    // Without a StatusManager, solve should still work
+    CGSolver solver(config);
+    // Do NOT set status manager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    // Should not throw and should still converge
+    EXPECT_NO_THROW(solver.solve(identity_function, b));
+    EXPECT_TRUE(solver.hasConverged());
 }
