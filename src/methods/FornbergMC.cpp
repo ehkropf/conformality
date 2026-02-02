@@ -633,8 +633,8 @@ void FornbergMC::newtonUpdate()
             {
                 // TODO: Replace with spdlog warning when logging is integrated
                 std::cerr << "Warning: Degenerate abs_eta detected at boundary " << nu
-                          << ", point " << j << ". Skipping scaling for this point."
-                          << std::endl;
+                          << ", point " << j << " (abs_eta=" << abs_eta_val
+                          << "). Skipping scaling for this point." << std::endl;
             }
         }
     }
