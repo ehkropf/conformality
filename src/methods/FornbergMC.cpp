@@ -662,9 +662,10 @@ void FornbergMC::newtonUpdate()
         // Validate radius remains positive
         if (std::real(m_conformal_moduli(mod_idx)) <= 0.0)
         {
-            std::cerr << "Warning: Radius for boundary " << (k + 2)
-                      << " became non-positive. Newton iteration may be unstable."
-                      << std::endl;
+            throw std::runtime_error(
+                "FornbergMC::newtonUpdate: Radius for boundary " + std::to_string(k + 2) +
+                " became non-positive (" + std::to_string(std::real(m_conformal_moduli(mod_idx))) +
+                "). Newton iteration has diverged - consider enabling damping or checking domain configuration.");
         }
     }
 
