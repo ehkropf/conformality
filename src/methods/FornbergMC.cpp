@@ -24,8 +24,6 @@
 #include "../domains/FornbergCanonicalDomain.h"
 #include "../core/ConformalMap.h"
 #include "../domains/Domain.h"
-#include "../core/StatusManager.h"
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <cmath>
