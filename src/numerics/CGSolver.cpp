@@ -17,11 +17,10 @@
  */
 
 #include "CGSolver.h"
-#include <stdexcept>
 #include <cmath>
-#include <algorithm>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
+#include <stdexcept>
 
 CGSolver::CGSolver(const FornbergMCConfiguration& config)
     : m_config{config}
