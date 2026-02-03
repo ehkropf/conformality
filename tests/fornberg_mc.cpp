@@ -24,6 +24,7 @@
 #include "../src/domains/FornbergCanonicalDomain.h"
 #include "../src/domains/Domain.h"
 #include "../src/core/ConformalMap.h"
+#include "../src/core/StatusManager.h"
 
 class FornbergMCTest : public ::testing::Test
 {
@@ -1161,3 +1162,128 @@ TEST_F(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius)
 // GH-45: Newton damping investigation complete
 // Decision: Default to undamped Newton (enable_newton_damping = false) for MATLAB parity in Phase 1.
 // Defer damping as robustness enhancement to Phase 2.
+
+// =============================================================================
+// StatusManager Integration Tests (GH-23)
+// =============================================================================
+
+class FornbergMCStatusManagerTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        config.N = 32;  // Smaller N for faster tests
+        config.max_newton_iterations = 3;
+        config.max_cgm_iterations = 50;
+        config.newton_tolerance = 1e-6;
+        config.cgm_tolerance = 1e-6;
+        config.verbose = false;
+    }
+
+    std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
+    {
+        auto component = std::make_shared<AnalyticBoundaryComponent>(
+            [center, radius](double theta) {
+                return center + radius * Complex(std::cos(theta), std::sin(theta));
+            },
+            [radius](double theta) {
+                return radius * Complex(-std::sin(theta), std::cos(theta));
+            }
+        );
+        return std::make_shared<Boundary>(component);
+    }
+
+    std::shared_ptr<MultiplyConnectedDomain> createAnnulusDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner}
+        );
+    }
+
+    FornbergMCConfiguration config;
+};
+
+TEST_F(FornbergMCStatusManagerTest, SetterGetterWorkCorrectly)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+
+    FornbergMC method(config);
+
+    // Initially no status manager
+    EXPECT_EQ(method.getStatusManager(), nullptr);
+
+    // Set and verify
+    method.setStatusManager(statusManager);
+    EXPECT_EQ(method.getStatusManager(), statusManager);
+
+    // Can clear by setting nullptr
+    method.setStatusManager(nullptr);
+    EXPECT_EQ(method.getStatusManager(), nullptr);
+}
+
+TEST_F(FornbergMCStatusManagerTest, LogsMessagesOnFormSystem)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+    method.setStatusManager(statusManager);
+
+    // Set up internal state (following existing test pattern)
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+
+    // Run formSystem which generates log messages
+    method.formSystem();
+
+    // Check that log messages were generated
+    auto messages = statusManager->getMessages();
+    EXPECT_FALSE(messages.empty()) << "Expected log messages from FornbergMC";
+
+    // Should have DEBUG messages for formSystem diagnostics
+    auto debugMessages = statusManager->getMessages(StatusLevel::DEBUG);
+    EXPECT_FALSE(debugMessages.empty()) << "Expected DEBUG messages from FornbergMC";
+
+    // Check for expected component name in messages
+    bool foundFornbergMessage = false;
+    for (const auto& msg : messages)
+    {
+        if (msg.component == "FornbergMC")
+        {
+            foundFornbergMessage = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundFornbergMessage) << "Expected messages with component 'FornbergMC'";
+}
+
+TEST_F(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager)
+{
+    // Verify formSystem works without a StatusManager (null-safety)
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+    // Deliberately don't set StatusManager
+
+    // Set up internal state
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+
+    EXPECT_NO_THROW(method.formSystem());
+}

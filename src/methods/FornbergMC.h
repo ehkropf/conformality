@@ -21,6 +21,7 @@
 #include "ConformalMapMethod.h"
 #include "FornbergMCConfiguration.h"
 #include "../core/Types.h"
+#include "../core/StatusManager.h"
 #include <Eigen/Dense>
 #include <memory>
 #include <vector>
@@ -74,6 +75,8 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled);
     FRIEND_TEST(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain);
     FRIEND_TEST(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius);
+    FRIEND_TEST(FornbergMCStatusManagerTest, LogsMessagesOnFormSystem);
+    FRIEND_TEST(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager);
 #endif
 
 private:
@@ -81,6 +84,9 @@ private:
     FornbergMCConfiguration m_config;
     std::shared_ptr<MultiplyConnectedDomain> mp_user_domain{nullptr};        // Target domain (user's actual domain)
     std::shared_ptr<FornbergCanonicalDomain> mp_canonical_domain{nullptr};   // Source domain (unit disk + holes)
+
+    // Logging
+    std::shared_ptr<IStatusManager> mp_status_manager{nullptr};  // Optional status manager for logging
 
     // Matrix construction components
     std::unique_ptr<PMatrixBuilder> mp_matrix_builder{nullptr};
@@ -159,6 +165,24 @@ public:
      * @param config New configuration
      */
     void setConfiguration(const FornbergMCConfiguration& config);
+
+    /**
+     * @brief Set the status manager for logging
+     * @param statusManager Shared pointer to a status manager
+     */
+    void setStatusManager(std::shared_ptr<IStatusManager> statusManager)
+    {
+        mp_status_manager = statusManager;
+    }
+
+    /**
+     * @brief Get the current status manager
+     * @return Shared pointer to the status manager (may be null)
+     */
+    std::shared_ptr<IStatusManager> getStatusManager() const
+    {
+        return mp_status_manager;
+    }
 
     /**
      * @brief Get the Fourier coefficients from the last computation
