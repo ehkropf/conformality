@@ -1149,7 +1149,7 @@ TEST_F(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius)
     const int N = config.N;
 
     // Artificially set U to produce a large negative radius update
-    // The initial radius is around 0.1, so a -0.2 update should make it negative
+    // that will make the final radius negative regardless of initial value
     double current_radius = std::real(method.m_conformal_moduli(1));
     double large_negative_update = -(current_radius + 0.1);  // Ensures radius becomes negative
     method.m_U(m * N) = Complex(large_negative_update, 0.0);
