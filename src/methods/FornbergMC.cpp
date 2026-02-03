@@ -629,6 +629,13 @@ void FornbergMC::newtonUpdate()
             {
                 m_U(nu * N + j) /= abs_eta_val;
             }
+            else
+            {
+                // TODO: Replace with spdlog warning when logging is integrated
+                std::cerr << "Warning: Degenerate abs_eta detected at boundary " << nu
+                          << ", point " << j << " (abs_eta=" << abs_eta_val
+                          << "). Skipping scaling for this point." << std::endl;
+            }
         }
     }
 
