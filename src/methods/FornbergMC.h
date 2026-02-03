@@ -74,6 +74,7 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral);
     FRIEND_TEST(FornbergMCNewtonUpdateTest, AppliesDampingWhenEnabled);
     FRIEND_TEST(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain);
+    FRIEND_TEST(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius);
     FRIEND_TEST(FornbergMCStatusManagerTest, LogsMessagesOnFormSystem);
     FRIEND_TEST(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager);
 #endif

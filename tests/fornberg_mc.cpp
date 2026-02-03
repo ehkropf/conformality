@@ -1127,6 +1127,38 @@ TEST_F(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
     }
 }
 
+TEST_F(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius)
+{
+    // GH-48: Verify that newtonUpdate() throws std::runtime_error when radius becomes non-positive
+    // This is a runtime error condition that prevents correct computation - recovery is not possible
+    auto domain = createAnnulusDomain();
+    FornbergMC method(config);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    const int m = 2;
+    const int N = config.N;
+
+    // Artificially set U to produce a large negative radius update
+    // that will make the final radius negative regardless of initial value
+    double current_radius = std::real(method.m_conformal_moduli(1));
+    double large_negative_update = -(current_radius + 0.1);  // Ensures radius becomes negative
+    method.m_U(m * N) = Complex(large_negative_update, 0.0);
+
+    // newtonUpdate should throw because radius becomes non-positive
+    EXPECT_THROW(method.newtonUpdate(), std::runtime_error);
+}
+
 // GH-45: Newton damping investigation complete
 // Decision: Default to undamped Newton (enable_newton_damping = false) for MATLAB parity in Phase 1.
 // Defer damping as robustness enhancement to Phase 2.

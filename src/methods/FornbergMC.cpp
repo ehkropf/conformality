@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
 
 FornbergMC::FornbergMC(const FornbergMCConfiguration& config)
     : ConformalMapMethod()
@@ -683,6 +684,13 @@ void FornbergMC::newtonUpdate()
             {
                 m_U(nu * N + j) /= abs_eta_val;
             }
+            else
+            {
+                // TODO: Replace with spdlog warning when logging is integrated
+                std::cerr << "Warning: Degenerate abs_eta detected at boundary " << nu
+                          << ", point " << j << " (abs_eta=" << abs_eta_val
+                          << "). Skipping scaling for this point." << std::endl;
+            }
         }
     }
 
@@ -716,13 +724,10 @@ void FornbergMC::newtonUpdate()
         // Validate radius remains positive
         if (std::real(m_conformal_moduli(mod_idx)) <= 0.0)
         {
-            if (mp_status_manager)
-            {
-                std::ostringstream oss;
-                oss << "Radius for boundary " << (k + 2)
-                    << " became non-positive. Newton iteration may be unstable.";
-                mp_status_manager->reportWarning("FornbergMC", oss.str());
-            }
+            throw std::runtime_error(
+                "FornbergMC::newtonUpdate: Radius for boundary " + std::to_string(k + 2) +
+                " became non-positive (" + std::to_string(std::real(m_conformal_moduli(mod_idx))) +
+                "). Newton iteration has diverged - consider enabling damping or checking domain configuration.");
         }
     }
 
