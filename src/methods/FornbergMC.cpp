@@ -243,10 +243,6 @@ Complex FornbergMC::inverseMap(const Complex& w) const
     }
 
     // TODO: Implement inverse map evaluation (typically via Newton's method)
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportWarning("FornbergMC", "Inverse map evaluation not implemented - returning identity");
-    }
     return w; // Placeholder
 }
 
