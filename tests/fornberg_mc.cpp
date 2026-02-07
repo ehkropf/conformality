@@ -417,6 +417,143 @@ TEST_F(FornbergMCFormSystemTest, ThrowsOnDegenerateDomain)
     EXPECT_THROW(method.formSystem(), std::invalid_argument);
 }
 
+TEST_F(FornbergMCFormSystemTest, DimensionsAnnulusVaryingN)
+{
+    // Verify matrix dimensions scale correctly with N for annulus (m=2)
+    auto domain = createAnnulusDomain();
+
+    for (int N : {32, 128, 256})
+    {
+        SCOPED_TRACE("N=" + std::to_string(N));
+        config.N = N;
+        int m = 2;
+        int M = N / 2;
+
+        FornbergMC method(config);
+        method.mp_user_domain = domain;
+        method.m_connectivity = m;
+        method.m_is_annulus = true;
+        method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+            method.mp_user_domain,
+            FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+            config.N
+        );
+
+        method.initializeNewtonIteration();
+        method.formSystem();
+
+        EXPECT_EQ(method.getSystemMatrix().rows(), m * M);
+        EXPECT_EQ(method.getSystemMatrix().cols(), m * N + 1);
+        EXPECT_EQ(method.getRHSVector().size(), m * M);
+    }
+}
+
+TEST_F(FornbergMCFormSystemTest, DimensionsGeneralVaryingN)
+{
+    // Verify matrix dimensions scale correctly with N for general case (m=3)
+    auto domain = createThreeConnectedDomain();
+
+    for (int N : {32, 128, 256})
+    {
+        SCOPED_TRACE("N=" + std::to_string(N));
+        config.N = N;
+        int m = 3;
+        int M = N / 2;
+
+        FornbergMC method(config);
+        method.mp_user_domain = domain;
+        method.m_connectivity = m;
+        method.m_is_annulus = false;
+        method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+            method.mp_user_domain,
+            FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+            config.N
+        );
+
+        method.initializeNewtonIteration();
+        method.formSystem();
+
+        EXPECT_EQ(method.getSystemMatrix().rows(), m * M + 2);
+        EXPECT_EQ(method.getSystemMatrix().cols(), m * N + 3 * (m - 1));
+        EXPECT_EQ(method.getRHSVector().size(), m * M + 2);
+    }
+}
+
+TEST_F(FornbergMCFormSystemTest, Dimensions4Connected)
+{
+    // 4-connected domain (m=4, N=64)
+    // Expected: D is (m*M+2 x m*N+3*(m-1)) = (130 x 265)
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.08);
+    auto inner2 = createCircularBoundary(Complex(-0.3, 0.2), 0.07);
+    auto inner3 = createCircularBoundary(Complex(0.0, -0.4), 0.09);
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
+    );
+
+    int m = 4;
+    int N = 64;
+    int M = N / 2;
+    config.N = N;
+
+    FornbergMC method(config);
+    method.mp_user_domain = domain;
+    method.m_connectivity = m;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    EXPECT_EQ(method.getSystemMatrix().rows(), m * M + 2);   // 130
+    EXPECT_EQ(method.getSystemMatrix().cols(), m * N + 3 * (m - 1));  // 265
+    EXPECT_EQ(method.getRHSVector().size(), m * M + 2);
+    EXPECT_GT(method.getSystemMatrix().norm(), 0.0);
+    EXPECT_GT(method.getRHSVector().norm(), 0.0);
+}
+
+TEST_F(FornbergMCFormSystemTest, Dimensions5Connected)
+{
+    // 5-connected domain (m=5, N=64)
+    // Expected: D is (m*M+2 x m*N+3*(m-1)) = (162 x 332)
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.06);
+    auto inner2 = createCircularBoundary(Complex(-0.4, 0.3), 0.06);
+    auto inner3 = createCircularBoundary(Complex(-0.3, -0.3), 0.07);
+    auto inner4 = createCircularBoundary(Complex(0.3, -0.3), 0.07);
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3, inner4}
+    );
+
+    int m = 5;
+    int N = 64;
+    int M = N / 2;
+    config.N = N;
+
+    FornbergMC method(config);
+    method.mp_user_domain = domain;
+    method.m_connectivity = m;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    method.initializeNewtonIteration();
+    method.formSystem();
+
+    EXPECT_EQ(method.getSystemMatrix().rows(), m * M + 2);   // 162
+    EXPECT_EQ(method.getSystemMatrix().cols(), m * N + 3 * (m - 1));  // 332
+    EXPECT_EQ(method.getRHSVector().size(), m * M + 2);
+    EXPECT_GT(method.getSystemMatrix().norm(), 0.0);
+    EXPECT_GT(method.getRHSVector().norm(), 0.0);
+}
+
 // Friend test class for testing private computeFourierCoefficients() method
 class FornbergMCFourierTest : public ::testing::Test
 {
