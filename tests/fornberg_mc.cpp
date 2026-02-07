@@ -1287,3 +1287,71 @@ TEST_F(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager)
 
     EXPECT_NO_THROW(method.formSystem());
 }
+
+TEST_F(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents)
+{
+    auto domain = createAnnulusDomain();
+    auto statusManager = std::make_shared<StatusManager>();
+
+    FornbergMC method(config);
+
+    // Initialize to create sub-components
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+
+    // Sub-components should exist but have no StatusManager yet
+    ASSERT_NE(method.mp_matrix_builder, nullptr);
+    ASSERT_NE(method.mp_cg_solver, nullptr);
+    EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), nullptr);
+
+    // Set StatusManager after sub-components exist -- should propagate
+    method.setStatusManager(statusManager);
+
+    EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), statusManager);
+}
+
+TEST_F(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta)
+{
+    auto domain = createAnnulusDomain();
+    auto statusManager = std::make_shared<StatusManager>();
+
+    FornbergMC method(config);
+    method.setStatusManager(statusManager);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Inject a degenerate abs_eta value to trigger the warning
+    method.m_abs_eta(0, 0) = 0.0;
+
+    method.newtonUpdate();
+
+    // Should have a warning about degenerate abs_eta
+    auto warnings = statusManager->getMessages(StatusLevel::WARNING);
+    bool foundDegenerateWarning = false;
+    for (const auto& msg : warnings)
+    {
+        if (msg.component == "FornbergMC" && msg.message.find("Degenerate abs_eta") != std::string::npos)
+        {
+            foundDegenerateWarning = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundDegenerateWarning) << "Expected warning about degenerate abs_eta";
+}

@@ -31,14 +31,6 @@ PMatrixBuilder::PMatrixBuilder(const FornbergMCConfiguration& config, int connec
     // Initialize frequency indices and normalization conditions
     initializeFrequencyIndices();
     setupNormalizationConditions();
-
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("PMatrixBuilder",
-            "Created with connectivity=" + std::to_string(m_connectivity) +
-            ", N=" + std::to_string(m_N) +
-            ", annulus=" + std::string(m_is_annulus ? "true" : "false"));
-    }
 }
 
 Eigen::MatrixXcd PMatrixBuilder::buildPMatrix(int nu, const ConformalModuli& moduli) const

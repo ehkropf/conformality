@@ -700,13 +700,17 @@ void FornbergMC::newtonUpdate()
             }
             else
             {
+                std::ostringstream oss;
+                oss << "Degenerate abs_eta detected at boundary " << nu
+                    << ", point " << j << " (abs_eta=" << abs_eta_val
+                    << "). Skipping scaling for this point.";
                 if (mp_status_manager)
                 {
-                    std::ostringstream oss;
-                    oss << "Degenerate abs_eta detected at boundary " << nu
-                        << ", point " << j << " (abs_eta=" << abs_eta_val
-                        << "). Skipping scaling for this point.";
                     mp_status_manager->reportWarning("FornbergMC", oss.str());
+                }
+                else
+                {
+                    throw std::runtime_error("FornbergMC: " + oss.str());
                 }
             }
         }

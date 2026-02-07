@@ -805,12 +805,10 @@ TEST_F(PMatrixBuilderStatusManagerTest, SetterGetterWorkCorrectly)
     EXPECT_EQ(builder.getStatusManager(), nullptr);
 }
 
-TEST_F(PMatrixBuilderStatusManagerTest, LogsMessagesOnConstruction)
+TEST_F(PMatrixBuilderStatusManagerTest, LogsMessagesOnStateChange)
 {
     auto statusManager = std::make_shared<StatusManager>();
 
-    // Create builder with status manager set after construction,
-    // then trigger logging via setConnectivity
     PMatrixBuilder builder(config, 3, false);
     builder.setStatusManager(statusManager);
     builder.setConnectivity(4);
@@ -840,4 +838,5 @@ TEST_F(PMatrixBuilderStatusManagerTest, NoExceptionWithoutStatusManager)
 
     // setAnnulusMode with rejected case (connectivity != 2)
     EXPECT_NO_THROW(builder.setAnnulusMode(true));
+    EXPECT_FALSE(builder.isAnnulusMode()) << "Annulus mode should be rejected when connectivity != 2";
 }
