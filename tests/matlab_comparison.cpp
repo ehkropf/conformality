@@ -609,9 +609,10 @@ TEST_F(MatlabComparisonConvergence, AnnulusConverges)
             break;
         }
     }
-    method.computeFourierCoefficients();
+    ASSERT_TRUE(converged) << "Annulus should converge within "
+        << config.max_newton_iterations << " iterations";
 
-    EXPECT_TRUE(converged) << "Annulus should converge";
+    method.computeFourierCoefficients();
 
     // Compare conformal moduli
     const auto& actual_radii = method.mp_canonical_domain->getHoleRadii();
@@ -670,7 +671,8 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
         }
     }
 
-    EXPECT_TRUE(converged) << "Identity m=4 should converge";
+    ASSERT_TRUE(converged) << "Identity m=4 should converge within "
+        << config.max_newton_iterations << " iterations";
 
     // For identity map, c and rho should match target domain parameters
     const auto& actual_radii = method.mp_canonical_domain->getHoleRadii();

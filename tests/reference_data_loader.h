@@ -43,7 +43,14 @@ public:
         {
             throw std::runtime_error("Cannot open reference data file: " + json_path);
         }
-        m_data = nlohmann::json::parse(file);
+        try
+        {
+            m_data = nlohmann::json::parse(file);
+        }
+        catch (const nlohmann::json::parse_error& e)
+        {
+            throw std::runtime_error("Failed to parse reference data file: " + json_path + " - " + e.what());
+        }
     }
 
     Eigen::MatrixXcd getComplexMatrix(const std::string& key) const
