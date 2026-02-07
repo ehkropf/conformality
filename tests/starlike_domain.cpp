@@ -21,8 +21,8 @@
 
 TEST(StarlikeDomainTest, Construction) {
     Complex center(0.0, 0.0);
-    // FIXME This is clearly the wrong radius function.
-    auto radiusFunc = [](double _) -> double { return 1.0; }; // Constant radius = circle
+    // 3-fold symmetric starlike boundary: r(θ) = 1 + 0.3*cos(3θ)
+    auto radiusFunc = [](double angle) -> double { return 1.0 + 0.3 * std::cos(3.0 * angle); };
 
     StarlikeDomain domain(center, radiusFunc, false); // Internal domain
 
@@ -33,29 +33,33 @@ TEST(StarlikeDomainTest, Construction) {
 
 TEST(StarlikeDomainTest, ContainsPoint) {
     Complex center(0.0, 0.0);
-    // FIXME This is clearly the wrong radius function.
-    auto radiusFunc = [](double _) -> double { return 1.0; }; // Circle of radius 1
+    // 2-fold symmetric starlike boundary: r(θ) = 1 + 0.3*cos(2θ)
+    // Radius varies from 0.7 (at θ=π/2) to 1.3 (at θ=0)
+    auto radiusFunc = [](double angle) -> double { return 1.0 + 0.3 * std::cos(2.0 * angle); };
 
     StarlikeDomain internalDomain(center, radiusFunc, false);
 
-    // Internal points
+    // Points clearly inside
     EXPECT_TRUE(internalDomain.contains(Complex(0.0, 0.0)));
     EXPECT_TRUE(internalDomain.contains(Complex(0.5, 0.0)));
 
-    // Boundary point (approximately)
-    EXPECT_TRUE(internalDomain.contains(Complex(0.999, 0.0)));
+    // Inside along wide axis (θ=0, boundary r=1.3)
+    EXPECT_TRUE(internalDomain.contains(Complex(1.2, 0.0)));
 
-    // External point
+    // Outside along narrow axis (θ=π/2, boundary r=0.7)
+    EXPECT_FALSE(internalDomain.contains(Complex(0.0, 0.8)));
+
+    // Outside along wide axis
     EXPECT_FALSE(internalDomain.contains(Complex(1.5, 0.0)));
 
     // Now test external domain
     StarlikeDomain externalDomain(center, radiusFunc, true);
 
-    // Internal points (now external to the domain)
+    // Points inside boundary curve (outside the unbounded domain)
     EXPECT_FALSE(externalDomain.contains(Complex(0.0, 0.0)));
     EXPECT_FALSE(externalDomain.contains(Complex(0.5, 0.0)));
 
-    // External points (now inside the domain)
+    // Point outside boundary curve (inside the unbounded domain)
     EXPECT_TRUE(externalDomain.contains(Complex(1.5, 0.0)));
 }
 
