@@ -85,6 +85,17 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager);
+
+    // MATLAB comparison tests (tests/matlab_comparison.cpp)
+    FRIEND_TEST(MatlabComparisonFormSystem, AnnulusDAndG);
+    FRIEND_TEST(MatlabComparisonFormSystem, GeneralM3DAndG);
+    FRIEND_TEST(MatlabComparisonFormSystem, IdentityM4DAndG);
+    FRIEND_TEST(MatlabComparisonSolveSystem, AnnulusU);
+    FRIEND_TEST(MatlabComparisonSolveSystem, IdentityM4U);
+    FRIEND_TEST(MatlabComparisonNewtonUpdate, AnnulusFirstIteration);
+    FRIEND_TEST(MatlabComparisonNewtonUpdate, IdentityM4FirstIteration);
+    FRIEND_TEST(MatlabComparisonConvergence, AnnulusConverges);
+    FRIEND_TEST(MatlabComparisonConvergence, IdentityM4Converges);
 #endif
 
 private:

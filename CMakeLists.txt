@@ -159,6 +159,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
+FetchContent_Declare(
+  json
+  URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(json)
+
 enable_testing()
 
 add_executable(test_exec
@@ -183,14 +190,18 @@ add_executable(test_exec
     tests/root_finder_tests.cpp
     tests/status_manager_tests.cpp
     tests/types_tests.cpp
+    tests/matlab_comparison.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
     ${FFTW_LIB}
     spdlog::spdlog_header_only
+    nlohmann_json::nlohmann_json
 )
 
-target_compile_definitions(test_exec PRIVATE TESTING)
+target_compile_definitions(test_exec PRIVATE TESTING
+    REFERENCE_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/reference_data/data"
+)
 
 include(GoogleTest)
 gtest_discover_tests(test_exec)
