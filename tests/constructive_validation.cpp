@@ -24,9 +24,15 @@
 #include "../src/domains/FornbergCanonicalDomain.h"
 #include "../src/domains/Domain.h"
 
+#include "../src/core/StatusManager.h"
+
 #include <cmath>
 
-// Helper: create circular boundary
+// These tests use FornbergMC's internal Newton iteration methods directly
+// rather than the public compute() API. This enables fine-grained inspection
+// of intermediate state (residuals, moduli, coefficients) at each stage.
+// See CLAUDE.md "FornbergMC test pattern" for rationale.
+
 static std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
 {
     auto component = std::make_shared<AnalyticBoundaryComponent>(
@@ -41,7 +47,7 @@ static std::shared_ptr<Boundary> createCircularBoundary(Complex center, double r
 }
 
 // ============================================================================
-// Test 1: Identity Map Tests
+// Identity Map Tests
 // ============================================================================
 
 class ConstructiveIdentityMap : public ::testing::Test
@@ -62,9 +68,11 @@ protected:
 
 TEST_F(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli)
 {
-    // th_gen_ex3 domain: 4-connected, circular boundaries
-    // When target domain IS circular, the map is the identity and
-    // converged moduli must match target boundary geometry
+    // th_gen_ex3 domain: 4-connected, all circular boundaries.
+    // Since all user boundaries are circles, the conformal map from
+    // the converged canonical domain to the user domain is the identity.
+    // The algorithm must discover this by iterating the moduli from
+    // an imprecise initial guess to match the actual boundary geometry.
     auto outer = createCircularBoundary(Complex(0, 0), 1.0);
     auto inner1 = createCircularBoundary(Complex(-0.5, 0.0), 0.25);
     auto inner2 = createCircularBoundary(Complex(0.25, 0.43), 0.25);
@@ -73,10 +81,12 @@ TEST_F(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli)
         std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
     );
 
+    // Initial guess: intentionally offset from actual centers to test convergence
     std::vector<Complex> hole_centers = {Complex(-0.4, 0.0), Complex(0.35, 0.43), Complex(0.35, -0.43)};
     std::vector<double> hole_radii = {0.25, 0.25, 0.25};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 4;
     method.m_is_annulus = false;
@@ -133,6 +143,7 @@ TEST_F(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli)
     std::vector<double> annulus_radii = {0.15};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
@@ -160,12 +171,16 @@ TEST_F(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli)
     const auto& actual_centers = method.mp_canonical_domain->getHoleCenters();
 
     EXPECT_GT(actual_radii[0], 0.0) << "Converged inner radius must be positive";
+    // For off-center annulus (inner at (0.3,0) r=0.15), conformal radius is in a
+    // reasonable range. The exact value depends on the Mobius transformation.
+    EXPECT_GT(actual_radii[0], 0.05) << "Converged radius should be physically reasonable";
+    EXPECT_LT(actual_radii[0], 0.5) << "Converged radius should be physically reasonable";
     EXPECT_NEAR(std::abs(actual_centers[0]), 0.0, 1e-10)
         << "Annulus center should remain at origin";
 }
 
 // ============================================================================
-// Test 2: Boundary Correspondence Tests
+// Boundary Correspondence Tests
 // ============================================================================
 
 class ConstructiveBoundaryCorrespondence : public ::testing::Test
@@ -198,6 +213,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries)
     std::vector<double> hole_radii = {0.25, 0.25, 0.25};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 4;
     method.m_is_annulus = false;
@@ -224,7 +240,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries)
 
     // Evaluate map at points on the outer canonical boundary (unit circle)
     const int N_test = 32;
-    const double outer_tol = 5e-3;
+    const double outer_tol = 1e-4;
     for (int j = 0; j < N_test; ++j)
     {
         double theta = 2.0 * M_PI * j / N_test;
@@ -242,7 +258,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries)
 
     const std::vector<Complex> target_centers = {Complex(-0.5, 0.0), Complex(0.25, 0.43), Complex(0.25, -0.43)};
     const double target_radius = 0.25;
-    const double inner_tol = 5e-3;
+    const double inner_tol = 1e-4;
 
     for (size_t nu = 0; nu < converged_centers.size(); ++nu)
     {
@@ -273,6 +289,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries)
     std::vector<double> annulus_radii = {0.15};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
@@ -299,7 +316,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries)
 
     // Points on outer canonical boundary (unit circle) should map to unit circle
     const int N_test = 32;
-    const double tol = 5e-3;
+    const double tol = 1e-4;
     for (int j = 0; j < N_test; ++j)
     {
         double theta = 2.0 * M_PI * j / N_test;
@@ -309,7 +326,8 @@ TEST_F(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries)
             << "Outer boundary: |map(z)| at theta=" << theta;
     }
 
-    // Points on inner canonical boundary should map to the user inner boundary
+    // Points on inner canonical boundary should map to user inner boundary
+    // (circle centered at 0.3+0i, radius 0.15)
     const auto& converged_radii = method.mp_canonical_domain->getHoleRadii();
     const auto& converged_centers = method.mp_canonical_domain->getHoleCenters();
     for (int j = 0; j < N_test; ++j)
@@ -326,7 +344,7 @@ TEST_F(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries)
 }
 
 // ============================================================================
-// Test 3: Conformal Moduli Consistency Tests
+// Conformal Moduli Consistency Tests
 // ============================================================================
 
 class ConstructiveModuliConsistency : public ::testing::Test
@@ -357,6 +375,7 @@ TEST_F(ConstructiveModuliConsistency, AnnulusModuliValid)
     std::vector<double> annulus_radii = {0.15};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
@@ -408,6 +427,7 @@ TEST_F(ConstructiveModuliConsistency, GeneralM3ModuliValid)
     std::vector<double> m3_radii = {0.1, 0.12};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 3;
     method.m_is_annulus = false;
@@ -472,6 +492,7 @@ TEST_F(ConstructiveModuliConsistency, IdentityM4ModuliValid)
     std::vector<double> hole_radii = {0.25, 0.25, 0.25};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 4;
     method.m_is_annulus = false;
@@ -523,7 +544,7 @@ TEST_F(ConstructiveModuliConsistency, IdentityM4ModuliValid)
 }
 
 // ============================================================================
-// Test 4: Convergence Rate Tests
+// Convergence Rate Tests
 // ============================================================================
 
 class ConstructiveConvergenceRate : public ::testing::Test
@@ -554,6 +575,7 @@ TEST_F(ConstructiveConvergenceRate, AnnulusConvergesWithDecreasingResidual)
     std::vector<double> annulus_radii = {0.15};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
@@ -601,6 +623,7 @@ TEST_F(ConstructiveConvergenceRate, IdentityM4ConvergesWithDecreasingResidual)
     std::vector<double> hole_radii = {0.25, 0.25, 0.25};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 4;
     method.m_is_annulus = false;
@@ -647,6 +670,7 @@ TEST_F(ConstructiveConvergenceRate, GeneralM3ConvergesWithDecreasingResidual)
     std::vector<double> m3_radii = {0.1, 0.12};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 3;
     method.m_is_annulus = false;
@@ -684,7 +708,7 @@ TEST_F(ConstructiveConvergenceRate, GeneralM3ConvergesWithDecreasingResidual)
 }
 
 // ============================================================================
-// Test 5: Fourier Coefficient Properties Tests
+// Fourier Coefficient Properties Tests
 // ============================================================================
 
 class ConstructiveFourierProperties : public ::testing::Test
@@ -717,6 +741,7 @@ TEST_F(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius
     std::vector<double> hole_radii = {0.25, 0.25, 0.25};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 4;
     method.m_is_annulus = false;
@@ -744,13 +769,15 @@ TEST_F(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius
     const auto& a = method.m_a;
     const int N = a.rows();
 
-    // Outer boundary (column 0): a(1,0) is the z^1 coefficient
-    // For identity map of unit circle, this should have magnitude ~1.0
+    // Outer boundary (column 0): the k=1 Fourier mode.
+    // For the identity map on the unit circle, f(z) = z, so the
+    // k=1 coefficient dominates with magnitude ~1.0.
     double dominant_outer = std::abs(a(1, 0));
-    EXPECT_NEAR(dominant_outer, 1.0, 0.1)
+    EXPECT_NEAR(dominant_outer, 1.0, 0.01)
         << "Outer boundary dominant Fourier coefficient: |a(1,0)| = " << dominant_outer;
 
-    // Spectral decay: higher-order coefficients should be smaller than dominant
+    // Spectral decay: upper-half Fourier modes (indices N/4 to N/2-1)
+    // should be smaller than the dominant k=1 mode
     double tail_max = 0.0;
     for (int j = N / 4; j < N / 2; ++j)
     {
@@ -773,6 +800,7 @@ TEST_F(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay)
     std::vector<double> annulus_radii = {0.15};
 
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
@@ -804,7 +832,7 @@ TEST_F(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay)
     EXPECT_GT(dominant_outer, 0.1)
         << "Outer boundary should have significant dominant coefficient";
 
-    // Spectral decay: last quarter of coefficients should be much smaller
+    // Spectral decay: high-frequency tail (indices 3N/8 to N/2-1) should be much smaller
     double tail_max = 0.0;
     for (int j = 3 * N / 8; j < N / 2; ++j)
     {
