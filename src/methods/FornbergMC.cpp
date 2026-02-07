@@ -563,8 +563,8 @@ void FornbergMC::formSystem()
                     ") = " + std::to_string(rho_nu) + ". Inner boundary radius must be positive.");
             }
 
-            // Compute S derivative: Sdiff = diff([S(:,nu); S(1,nu)+tl]) * N/(2*pi)
-            // The wrap-around adds tl (total boundary length = 2*pi for circles)
+            // Compute S derivative: Sdiff = diff([S(:,nu); S(1,nu)+tl(nu)]) * N/(2*pi)
+            // The wrap-around adds tl (total parameter length = 2*pi for circles)
             // to match MATLAB's diff([S(:,nu); S(1,nu)+tl(nu)])
             constexpr double tl = 2.0 * M_PI;  // Total parameter length for circular boundaries
             Eigen::VectorXd S_diff(N);
@@ -572,7 +572,7 @@ void FornbergMC::formSystem()
             {
                 S_diff(j) = (m_S(j + 1, nu) - m_S(j, nu)) * N / (2.0 * M_PI);
             }
-            // Wrap-around: S(1) + tl - S(N)
+            // Wrap-around (MATLAB): S(1) + tl - S(N)
             S_diff(N - 1) = (m_S(0, nu) + tl - m_S(N - 1, nu)) * N / (2.0 * M_PI);
 
             // zeta = i * |eta| * eta * Sdiff / rho

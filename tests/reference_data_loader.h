@@ -31,7 +31,7 @@
  * JSON format conventions:
  * - Complex numbers: [real, imag]
  * - Matrices: array of row arrays
- * - Vectors: flat array of [real, imag] pairs
+ * - Vectors: array of [real, imag] pairs
  */
 class ReferenceDataLoader
 {

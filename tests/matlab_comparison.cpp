@@ -247,7 +247,7 @@ TEST_F(MatlabComparisonFormSystem, AnnulusDAndG)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
-    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    // MATLAB annulus convention: c(1) = 0 (inner canonical circle centered at origin)
     std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
     std::vector<double> annulus_radii = {0.15};
 
@@ -359,7 +359,7 @@ TEST_F(MatlabComparisonSolveSystem, AnnulusU)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
-    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    // MATLAB annulus convention: c(1) = 0 (inner canonical circle centered at origin)
     std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
     std::vector<double> annulus_radii = {0.15};
 
@@ -374,10 +374,9 @@ TEST_F(MatlabComparisonSolveSystem, AnnulusU)
     method.formSystem();
     method.solveSystem();
 
-    // U from C++ is complex with zero imaginary parts; reference U is also complex
     Eigen::VectorXcd U_actual = method.m_U;
 
-    // Report norm ratio for diagnosing factor-of-2 issues
+    // Report norm ratio to detect FFT normalization mismatches (manifests as factor-of-2)
     double norm_ratio = U_actual.norm() / U_expected.norm();
     EXPECT_NEAR(norm_ratio, 1.0, 0.1)
         << "Norm ratio (C++/MATLAB) = " << norm_ratio
@@ -460,7 +459,7 @@ TEST_F(MatlabComparisonNewtonUpdate, AnnulusFirstIteration)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
-    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    // MATLAB annulus convention: c(1) = 0 (inner canonical circle centered at origin)
     std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
     std::vector<double> annulus_radii = {0.15};
 
@@ -583,7 +582,7 @@ TEST_F(MatlabComparisonConvergence, AnnulusConverges)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
-    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    // MATLAB annulus convention: c(1) = 0 (inner canonical circle centered at origin)
     std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
     std::vector<double> annulus_radii = {0.15};
 
@@ -637,6 +636,7 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
     ReferenceDataLoader ref(refDataPath("identity_m4_converged.json"));
     Eigen::VectorXcd c_expected = ref.getComplexVector("c");
     Eigen::VectorXd rho_expected = ref.getRealVectorFromComplex("rho");
+    Eigen::MatrixXcd a_expected = ref.getComplexMatrix("a");
 
     auto outer = createCircularBoundary(Complex(0, 0), 1.0);
     auto inner1 = createCircularBoundary(Complex(-0.5, 0.0), 0.25);
@@ -674,7 +674,10 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
     ASSERT_TRUE(converged) << "Identity m=4 should converge within "
         << config.max_newton_iterations << " iterations";
 
-    // For identity map, c and rho should match target domain parameters
+    method.computeFourierCoefficients();
+
+    // For identity map (domain = canonical domain), converged c and rho should
+    // match target domain boundary centers and radii within iteration tolerance
     const auto& actual_radii = method.mp_canonical_domain->getHoleRadii();
     for (int i = 0; i < rho_expected.size(); ++i)
     {
@@ -687,4 +690,7 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
         EXPECT_NEAR(std::abs(actual_centers[i] - c_expected(i)), 0.0, 1e-4)
             << "Final c[" << i << "] mismatch";
     }
+
+    // Compare Fourier coefficients
+    expectComplexMatrixNear(method.m_a, a_expected, 1e-4, "Identity m=4 Fourier coefficients");
 }
