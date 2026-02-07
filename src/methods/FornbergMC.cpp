@@ -28,7 +28,6 @@
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>
-#include <iostream>
 
 FornbergMC::FornbergMC(const FornbergMCConfiguration& config)
     : ConformalMapMethod()
@@ -262,6 +261,19 @@ void FornbergMC::setConfiguration(const FornbergMCConfiguration& config)
     }
 }
 
+void FornbergMC::setStatusManager(std::shared_ptr<IStatusManager> statusManager)
+{
+    mp_status_manager = statusManager;
+    if (mp_cg_solver)
+    {
+        mp_cg_solver->setStatusManager(statusManager);
+    }
+    if (mp_matrix_builder)
+    {
+        mp_matrix_builder->setStatusManager(statusManager);
+    }
+}
+
 void FornbergMC::validateSourceDomain(std::shared_ptr<Domain> domain) const
 {
     if (!domain)
@@ -308,6 +320,8 @@ void FornbergMC::initializeNewtonIteration()
 
     mp_matrix_builder = std::make_unique<PMatrixBuilder>(m_config, m_connectivity, m_is_annulus);
     mp_cg_solver = std::make_unique<CGSolver>(m_config);
+    mp_cg_solver->setStatusManager(mp_status_manager);
+    mp_matrix_builder->setStatusManager(mp_status_manager);
 
     sampleBoundaries();
 
@@ -686,10 +700,14 @@ void FornbergMC::newtonUpdate()
             }
             else
             {
-                // TODO: Replace with spdlog warning when logging is integrated
-                std::cerr << "Warning: Degenerate abs_eta detected at boundary " << nu
-                          << ", point " << j << " (abs_eta=" << abs_eta_val
-                          << "). Skipping scaling for this point." << std::endl;
+                if (mp_status_manager)
+                {
+                    std::ostringstream oss;
+                    oss << "Degenerate abs_eta detected at boundary " << nu
+                        << ", point " << j << " (abs_eta=" << abs_eta_val
+                        << "). Skipping scaling for this point.";
+                    mp_status_manager->reportWarning("FornbergMC", oss.str());
+                }
             }
         }
     }

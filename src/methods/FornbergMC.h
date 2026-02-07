@@ -169,11 +169,11 @@ public:
     /**
      * @brief Set the status manager for logging
      * @param statusManager Shared pointer to a status manager
+     *
+     * Also propagates the status manager to owned sub-components (CGSolver, PMatrixBuilder)
+     * if they have been created.
      */
-    void setStatusManager(std::shared_ptr<IStatusManager> statusManager)
-    {
-        mp_status_manager = statusManager;
-    }
+    void setStatusManager(std::shared_ptr<IStatusManager> statusManager);
 
     /**
      * @brief Get the current status manager

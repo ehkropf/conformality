@@ -17,7 +17,7 @@
  */
 
 #include "PMatrixBuilder.h"
-// #include "../core/StatusManager.h"
+#include "../core/StatusManager.h"
 #include <stdexcept>
 
 PMatrixBuilder::PMatrixBuilder(const FornbergMCConfiguration& config, int connectivity, bool is_annulus)
@@ -31,8 +31,14 @@ PMatrixBuilder::PMatrixBuilder(const FornbergMCConfiguration& config, int connec
     // Initialize frequency indices and normalization conditions
     initializeFrequencyIndices();
     setupNormalizationConditions();
-    
-    // Logging removed for compilation
+
+    if (mp_status_manager)
+    {
+        mp_status_manager->reportDebug("PMatrixBuilder",
+            "Created with connectivity=" + std::to_string(m_connectivity) +
+            ", N=" + std::to_string(m_N) +
+            ", annulus=" + std::string(m_is_annulus ? "true" : "false"));
+    }
 }
 
 Eigen::MatrixXcd PMatrixBuilder::buildPMatrix(int nu, const ConformalModuli& moduli) const
@@ -149,15 +155,23 @@ void PMatrixBuilder::setConnectivity(int new_connectivity)
     // Reinitialize with new connectivity
     initializeFrequencyIndices();
     setupNormalizationConditions();
-    
-    // Logging removed for compilation
+
+    if (mp_status_manager)
+    {
+        mp_status_manager->reportDebug("PMatrixBuilder",
+            "Connectivity updated to " + std::to_string(m_connectivity));
+    }
 }
 
 void PMatrixBuilder::setAnnulusMode(bool use_annulus)
 {
     if (use_annulus && m_connectivity != 2)
     {
-        // Warning logging removed for compilation
+        if (mp_status_manager)
+        {
+            mp_status_manager->reportWarning("PMatrixBuilder",
+                "Cannot enable annulus mode with connectivity != 2");
+        }
         return;
     }
     
@@ -166,8 +180,12 @@ void PMatrixBuilder::setAnnulusMode(bool use_annulus)
     // Reinitialize frequency indices for new mode
     initializeFrequencyIndices();
     setupNormalizationConditions();
-    
-    // Logging removed for compilation
+
+    if (mp_status_manager)
+    {
+        mp_status_manager->reportDebug("PMatrixBuilder",
+            "Annulus mode set to " + std::string(m_is_annulus ? "true" : "false"));
+    }
 }
 
 void PMatrixBuilder::initializeFrequencyIndices()
@@ -569,8 +587,12 @@ void PMatrixBuilder::setupNormalizationConditions()
             m_normalization_conditions.push_back({nu, -1, 0.0});  // First negative frequency
         }
     }
-    
-    // Debug logging removed for compilation
+
+    if (mp_status_manager)
+    {
+        mp_status_manager->reportDebug("PMatrixBuilder",
+            "Set up " + std::to_string(m_normalization_conditions.size()) + " normalization conditions");
+    }
 }
 
 void PMatrixBuilder::validateParameters() const

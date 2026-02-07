@@ -20,7 +20,9 @@
 
 #include "ConformalModuli.h"
 #include "FornbergMCConfiguration.h"
+#include "../core/StatusManager.h"
 #include <Eigen/Dense>
+#include <memory>
 #include <vector>
 
 /**
@@ -42,6 +44,7 @@ private:
     int m_connectivity;                    // Number of boundary components (m)
     int m_N;                              // Boundary points per component
     bool m_is_annulus;                    // Whether using annulus optimization
+    std::shared_ptr<IStatusManager> mp_status_manager{nullptr};
     
     // Cached matrices for efficiency
     std::vector<Eigen::MatrixXcd> m_P_matrices;  // P_ν matrices for each component
@@ -132,6 +135,24 @@ public:
      * @param use_annulus Whether to use annulus optimization
      */
     void setAnnulusMode(bool use_annulus);
+
+    /**
+     * @brief Set the status manager for logging
+     * @param manager Shared pointer to status manager (nullptr to disable logging)
+     */
+    void setStatusManager(std::shared_ptr<IStatusManager> manager)
+    {
+        mp_status_manager = manager;
+    }
+
+    /**
+     * @brief Get the current status manager
+     * @return Shared pointer to the status manager (may be null)
+     */
+    std::shared_ptr<IStatusManager> getStatusManager() const
+    {
+        return mp_status_manager;
+    }
 
 private:
     /**
