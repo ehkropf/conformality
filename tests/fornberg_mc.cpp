@@ -308,6 +308,31 @@ protected:
         );
     }
 
+    // Create a 4-connected domain (unit disk with 3 holes)
+    std::shared_ptr<MultiplyConnectedDomain> createFourConnectedDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.08);
+        auto inner2 = createCircularBoundary(Complex(-0.3, 0.2), 0.07);
+        auto inner3 = createCircularBoundary(Complex(0.0, -0.4), 0.09);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
+        );
+    }
+
+    // Create a 5-connected domain (unit disk with 4 holes)
+    std::shared_ptr<MultiplyConnectedDomain> createFiveConnectedDomain()
+    {
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.06);
+        auto inner2 = createCircularBoundary(Complex(-0.4, 0.3), 0.06);
+        auto inner3 = createCircularBoundary(Complex(-0.3, -0.3), 0.07);
+        auto inner4 = createCircularBoundary(Complex(0.3, -0.3), 0.07);
+        return std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3, inner4}
+        );
+    }
+
     FornbergMCConfiguration config;
 };
 
@@ -447,6 +472,9 @@ TEST_F(FornbergMCFormSystemTest, DimensionsAnnulusVaryingN)
         EXPECT_EQ(method.getRHSVector().size(), m * M);
         EXPECT_GT(method.getSystemMatrix().norm(), 0.0);
         EXPECT_GT(method.getRHSVector().norm(), 0.0);
+
+        // Annulus has exactly 1 moduli column (rho only, no center columns)
+        EXPECT_GT(method.getSystemMatrix().col(m * N).norm(), 0.0) << "rho column should be non-zero";
     }
 }
 
@@ -486,13 +514,7 @@ TEST_F(FornbergMCFormSystemTest, DimensionsGeneralVaryingN)
 TEST_F(FornbergMCFormSystemTest, Dimensions4Connected)
 {
     // 4-connected domain (m=4, N=64)
-    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
-    auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.08);
-    auto inner2 = createCircularBoundary(Complex(-0.3, 0.2), 0.07);
-    auto inner3 = createCircularBoundary(Complex(0.0, -0.4), 0.09);
-    auto domain = std::make_shared<MultiplyConnectedDomain>(
-        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
-    );
+    auto domain = createFourConnectedDomain();
 
     int m = 4;
     int N = 64;
@@ -522,14 +544,7 @@ TEST_F(FornbergMCFormSystemTest, Dimensions4Connected)
 TEST_F(FornbergMCFormSystemTest, Dimensions5Connected)
 {
     // 5-connected domain (m=5, N=64)
-    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
-    auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.06);
-    auto inner2 = createCircularBoundary(Complex(-0.4, 0.3), 0.06);
-    auto inner3 = createCircularBoundary(Complex(-0.3, -0.3), 0.07);
-    auto inner4 = createCircularBoundary(Complex(0.3, -0.3), 0.07);
-    auto domain = std::make_shared<MultiplyConnectedDomain>(
-        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3, inner4}
-    );
+    auto domain = createFiveConnectedDomain();
 
     int m = 5;
     int N = 64;
@@ -559,14 +574,9 @@ TEST_F(FornbergMCFormSystemTest, Dimensions5Connected)
 TEST_F(FornbergMCFormSystemTest, ModuliColumnLayout4Connected)
 {
     // Verify moduli columns are populated at correct offsets for 4-connected domain.
-    // Column layout: [S columns: 0..m*N-1] [rho: m*N+(nu-1)] [Re(c): m*N+(m-1)+2*(nu-1)] [Im(c): next]
-    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
-    auto inner1 = createCircularBoundary(Complex(0.4, 0.3), 0.08);
-    auto inner2 = createCircularBoundary(Complex(-0.3, 0.2), 0.07);
-    auto inner3 = createCircularBoundary(Complex(0.0, -0.4), 0.09);
-    auto domain = std::make_shared<MultiplyConnectedDomain>(
-        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
-    );
+    // Column layout for nu=1..m-1:
+    //   [S columns: 0..m*N-1] [rho: m*N+(nu-1)] [Re(c): m*N+(m-1)+2*(nu-1)] [Im(c): m*N+(m-1)+2*(nu-1)+1]
+    auto domain = createFourConnectedDomain();
 
     int m = 4;
     int N = 64;
