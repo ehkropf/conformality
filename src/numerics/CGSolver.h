@@ -162,6 +162,15 @@ public:
         mp_statusManager = manager;
     }
 
+    /**
+     * @brief Get the current status manager
+     * @return Shared pointer to the status manager (may be null)
+     */
+    std::shared_ptr<IStatusManager> getStatusManager() const
+    {
+        return mp_statusManager;
+    }
+
 private:
     /**
      * @brief Core CG iteration implementation

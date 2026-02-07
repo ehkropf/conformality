@@ -20,6 +20,7 @@
 #include "../src/methods/PMatrixBuilder.h"
 #include "../src/methods/ConformalModuli.h"
 #include "../src/methods/FornbergMCConfiguration.h"
+#include "../src/core/StatusManager.h"
 
 namespace
 {
@@ -764,4 +765,77 @@ TEST_F(PMatrixBuilderTest, RejectsWrongSizedModuliInAnnulusMode)
     EXPECT_THROW(builder.buildPMatrix(0, moduli), std::invalid_argument);
     EXPECT_THROW(builder.buildPMatrix(1, moduli), std::invalid_argument);
     EXPECT_THROW(builder.buildAllPMatrices(moduli), std::invalid_argument);
+}
+
+// =============================================================================
+// StatusManager Integration Tests (GH-37)
+// =============================================================================
+
+class PMatrixBuilderStatusManagerTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.max_cgm_iterations = 100;
+        config.newton_tolerance = 1e-8;
+        config.cgm_tolerance = 1e-8;
+        config.verbose = false;
+    }
+
+    FornbergMCConfiguration config;
+};
+
+TEST_F(PMatrixBuilderStatusManagerTest, SetterGetterWorkCorrectly)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+
+    PMatrixBuilder builder(config, 3, false);
+
+    // Initially null
+    EXPECT_EQ(builder.getStatusManager(), nullptr);
+
+    // Set status manager
+    builder.setStatusManager(statusManager);
+    EXPECT_EQ(builder.getStatusManager(), statusManager);
+
+    // Can clear by setting nullptr
+    builder.setStatusManager(nullptr);
+    EXPECT_EQ(builder.getStatusManager(), nullptr);
+}
+
+TEST_F(PMatrixBuilderStatusManagerTest, LogsMessagesOnStateChange)
+{
+    auto statusManager = std::make_shared<StatusManager>();
+
+    PMatrixBuilder builder(config, 3, false);
+    builder.setStatusManager(statusManager);
+    builder.setConnectivity(4);
+
+    // Check that messages were logged
+    const auto& messages = statusManager->getMessages();
+    bool foundPMatrixBuilderMessage = false;
+    for (const auto& msg : messages)
+    {
+        if (msg.component == "PMatrixBuilder")
+        {
+            foundPMatrixBuilderMessage = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundPMatrixBuilderMessage) << "Expected messages with component 'PMatrixBuilder'";
+}
+
+TEST_F(PMatrixBuilderStatusManagerTest, NoExceptionWithoutStatusManager)
+{
+    // Verify all operations work without a StatusManager (null-safety)
+    PMatrixBuilder builder(config, 3, false);
+
+    // These should all work without exceptions
+    EXPECT_NO_THROW(builder.setConnectivity(4));
+    EXPECT_NO_THROW(builder.setAnnulusMode(false));
+
+    // setAnnulusMode with rejected case (connectivity != 2) -- must throw without StatusManager
+    EXPECT_THROW(builder.setAnnulusMode(true), std::invalid_argument);
 }

@@ -1164,7 +1164,7 @@ TEST_F(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius)
 // Defer damping as robustness enhancement to Phase 2.
 
 // =============================================================================
-// StatusManager Integration Tests (GH-23)
+// StatusManager Integration Tests (GH-23, GH-37)
 // =============================================================================
 
 class FornbergMCStatusManagerTest : public ::testing::Test
@@ -1286,4 +1286,101 @@ TEST_F(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager)
     method.initializeNewtonIteration();
 
     EXPECT_NO_THROW(method.formSystem());
+}
+
+TEST_F(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents)
+{
+    auto domain = createAnnulusDomain();
+    auto statusManager = std::make_shared<StatusManager>();
+
+    FornbergMC method(config);
+
+    // Initialize to create sub-components
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+
+    // Sub-components exist with no StatusManager because FornbergMC had none
+    // when initializeNewtonIteration() was called
+    ASSERT_NE(method.mp_matrix_builder, nullptr);
+    ASSERT_NE(method.mp_cg_solver, nullptr);
+    EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), nullptr);
+    EXPECT_EQ(method.mp_cg_solver->getStatusManager(), nullptr);
+
+    // Set StatusManager after sub-components exist -- should propagate
+    method.setStatusManager(statusManager);
+
+    EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), statusManager);
+    EXPECT_EQ(method.mp_cg_solver->getStatusManager(), statusManager);
+}
+
+TEST_F(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta)
+{
+    auto domain = createAnnulusDomain();
+    auto statusManager = std::make_shared<StatusManager>();
+
+    FornbergMC method(config);
+    method.setStatusManager(statusManager);
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Inject a degenerate abs_eta value to trigger the warning
+    method.m_abs_eta(0, 0) = 0.0;
+
+    method.newtonUpdate();
+
+    // Should have a warning about degenerate abs_eta
+    auto warnings = statusManager->getMessages(StatusLevel::WARNING);
+    bool foundDegenerateWarning = false;
+    for (const auto& msg : warnings)
+    {
+        if (msg.component == "FornbergMC" && msg.message.find("Degenerate abs_eta") != std::string::npos)
+        {
+            foundDegenerateWarning = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(foundDegenerateWarning) << "Expected warning about degenerate abs_eta";
+}
+
+TEST_F(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager)
+{
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+    // Deliberately don't set StatusManager
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Inject a degenerate abs_eta value at boundary 0, point 0
+    method.m_abs_eta(0, 0) = 0.0;
+
+    // Without StatusManager, degenerate abs_eta must throw (not silently skip scaling)
+    EXPECT_THROW(method.newtonUpdate(), std::runtime_error);
 }
