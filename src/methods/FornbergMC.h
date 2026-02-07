@@ -86,16 +86,19 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager);
 
-    // MATLAB comparison tests (tests/matlab_comparison.cpp)
-    FRIEND_TEST(MatlabComparisonFormSystem, AnnulusDAndG);
-    FRIEND_TEST(MatlabComparisonFormSystem, GeneralM3DAndG);
-    FRIEND_TEST(MatlabComparisonFormSystem, IdentityM4DAndG);
-    FRIEND_TEST(MatlabComparisonSolveSystem, AnnulusU);
-    FRIEND_TEST(MatlabComparisonSolveSystem, IdentityM4U);
-    FRIEND_TEST(MatlabComparisonNewtonUpdate, AnnulusFirstIteration);
-    FRIEND_TEST(MatlabComparisonNewtonUpdate, IdentityM4FirstIteration);
-    FRIEND_TEST(MatlabComparisonConvergence, AnnulusConverges);
-    FRIEND_TEST(MatlabComparisonConvergence, IdentityM4Converges);
+    // Constructive validation tests (tests/constructive_validation.cpp)
+    FRIEND_TEST(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli);
+    FRIEND_TEST(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli);
+    FRIEND_TEST(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries);
+    FRIEND_TEST(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries);
+    FRIEND_TEST(ConstructiveModuliConsistency, AnnulusModuliValid);
+    FRIEND_TEST(ConstructiveModuliConsistency, GeneralM3ModuliValid);
+    FRIEND_TEST(ConstructiveModuliConsistency, IdentityM4ModuliValid);
+    FRIEND_TEST(ConstructiveConvergenceRate, AnnulusConvergesWithDecreasingResidual);
+    FRIEND_TEST(ConstructiveConvergenceRate, IdentityM4ConvergesWithDecreasingResidual);
+    FRIEND_TEST(ConstructiveConvergenceRate, GeneralM3ConvergesWithDecreasingResidual);
+    FRIEND_TEST(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius);
+    FRIEND_TEST(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay);
 #endif
 
 private:
