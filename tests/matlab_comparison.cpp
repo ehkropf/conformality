@@ -247,14 +247,16 @@ TEST_F(MatlabComparisonFormSystem, AnnulusDAndG)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
+    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
+    std::vector<double> annulus_radii = {0.15};
+
     FornbergMC method(config);
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
-    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        method.mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        config.N
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        annulus_centers, annulus_radii, config.N
     );
     method.initializeNewtonIteration();
     method.formSystem();
@@ -276,14 +278,16 @@ TEST_F(MatlabComparisonFormSystem, GeneralM3DAndG)
         std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
     );
 
+    // Use explicit canonical domain matching MATLAB initial guesses
+    std::vector<Complex> m3_centers = {Complex(0.3, 0.2), Complex(-0.3, -0.1)};
+    std::vector<double> m3_radii = {0.1, 0.12};
+
     FornbergMC method(config);
     method.mp_user_domain = domain;
     method.m_connectivity = 3;
     method.m_is_annulus = false;
-    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        method.mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        config.N
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        m3_centers, m3_radii, config.N
     );
     method.initializeNewtonIteration();
     method.formSystem();
@@ -355,14 +359,16 @@ TEST_F(MatlabComparisonSolveSystem, AnnulusU)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
+    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
+    std::vector<double> annulus_radii = {0.15};
+
     FornbergMC method(config);
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
-    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        method.mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        config.N
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        annulus_centers, annulus_radii, config.N
     );
     method.initializeNewtonIteration();
     method.formSystem();
@@ -454,14 +460,16 @@ TEST_F(MatlabComparisonNewtonUpdate, AnnulusFirstIteration)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
+    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
+    std::vector<double> annulus_radii = {0.15};
+
     FornbergMC method(config);
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
-    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        method.mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        config.N
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        annulus_centers, annulus_radii, config.N
     );
     method.initializeNewtonIteration();
     method.formSystem();
@@ -575,18 +583,21 @@ TEST_F(MatlabComparisonConvergence, AnnulusConverges)
         std::vector<std::shared_ptr<Boundary>>{outer, inner}
     );
 
+    // MATLAB annulus convention: c(1) = 0 (inner boundary centered at origin)
+    std::vector<Complex> annulus_centers = {Complex(0.0, 0.0)};
+    std::vector<double> annulus_radii = {0.15};
+
     FornbergMC method(config);
     method.mp_user_domain = domain;
     method.m_connectivity = 2;
     method.m_is_annulus = true;
-    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        method.mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        config.N
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        annulus_centers, annulus_radii, config.N
     );
     method.initializeNewtonIteration();
 
     // Run full Newton iteration
+    bool converged = false;
     for (int iter = 0; iter < config.max_newton_iterations; ++iter)
     {
         method.formSystem();
@@ -594,12 +605,13 @@ TEST_F(MatlabComparisonConvergence, AnnulusConverges)
         method.newtonUpdate();
         if (method.checkConvergence(config.newton_tolerance))
         {
+            converged = true;
             break;
         }
     }
     method.computeFourierCoefficients();
 
-    EXPECT_TRUE(method.m_is_converged) << "Annulus should converge";
+    EXPECT_TRUE(converged) << "Annulus should converge";
 
     // Compare conformal moduli
     const auto& actual_radii = method.mp_canonical_domain->getHoleRadii();
@@ -645,6 +657,7 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
     );
     method.initializeNewtonIteration();
 
+    bool converged = false;
     for (int iter = 0; iter < config.max_newton_iterations; ++iter)
     {
         method.formSystem();
@@ -652,11 +665,12 @@ TEST_F(MatlabComparisonConvergence, IdentityM4Converges)
         method.newtonUpdate();
         if (method.checkConvergence(config.newton_tolerance))
         {
+            converged = true;
             break;
         }
     }
 
-    EXPECT_TRUE(method.m_is_converged) << "Identity m=4 should converge";
+    EXPECT_TRUE(converged) << "Identity m=4 should converge";
 
     // For identity map, c and rho should match target domain parameters
     const auto& actual_radii = method.mp_canonical_domain->getHoleRadii();
