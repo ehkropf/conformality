@@ -79,6 +79,7 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCStatusManagerTest, NoExceptionWithoutStatusManager);
     FRIEND_TEST(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta);
+    FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager);
 #endif
 
 private:

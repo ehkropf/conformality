@@ -1164,7 +1164,7 @@ TEST_F(FornbergMCNewtonUpdateTest, ThrowsOnNonPositiveRadius)
 // Defer damping as robustness enhancement to Phase 2.
 
 // =============================================================================
-// StatusManager Integration Tests (GH-23)
+// StatusManager Integration Tests (GH-23, GH-37)
 // =============================================================================
 
 class FornbergMCStatusManagerTest : public ::testing::Test
@@ -1306,15 +1306,18 @@ TEST_F(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents)
     );
     method.initializeNewtonIteration();
 
-    // Sub-components should exist but have no StatusManager yet
+    // Sub-components exist with no StatusManager because FornbergMC had none
+    // when initializeNewtonIteration() was called
     ASSERT_NE(method.mp_matrix_builder, nullptr);
     ASSERT_NE(method.mp_cg_solver, nullptr);
     EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), nullptr);
+    EXPECT_EQ(method.mp_cg_solver->getStatusManager(), nullptr);
 
     // Set StatusManager after sub-components exist -- should propagate
     method.setStatusManager(statusManager);
 
     EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), statusManager);
+    EXPECT_EQ(method.mp_cg_solver->getStatusManager(), statusManager);
 }
 
 TEST_F(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta)
@@ -1354,4 +1357,30 @@ TEST_F(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta)
         }
     }
     EXPECT_TRUE(foundDegenerateWarning) << "Expected warning about degenerate abs_eta";
+}
+
+TEST_F(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager)
+{
+    auto domain = createAnnulusDomain();
+
+    FornbergMC method(config);
+    // Deliberately don't set StatusManager
+
+    method.mp_user_domain = domain;
+    method.m_connectivity = 2;
+    method.m_is_annulus = true;
+    method.mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+        method.mp_user_domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+    method.initializeNewtonIteration();
+    method.formSystem();
+    method.solveSystem();
+
+    // Inject a degenerate abs_eta value at boundary 0, point 0
+    method.m_abs_eta(0, 0) = 0.0;
+
+    // Without StatusManager, degenerate abs_eta must throw (not silently skip scaling)
+    EXPECT_THROW(method.newtonUpdate(), std::runtime_error);
 }

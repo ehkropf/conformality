@@ -836,7 +836,6 @@ TEST_F(PMatrixBuilderStatusManagerTest, NoExceptionWithoutStatusManager)
     EXPECT_NO_THROW(builder.setConnectivity(4));
     EXPECT_NO_THROW(builder.setAnnulusMode(false));
 
-    // setAnnulusMode with rejected case (connectivity != 2)
-    EXPECT_NO_THROW(builder.setAnnulusMode(true));
-    EXPECT_FALSE(builder.isAnnulusMode()) << "Annulus mode should be rejected when connectivity != 2";
+    // setAnnulusMode with rejected case (connectivity != 2) -- must throw without StatusManager
+    EXPECT_THROW(builder.setAnnulusMode(true), std::invalid_argument);
 }

@@ -17,7 +17,6 @@
  */
 
 #include "PMatrixBuilder.h"
-#include "../core/StatusManager.h"
 #include <stdexcept>
 
 PMatrixBuilder::PMatrixBuilder(const FornbergMCConfiguration& config, int connectivity, bool is_annulus)
@@ -159,10 +158,15 @@ void PMatrixBuilder::setAnnulusMode(bool use_annulus)
 {
     if (use_annulus && m_connectivity != 2)
     {
+        std::string msg = "Cannot enable annulus mode with connectivity != 2 (connectivity="
+                          + std::to_string(m_connectivity) + ")";
         if (mp_status_manager)
         {
-            mp_status_manager->reportWarning("PMatrixBuilder",
-                "Cannot enable annulus mode with connectivity != 2");
+            mp_status_manager->reportWarning("PMatrixBuilder", msg);
+        }
+        else
+        {
+            throw std::invalid_argument("PMatrixBuilder: " + msg);
         }
         return;
     }
