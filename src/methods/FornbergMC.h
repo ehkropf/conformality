@@ -91,14 +91,16 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli);
     FRIEND_TEST(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries);
     FRIEND_TEST(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries);
+    FRIEND_TEST(ConstructiveBoundaryCorrespondence, GeneralM3MapPreservesBoundaries);
     FRIEND_TEST(ConstructiveModuliConsistency, AnnulusModuliValid);
     FRIEND_TEST(ConstructiveModuliConsistency, GeneralM3ModuliValid);
     FRIEND_TEST(ConstructiveModuliConsistency, IdentityM4ModuliValid);
     FRIEND_TEST(ConstructiveConvergenceRate, AnnulusConvergesWithDecreasingResidual);
     FRIEND_TEST(ConstructiveConvergenceRate, IdentityM4ConvergesWithDecreasingResidual);
     FRIEND_TEST(ConstructiveConvergenceRate, GeneralM3ConvergesWithDecreasingResidual);
-    FRIEND_TEST(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius);
+    FRIEND_TEST(ConstructiveFourierProperties, IdentityM4OuterCoefficientIsUnity);
     FRIEND_TEST(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay);
+    FRIEND_TEST(ConstructiveFourierProperties, GeneralM3FourierCoefficientDecay);
 #endif
 
 private:

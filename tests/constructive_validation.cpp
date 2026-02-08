@@ -30,8 +30,8 @@
 
 // These tests use FornbergMC's internal Newton iteration methods directly
 // rather than the public compute() API. This enables fine-grained inspection
-// of intermediate state (residuals, moduli, coefficients) at each stage.
-// See CLAUDE.md "FornbergMC test pattern" for rationale.
+// of intermediate state (residuals, moduli, coefficients) at each stage,
+// which is not exposed through the public API.
 
 static std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
 {
@@ -47,10 +47,10 @@ static std::shared_ptr<Boundary> createCircularBoundary(Complex center, double r
 }
 
 // ============================================================================
-// Identity Map Tests
+// Base Fixture
 // ============================================================================
 
-class ConstructiveIdentityMap : public ::testing::Test
+class ConstructiveValidationBase : public ::testing::Test
 {
 protected:
     FornbergMCConfiguration config;
@@ -66,9 +66,15 @@ protected:
     }
 };
 
+// ============================================================================
+// Identity Map Tests
+// ============================================================================
+
+class ConstructiveIdentityMap : public ConstructiveValidationBase {};
+
 TEST_F(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli)
 {
-    // th_gen_ex3 domain: 4-connected, all circular boundaries.
+    // th_gen_ex3 domain from Kropf thesis: 4-connected, all circular boundaries.
     // Since all user boundaries are circles, the conformal map from
     // the converged canonical domain to the user domain is the identity.
     // The algorithm must discover this by iterating the moduli from
@@ -171,10 +177,11 @@ TEST_F(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli)
     const auto& actual_centers = method.mp_canonical_domain->getHoleCenters();
 
     EXPECT_GT(actual_radii[0], 0.0) << "Converged inner radius must be positive";
-    // For off-center annulus (inner at (0.3,0) r=0.15), conformal radius is in a
-    // reasonable range. The exact value depends on the Mobius transformation.
+    // For off-center annulus (inner at (0.3,0) r=0.15), the conformal radius is a
+    // conformal invariant that depends on the eccentricity of the user domain.
     EXPECT_GT(actual_radii[0], 0.05) << "Converged radius should be physically reasonable";
     EXPECT_LT(actual_radii[0], 0.5) << "Converged radius should be physically reasonable";
+    // Canonical annulus: inner circle centered at origin by convention (concentric representation)
     EXPECT_NEAR(std::abs(actual_centers[0]), 0.0, 1e-10)
         << "Annulus center should remain at origin";
 }
@@ -183,21 +190,7 @@ TEST_F(ConstructiveIdentityMap, AnnulusConvergesToTargetModuli)
 // Boundary Correspondence Tests
 // ============================================================================
 
-class ConstructiveBoundaryCorrespondence : public ::testing::Test
-{
-protected:
-    FornbergMCConfiguration config;
-
-    void SetUp() override
-    {
-        config.N = 64;
-        config.max_newton_iterations = 20;
-        config.newton_tolerance = 1e-14;
-        config.cgm_tolerance = 1e-15;
-        config.max_cgm_iterations = 20;
-        config.verbose = false;
-    }
-};
+class ConstructiveBoundaryCorrespondence : public ConstructiveValidationBase {};
 
 TEST_F(ConstructiveBoundaryCorrespondence, IdentityM4MapPreservesBoundaries)
 {
@@ -343,25 +336,85 @@ TEST_F(ConstructiveBoundaryCorrespondence, AnnulusMapPreservesBoundaries)
     }
 }
 
+TEST_F(ConstructiveBoundaryCorrespondence, GeneralM3MapPreservesBoundaries)
+{
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner1 = createCircularBoundary(Complex(0.3, 0.2), 0.1);
+    auto inner2 = createCircularBoundary(Complex(-0.3, -0.1), 0.12);
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+    );
+
+    std::vector<Complex> m3_centers = {Complex(0.3, 0.2), Complex(-0.3, -0.1)};
+    std::vector<double> m3_radii = {0.1, 0.12};
+
+    FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        m3_centers, m3_radii, config.N
+    );
+    method.initializeNewtonIteration();
+
+    bool converged = false;
+    for (int iter = 0; iter < config.max_newton_iterations; ++iter)
+    {
+        method.formSystem();
+        method.solveSystem();
+        method.newtonUpdate();
+        if (method.checkConvergence(config.newton_tolerance))
+        {
+            converged = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(converged) << "General m=3 must converge for boundary correspondence test";
+
+    method.computeFourierCoefficients();
+
+    // Points on outer canonical boundary (unit circle) should map to unit circle
+    const int N_test = 32;
+    const double tol = 1e-4;
+    for (int j = 0; j < N_test; ++j)
+    {
+        double theta = 2.0 * M_PI * j / N_test;
+        Complex z = Complex(std::cos(theta), std::sin(theta));
+        Complex w = method.map(z);
+        EXPECT_NEAR(std::abs(w), 1.0, tol)
+            << "Outer boundary: |map(z)| at theta=" << theta;
+    }
+
+    // Points on inner canonical boundaries should map to corresponding user boundaries
+    const auto& converged_centers = method.mp_canonical_domain->getHoleCenters();
+    const auto& converged_radii = method.mp_canonical_domain->getHoleRadii();
+
+    const std::vector<Complex> target_centers = {Complex(0.3, 0.2), Complex(-0.3, -0.1)};
+    const std::vector<double> target_radii = {0.1, 0.12};
+
+    for (size_t nu = 0; nu < converged_centers.size(); ++nu)
+    {
+        for (int j = 0; j < N_test; ++j)
+        {
+            double theta = 2.0 * M_PI * j / N_test;
+            Complex z = converged_centers[nu]
+                        + converged_radii[nu] * Complex(std::cos(theta), std::sin(theta));
+            Complex w = method.map(z);
+            double dist_from_target = std::abs(std::abs(w - target_centers[nu]) - target_radii[nu]);
+            EXPECT_LT(dist_from_target, tol)
+                << "Inner boundary " << nu << " at theta=" << theta
+                << ": |w - c_target| = " << std::abs(w - target_centers[nu])
+                << ", expected ~" << target_radii[nu];
+        }
+    }
+}
+
 // ============================================================================
 // Conformal Moduli Consistency Tests
 // ============================================================================
 
-class ConstructiveModuliConsistency : public ::testing::Test
-{
-protected:
-    FornbergMCConfiguration config;
-
-    void SetUp() override
-    {
-        config.N = 64;
-        config.max_newton_iterations = 20;
-        config.newton_tolerance = 1e-14;
-        config.cgm_tolerance = 1e-15;
-        config.max_cgm_iterations = 20;
-        config.verbose = false;
-    }
-};
+class ConstructiveModuliConsistency : public ConstructiveValidationBase {};
 
 TEST_F(ConstructiveModuliConsistency, AnnulusModuliValid)
 {
@@ -547,21 +600,7 @@ TEST_F(ConstructiveModuliConsistency, IdentityM4ModuliValid)
 // Convergence Rate Tests
 // ============================================================================
 
-class ConstructiveConvergenceRate : public ::testing::Test
-{
-protected:
-    FornbergMCConfiguration config;
-
-    void SetUp() override
-    {
-        config.N = 64;
-        config.max_newton_iterations = 20;
-        config.newton_tolerance = 1e-14;
-        config.cgm_tolerance = 1e-15;
-        config.max_cgm_iterations = 20;
-        config.verbose = false;
-    }
-};
+class ConstructiveConvergenceRate : public ConstructiveValidationBase {};
 
 TEST_F(ConstructiveConvergenceRate, AnnulusConvergesWithDecreasingResidual)
 {
@@ -711,23 +750,9 @@ TEST_F(ConstructiveConvergenceRate, GeneralM3ConvergesWithDecreasingResidual)
 // Fourier Coefficient Properties Tests
 // ============================================================================
 
-class ConstructiveFourierProperties : public ::testing::Test
-{
-protected:
-    FornbergMCConfiguration config;
+class ConstructiveFourierProperties : public ConstructiveValidationBase {};
 
-    void SetUp() override
-    {
-        config.N = 64;
-        config.max_newton_iterations = 20;
-        config.newton_tolerance = 1e-14;
-        config.cgm_tolerance = 1e-15;
-        config.max_cgm_iterations = 20;
-        config.verbose = false;
-    }
-};
-
-TEST_F(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius)
+TEST_F(ConstructiveFourierProperties, IdentityM4OuterCoefficientIsUnity)
 {
     auto outer = createCircularBoundary(Complex(0, 0), 1.0);
     auto inner1 = createCircularBoundary(Complex(-0.5, 0.0), 0.25);
@@ -771,12 +796,12 @@ TEST_F(ConstructiveFourierProperties, IdentityM4DominantCoefficientMatchesRadius
 
     // Outer boundary (column 0): the k=1 Fourier mode.
     // For the identity map on the unit circle, f(z) = z, so the
-    // k=1 coefficient dominates with magnitude ~1.0.
+    // k=1 coefficient should have magnitude ~1.0 (the outer radius).
     double dominant_outer = std::abs(a(1, 0));
     EXPECT_NEAR(dominant_outer, 1.0, 0.01)
-        << "Outer boundary dominant Fourier coefficient: |a(1,0)| = " << dominant_outer;
+        << "Outer boundary k=1 Fourier coefficient: |a(1,0)| = " << dominant_outer;
 
-    // Spectral decay: upper-half Fourier modes (indices N/4 to N/2-1)
+    // Spectral decay: higher-order Fourier modes (indices N/4 to N/2-1)
     // should be smaller than the dominant k=1 mode
     double tail_max = 0.0;
     for (int j = N / 4; j < N / 2; ++j)
@@ -841,4 +866,67 @@ TEST_F(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay)
     EXPECT_LT(tail_max, 0.1 * dominant_outer)
         << "Tail coefficients (max=" << tail_max
         << ") should decay relative to dominant (" << dominant_outer << ")";
+}
+
+TEST_F(ConstructiveFourierProperties, GeneralM3FourierCoefficientDecay)
+{
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner1 = createCircularBoundary(Complex(0.3, 0.2), 0.1);
+    auto inner2 = createCircularBoundary(Complex(-0.3, -0.1), 0.12);
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2}
+    );
+
+    std::vector<Complex> m3_centers = {Complex(0.3, 0.2), Complex(-0.3, -0.1)};
+    std::vector<double> m3_radii = {0.1, 0.12};
+
+    FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
+    method.mp_user_domain = domain;
+    method.m_connectivity = 3;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        m3_centers, m3_radii, config.N
+    );
+    method.initializeNewtonIteration();
+
+    bool converged = false;
+    for (int iter = 0; iter < config.max_newton_iterations; ++iter)
+    {
+        method.formSystem();
+        method.solveSystem();
+        method.newtonUpdate();
+        if (method.checkConvergence(config.newton_tolerance))
+        {
+            converged = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(converged) << "General m=3 must converge for Fourier test";
+
+    method.computeFourierCoefficients();
+
+    const auto& a = method.m_a;
+    const int N = a.rows();
+    const int m = a.cols();
+
+    // Verify spectral decay for each boundary component
+    for (int col = 0; col < m; ++col)
+    {
+        SCOPED_TRACE("Boundary component " + std::to_string(col));
+
+        double dominant = std::abs(a(1, col));
+        EXPECT_GT(dominant, 0.01)
+            << "k=1 coefficient should be significant";
+
+        // High-frequency tail should be much smaller than dominant mode
+        double tail_max = 0.0;
+        for (int j = 3 * N / 8; j < N / 2; ++j)
+        {
+            tail_max = std::max(tail_max, std::abs(a(j, col)));
+        }
+        EXPECT_LT(tail_max, 0.1 * dominant)
+            << "Tail coefficients (max=" << tail_max
+            << ") should decay relative to dominant (" << dominant << ")";
+    }
 }
