@@ -833,6 +833,10 @@ void FornbergMC::newtonUpdate()
                     << ". Keeping current parameters.";
                 mp_status_manager->reportWarning("FornbergMC", oss.str());
             }
+            else
+            {
+                throw;
+            }
         }
     }
 }
