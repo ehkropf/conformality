@@ -167,14 +167,119 @@ TEST_F(FornbergMCTest, ConfigurationAccess)
     EXPECT_EQ(method.getConfiguration().N, 128);
 }
 
-// Test domain validation - disabled because validation methods are protected
-TEST_F(FornbergMCTest, DISABLED_DomainValidation)
+// ============================================================================
+// FornbergMCValidationTest - domain validation via public validateDomain() API
+// ============================================================================
+
+class FornbergMCValidationTest : public ::testing::Test
 {
-    // This test is disabled because validateSourceDomain and validateTargetDomain
-    // are protected methods. Domain validation will be tested through the compute() method
-    // TODO: Create proper integration tests that exercise domain validation
+protected:
+    void SetUp() override
+    {
+        config.N = 64;
+        config.max_newton_iterations = 10;
+        config.newton_tolerance = 1e-8;
+        config.cgm_tolerance = 1e-8;
+        config.verbose = false;
+    }
+
+    std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
+    {
+        auto component = std::make_shared<AnalyticBoundaryComponent>(
+            [center, radius](double theta) {
+                return center + radius * Complex(std::cos(theta), std::sin(theta));
+            },
+            [radius](double theta) {
+                return radius * Complex(-std::sin(theta), std::cos(theta));
+            }
+        );
+        return std::make_shared<Boundary>(component);
+    }
+
+    FornbergMCConfiguration config;
+};
+
+TEST_F(FornbergMCValidationTest, RejectsUnboundedSourceDomain)
+{
+    FornbergMC method(config);
+
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+    auto unbounded = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner},
+        true // unbounded
+    );
+
+    EXPECT_THROW(
+        method.validateDomain(unbounded, 2, ConformalMapMethod::DomainRole::Source),
+        std::invalid_argument);
 }
 
+TEST_F(FornbergMCValidationTest, AcceptsValidCanonicalDomain)
+{
+    FornbergMC method(config);
+
+    std::vector<Complex> centers = {Complex(0.3, 0.0)};
+    std::vector<double> radii = {0.1};
+    auto canonical = std::make_shared<FornbergCanonicalDomain>(centers, radii, 64);
+
+    EXPECT_NO_THROW(
+        method.validateDomain(canonical, 2, ConformalMapMethod::DomainRole::Source));
+}
+
+TEST_F(FornbergMCValidationTest, RejectsCanonicalDomainWithOverlappingHoles)
+{
+    FornbergMC method(config);
+
+    // Construct a valid canonical domain, then break it via updateHoleParameters
+    std::vector<Complex> centers = {Complex(0.2, 0.0), Complex(-0.2, 0.0)};
+    std::vector<double> radii = {0.1, 0.1};
+    auto canonical = std::make_shared<FornbergCanonicalDomain>(centers, radii, 64);
+
+    // Move holes so they overlap (distance between centers = 0.1 < r1 + r2 = 0.3)
+    canonical->updateHoleParameters(
+        {Complex(0.05, 0.0), Complex(-0.05, 0.0)},
+        {0.15, 0.15}
+    );
+
+    EXPECT_THROW(
+        method.validateDomain(canonical, 3, ConformalMapMethod::DomainRole::Source),
+        std::invalid_argument);
+}
+
+TEST_F(FornbergMCValidationTest, RejectsCanonicalDomainWithHoleOutsideUnitDisk)
+{
+    FornbergMC method(config);
+
+    // Construct valid, then push hole past unit circle boundary
+    std::vector<Complex> centers = {Complex(0.3, 0.0)};
+    std::vector<double> radii = {0.1};
+    auto canonical = std::make_shared<FornbergCanonicalDomain>(centers, radii, 64);
+
+    // |center| + radius = 0.8 + 0.3 = 1.1 >= 1.0 → extends outside
+    canonical->updateHoleParameters(
+        {Complex(0.8, 0.0)},
+        {0.3}
+    );
+
+    EXPECT_THROW(
+        method.validateDomain(canonical, 2, ConformalMapMethod::DomainRole::Source),
+        std::invalid_argument);
+}
+
+TEST_F(FornbergMCValidationTest, AcceptsGenericMultiplyConnectedDomain)
+{
+    FornbergMC method(config);
+
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+    auto inner = createCircularBoundary(Complex(0.3, 0), 0.15);
+    auto mcd = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner}
+    );
+
+    EXPECT_NO_THROW(
+        method.validateDomain(mcd, 2, ConformalMapMethod::DomainRole::Source));
+}
 
 // Test FornbergCanonicalDomain
 TEST_F(FornbergMCTest, FornbergCanonicalDomain)
