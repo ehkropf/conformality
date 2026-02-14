@@ -78,6 +78,23 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
         m_config.N
     );
 
+    if (!mp_canonical_domain)
+    {
+        throw std::runtime_error("FornbergMC: Failed to create canonical domain from user domain");
+    }
+    if (mp_canonical_domain->getConnectivity() != m_connectivity)
+    {
+        throw std::runtime_error(
+            "FornbergMC: Canonical domain connectivity (" + std::to_string(mp_canonical_domain->getConnectivity()) +
+            ") does not match target domain connectivity (" + std::to_string(m_connectivity) + ")");
+    }
+    if (!mp_canonical_domain->isValidConfiguration())
+    {
+        throw std::runtime_error(
+            "FornbergMC: Created canonical domain has invalid configuration "
+            "(holes overlap or extend outside unit disk)");
+    }
+
     // Detect annulus case and initialize
     m_is_annulus = detectAnnulusCase();
     if (m_is_annulus)
@@ -281,13 +298,35 @@ void FornbergMC::validateSourceDomain(std::shared_ptr<Domain> domain) const
         throw std::invalid_argument("FornbergMC: Source domain cannot be null");
     }
 
-    // Source domain should be canonical (unit disk with circular holes)
     if (domain->getConnectivity() < 2)
     {
         throw std::invalid_argument("FornbergMC: Source domain must be multiply connected (connectivity >= 2)");
     }
 
-    // TODO: Add more specific validation for canonical domain structure?
+    if (domain->isUnbounded())
+    {
+        throw std::invalid_argument("FornbergMC: Source domain must be bounded");
+    }
+
+    // If source is a FornbergCanonicalDomain, validate its geometric configuration
+    auto canonical = std::dynamic_pointer_cast<FornbergCanonicalDomain>(domain);
+    if (canonical)
+    {
+        if (!canonical->isValidConfiguration())
+        {
+            throw std::invalid_argument(
+                "FornbergMC: Source canonical domain has invalid configuration "
+                "(holes overlap or extend outside unit disk)");
+        }
+        return;
+    }
+
+    // Otherwise, must at least be a multiply connected domain
+    auto mcd = std::dynamic_pointer_cast<MultiplyConnectedDomain>(domain);
+    if (!mcd)
+    {
+        throw std::invalid_argument("FornbergMC: Source domain must be a multiply connected domain");
+    }
 }
 
 void FornbergMC::validateTargetDomain(std::shared_ptr<Domain> domain) const
