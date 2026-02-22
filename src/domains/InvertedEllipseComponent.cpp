@@ -17,7 +17,9 @@
  */
 
 #include "InvertedEllipseComponent.h"
+#include "../numerics/RootFinder.h"
 
+#include <cmath>
 #include <stdexcept>
 
 InvertedEllipseComponent::InvertedEllipseComponent(Complex center, double alpha, double rotation)
@@ -31,22 +33,77 @@ InvertedEllipseComponent::InvertedEllipseComponent(Complex center, double alpha,
     }
 }
 
-Complex InvertedEllipseComponent::evaluate(double /*t*/) const
+Complex InvertedEllipseComponent::evaluate(double t) const
 {
-    throw std::runtime_error("InvertedEllipseComponent::evaluate not implemented");
+    double cosS = std::cos(t);
+    double sinS = std::sin(t);
+    double cosR = std::cos(m_rotation);
+    double sinR = std::sin(m_rotation);
+    double a_cosR = m_alpha * cosR;
+    double a_sinR = m_alpha * sinR;
+
+    Complex conj_ell(a_cosR * cosS - sinR * sinS,
+                     -(cosR * sinS + a_sinR * cosS));
+
+    return 1.0 / conj_ell + m_center;
 }
 
-Complex InvertedEllipseComponent::evaluateDerivative(double /*t*/) const
+Complex InvertedEllipseComponent::evaluateDerivative(double t) const
 {
-    throw std::runtime_error("InvertedEllipseComponent::evaluateDerivative not implemented");
+    double cosS = std::cos(t);
+    double sinS = std::sin(t);
+    double cosR = std::cos(m_rotation);
+    double sinR = std::sin(m_rotation);
+    double a_cosR = m_alpha * cosR;
+    double a_sinR = m_alpha * sinR;
+
+    Complex conj_ell(a_cosR * cosS - sinR * sinS,
+                     -(cosR * sinS + a_sinR * cosS));
+
+    Complex numerator(a_cosR * sinS + sinR * cosS,
+                      cosR * cosS - a_sinR * sinS);
+
+    return numerator / (conj_ell * conj_ell);
 }
 
-std::vector<Complex> InvertedEllipseComponent::sample(size_t /*numPoints*/) const
+std::vector<Complex> InvertedEllipseComponent::sample(size_t numPoints) const
 {
-    throw std::runtime_error("InvertedEllipseComponent::sample not implemented");
+    std::vector<Complex> samples;
+    samples.reserve(numPoints);
+    for (size_t i = 0; i < numPoints; ++i)
+    {
+        double t = 2.0 * M_PI * i / numPoints;
+        samples.push_back(evaluate(t));
+    }
+    return samples;
 }
 
-double InvertedEllipseComponent::findParameterization(const Complex& /*z*/) const
+double InvertedEllipseComponent::findParameterization(const Complex& z) const
 {
-    throw std::runtime_error("InvertedEllipseComponent::findParameterization not implemented");
+    auto objective = [this, &z](double t) -> double
+    {
+        Complex diff = this->evaluate(t) - z;
+        return std::norm(diff);
+    };
+
+    try
+    {
+        double result = RootFinder::ternarySearch(objective, 0.0, 2.0 * M_PI, 1e-12);
+        while (result < 0.0) result += 2.0 * M_PI;
+        while (result >= 2.0 * M_PI) result -= 2.0 * M_PI;
+        return result;
+    }
+    catch (const RootFinder::ConvergenceError&)
+    {
+        if (p_statusManager)
+        {
+            p_statusManager->reportWarning("InvertedEllipseComponent",
+                                           "Root finding failed to converge in findParameterization",
+                                           "Falling back to atan2 approximation");
+        }
+        Complex shifted = z - m_center;
+        double angle = std::atan2(std::imag(shifted), std::real(shifted));
+        if (angle < 0.0) angle += 2.0 * M_PI;
+        return angle;
+    }
 }
