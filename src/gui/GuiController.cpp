@@ -118,7 +118,7 @@ bool GuiController::computeMapping()
     catch (const std::invalid_argument& e)
     {
         m_lastComputationSuccessful = false;
-        m_lastErrorMessage = std::string("Map configuration error: ") + e.what();
+        m_lastErrorMessage = e.what();
 
         if (m_onStatusUpdate)
         {
