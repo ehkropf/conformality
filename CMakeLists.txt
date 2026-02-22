@@ -122,6 +122,11 @@ add_library(domain_objects OBJECT
 )
 target_link_libraries(domain_objects PUBLIC spdlog::spdlog_header_only)
 
+add_library(example_objects OBJECT
+    ${CMAKE_SOURCE_DIR}/src/examples/BoundaryHelpers.cpp
+)
+target_link_libraries(example_objects PUBLIC spdlog::spdlog_header_only)
+
 #####
 # GUI objects
 add_library(gui_objects OBJECT
@@ -143,6 +148,7 @@ add_executable(conformality_gui
     $<TARGET_OBJECTS:map_objects>
     $<TARGET_OBJECTS:util_objects>
     $<TARGET_OBJECTS:domain_objects>
+    $<TARGET_OBJECTS:example_objects>
     $<TARGET_OBJECTS:fftw_wrapper>
 )
 target_link_libraries(conformality_gui
@@ -181,11 +187,13 @@ add_executable(test_exec
     tests/grids.cpp
     $<TARGET_OBJECTS:util_objects>
     $<TARGET_OBJECTS:domain_objects>
+    $<TARGET_OBJECTS:example_objects>
     tests/root_finder_tests.cpp
     tests/status_manager_tests.cpp
     tests/types_tests.cpp
     tests/constructive_validation.cpp
     tests/inverted_ellipse_tests.cpp
+    tests/boundary_helpers_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
