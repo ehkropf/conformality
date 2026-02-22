@@ -256,6 +256,9 @@ void VisualizationPanel::generateTargetGrid()
         }
     }
 
+    // Reset so contour loop logs its own first failure independently
+    firstFailureLogged = false;
+
     // Map elliptical contour lines (scaled ellipses)
     int numContours = m_gridDensity / 2;
     for (int i = 1; i < numContours; ++i)
