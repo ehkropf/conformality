@@ -26,6 +26,7 @@
 
 #include <iostream>
 #include <map>
+#include <stdexcept>
 #include <string>
 
 using namespace conformality::examples;
@@ -164,9 +165,14 @@ int main(int argc, char* argv[])
     {
         return runExample(example_name);
     }
-    catch (const std::exception& e)
+    catch (const std::invalid_argument& e)
     {
-        std::cerr << "Error: " << e.what() << "\n";
+        std::cerr << "Validation error: " << e.what() << "\n";
+        return 2;
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::cerr << "Runtime error: " << e.what() << "\n";
         return 1;
     }
 }
