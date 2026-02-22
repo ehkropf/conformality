@@ -18,26 +18,51 @@
 
 #include "BoundaryHelpers.h"
 
-#include <stdexcept>
+#include <cmath>
 
 namespace conformality::examples
 {
 
-std::shared_ptr<Boundary> createCircularBoundary(Complex /*center*/, double /*radius*/)
+std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
 {
-    throw std::runtime_error("createCircularBoundary not implemented");
+    auto component = std::make_shared<AnalyticBoundaryComponent>(
+        [center, radius](double theta) {
+            return center + radius * Complex(std::cos(theta), std::sin(theta));
+        },
+        [radius](double theta) {
+            return radius * Complex(-std::sin(theta), std::cos(theta));
+        }
+    );
+    return std::make_shared<Boundary>(component);
 }
 
 std::shared_ptr<Boundary> createEllipseBoundary(
-    Complex /*center*/, double /*semi_major*/, double /*semi_minor*/, double /*rotation*/)
+    Complex center, double semi_major, double semi_minor, double rotation)
 {
-    throw std::runtime_error("createEllipseBoundary not implemented");
+    auto component = std::make_shared<AnalyticBoundaryComponent>(
+        [center, semi_major, semi_minor, rotation](double t) {
+            double cosR = std::cos(rotation);
+            double sinR = std::sin(rotation);
+            double x = semi_major * std::cos(t);
+            double y = semi_minor * std::sin(t);
+            return center + Complex(x * cosR - y * sinR, x * sinR + y * cosR);
+        },
+        [semi_major, semi_minor, rotation](double t) {
+            double cosR = std::cos(rotation);
+            double sinR = std::sin(rotation);
+            double dx = -semi_major * std::sin(t);
+            double dy = semi_minor * std::cos(t);
+            return Complex(dx * cosR - dy * sinR, dx * sinR + dy * cosR);
+        }
+    );
+    return std::make_shared<Boundary>(component);
 }
 
 std::shared_ptr<Boundary> createInvertedEllipseBoundary(
-    Complex /*center*/, double /*alpha*/, double /*rotation*/)
+    Complex center, double alpha, double rotation)
 {
-    throw std::runtime_error("createInvertedEllipseBoundary not implemented");
+    auto component = std::make_shared<InvertedEllipseComponent>(center, alpha, rotation);
+    return std::make_shared<Boundary>(component);
 }
 
 } // namespace conformality::examples
