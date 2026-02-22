@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include <cmath>
+#include <spdlog/spdlog.h>
 
 VisualizationPanel::VisualizationPanel()
     : m_showGrid{true}
@@ -184,69 +185,140 @@ void VisualizationPanel::generateTargetGrid()
     {
         return;
     }
-    
+
     m_targetGridX.clear();
     m_targetGridY.clear();
-    
+
     // Generate mapped grid points by evaluating the conformal map
     // at grid points in the source domain (ellipse)
-    
+
     auto sourceDomain = mp_currentMap->getSourceDomain();
     auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
     if (!starlikeDomain)
     {
         return;
     }
-    
+
     Complex center = starlikeDomain->getCenter();
     int pointsPerLine = 50;
-    
+
+    int totalPoints = 0;
+    int failedPoints = 0;
+    bool firstFailureLogged = false;
+
     // Map radial lines from ellipse center to boundary
     for (int i = 0; i < m_gridDensity; ++i)
     {
         double angle = 2.0 * M_PI * i / m_gridDensity;
         double maxRadius = starlikeDomain->getRadius(angle);
-        
+
         for (int j = 1; j <= pointsPerLine; ++j) // Skip center point
         {
+            ++totalPoints;
             double r = static_cast<double>(j) / pointsPerLine * maxRadius;
             Complex z = center + Complex(r * cos(angle), r * sin(angle));
-            
+
             try
             {
                 Complex w = mp_currentMap->map(z);
                 m_targetGridX.push_back(w.real());
                 m_targetGridY.push_back(w.imag());
             }
+            catch (const std::invalid_argument& e)
+            {
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::warn("Grid radial map evaluation configuration error: {}", e.what());
+                    firstFailureLogged = true;
+                }
+            }
+            catch (const std::runtime_error& e)
+            {
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::debug("Grid radial map evaluation failed at z=({}, {}): {}",
+                                  z.real(), z.imag(), e.what());
+                    firstFailureLogged = true;
+                }
+            }
             catch (...)
             {
-                // Skip points where evaluation fails
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::warn("Grid radial map evaluation: unknown error at z=({}, {})",
+                                 z.real(), z.imag());
+                    firstFailureLogged = true;
+                }
             }
         }
     }
-    
+
     // Map elliptical contour lines (scaled ellipses)
     int numContours = m_gridDensity / 2;
     for (int i = 1; i < numContours; ++i)
     {
         double scale = static_cast<double>(i) / numContours;
-        
+
         for (int j = 0; j <= 100; ++j)
         {
+            ++totalPoints;
             double angle = 2.0 * M_PI * j / 100;
             double radius = starlikeDomain->getRadius(angle) * scale;
             Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
-            
+
             try
             {
                 Complex w = mp_currentMap->map(z);
                 m_targetGridX.push_back(w.real());
                 m_targetGridY.push_back(w.imag());
             }
+            catch (const std::invalid_argument& e)
+            {
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::warn("Grid contour map evaluation configuration error: {}", e.what());
+                    firstFailureLogged = true;
+                }
+            }
+            catch (const std::runtime_error& e)
+            {
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::debug("Grid contour map evaluation failed at z=({}, {}): {}",
+                                  z.real(), z.imag(), e.what());
+                    firstFailureLogged = true;
+                }
+            }
             catch (...)
             {
-                // Skip points where evaluation fails
+                ++failedPoints;
+                if (!firstFailureLogged)
+                {
+                    spdlog::warn("Grid contour map evaluation: unknown error at z=({}, {})",
+                                 z.real(), z.imag());
+                    firstFailureLogged = true;
+                }
             }
+        }
+    }
+
+    if (totalPoints > 0 && failedPoints > 0)
+    {
+        double failureRate = static_cast<double>(failedPoints) / totalPoints;
+        if (failureRate > 0.1)
+        {
+            spdlog::warn("Grid generation: {}/{} points ({:.1f}%) failed map evaluation",
+                         failedPoints, totalPoints, failureRate * 100.0);
+        }
+        else
+        {
+            spdlog::debug("Grid generation: {}/{} points failed map evaluation",
+                          failedPoints, totalPoints);
         }
     }
 }
