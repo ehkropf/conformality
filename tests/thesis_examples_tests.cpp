@@ -74,6 +74,7 @@ TEST(ThesisExamples, Example3HasCorrectConfig)
     EXPECT_EQ(preset.config.N, 256);
     EXPECT_NEAR(preset.config.newton_tolerance, 1e-14, 1e-20);
     EXPECT_NEAR(preset.config.cgm_tolerance, 1e-15, 1e-20);
+    EXPECT_EQ(preset.config.initial_guess_method, FornbergMCConfiguration::InitialGuessMethod::MANUAL);
 }
 
 TEST(ThesisExamples, Example3HasNameAndDescription)

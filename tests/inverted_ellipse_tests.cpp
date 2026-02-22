@@ -59,6 +59,24 @@ TEST(InvertedEllipseComponent, EvaluateWithCenter)
     EXPECT_NEAR(z0.imag(), 2.0, 1e-12);
 }
 
+TEST(InvertedEllipseComponent, EvaluateWithRotation)
+{
+    // With rotation=pi/2: the inverted ellipse is rotated 90 degrees
+    // At t=0, zero-rotation gives z = 1/alpha on real axis
+    // With pi/2 rotation, that maps to 1/alpha on imaginary axis
+    InvertedEllipseComponent comp(Complex(0, 0), 0.3, M_PI / 2.0);
+
+    Complex z0 = comp.evaluate(0.0);
+    EXPECT_NEAR(z0.real(), 0.0, 1e-12);
+    EXPECT_NEAR(z0.imag(), 1.0 / 0.3, 1e-12);
+
+    // At t=pi/2, zero-rotation gives z = i
+    // With pi/2 rotation, that maps to -1 on real axis
+    Complex z1 = comp.evaluate(M_PI / 2.0);
+    EXPECT_NEAR(z1.real(), -1.0, 1e-12);
+    EXPECT_NEAR(z1.imag(), 0.0, 1e-12);
+}
+
 TEST(InvertedEllipseComponent, DerivativeMatchesFiniteDifference)
 {
     InvertedEllipseComponent comp(Complex(0, 0), 0.3);
@@ -125,7 +143,7 @@ TEST(InvertedEllipseComponent, MatchesMATLABEx2Outer)
     Complex z0 = comp.evaluate(0.0);
     EXPECT_GT(std::abs(z0), 3.0);
 
-    // Curve is closed and traversed counterclockwise
+    // Curve is closed (periodic)
     auto samples = comp.sample(256);
     EXPECT_EQ(samples.size(), 256u);
     // First and wrap-around should be close to continuous

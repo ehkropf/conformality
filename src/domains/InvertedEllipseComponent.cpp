@@ -101,6 +101,10 @@ double InvertedEllipseComponent::findParameterization(const Complex& z) const
                                            "Root finding failed to converge in findParameterization",
                                            "Falling back to atan2 approximation");
         }
+        else
+        {
+            throw;
+        }
         Complex shifted = z - m_center;
         double angle = std::atan2(std::imag(shifted), std::real(shifted));
         if (angle < 0.0) angle += 2.0 * M_PI;
