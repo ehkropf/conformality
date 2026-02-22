@@ -118,6 +118,7 @@ add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/domains/BoundaryComponent.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/Boundary.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/FornbergCanonicalDomain.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/InvertedEllipseComponent.cpp
 )
 target_link_libraries(domain_objects PUBLIC spdlog::spdlog_header_only)
 
@@ -184,6 +185,7 @@ add_executable(test_exec
     tests/status_manager_tests.cpp
     tests/types_tests.cpp
     tests/constructive_validation.cpp
+    tests/inverted_ellipse_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
