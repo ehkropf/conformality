@@ -124,6 +124,7 @@ target_link_libraries(domain_objects PUBLIC spdlog::spdlog_header_only)
 
 add_library(example_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/examples/BoundaryHelpers.cpp
+    ${CMAKE_SOURCE_DIR}/src/examples/ThesisExamples.cpp
 )
 target_link_libraries(example_objects PUBLIC spdlog::spdlog_header_only)
 
@@ -194,6 +195,7 @@ add_executable(test_exec
     tests/constructive_validation.cpp
     tests/inverted_ellipse_tests.cpp
     tests/boundary_helpers_tests.cpp
+    tests/thesis_examples_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
