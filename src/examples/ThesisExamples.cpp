@@ -17,45 +17,161 @@
  */
 
 #include "ThesisExamples.h"
+#include "BoundaryHelpers.h"
 
 #include <stdexcept>
 
 namespace conformality::examples
 {
 
-ThesisExamplePreset ThesisExamples::getExample(int /*exampleNumber*/)
+ThesisExamplePreset ThesisExamples::getExample(int exampleNumber)
 {
-    throw std::runtime_error("ThesisExamples::getExample not implemented");
+    switch (exampleNumber)
+    {
+        case 2: return makeExample2();
+        case 3: return makeExample3();
+        case 4: return makeExample4();
+        case 5: return makeExample5();
+        default:
+            throw std::invalid_argument(
+                "ThesisExamples: unsupported example number " + std::to_string(exampleNumber)
+                + " (available: 2, 3, 4, 5)");
+    }
 }
 
 std::vector<int> ThesisExamples::availableExamples()
 {
-    throw std::runtime_error("ThesisExamples::availableExamples not implemented");
+    return {3, 5, 2, 4};
 }
 
+// MATLAB th_gen_ex2.m: m=4, mixed (inverted ellipse outer + inner ellipses)
 ThesisExamplePreset ThesisExamples::makeExample2()
 {
-    throw std::runtime_error("ThesisExamples::makeExample2 not implemented");
+    // C1 = binvellip([0  .3], N)
+    auto outer = createInvertedEllipseBoundary(Complex(0, 0), 0.3);
+
+    // C2 = bellipse([1+.3i   3/4   3/8  pi/4], N, [.6+.1i, .14])
+    auto inner1 = createEllipseBoundary(Complex(1.0, 0.3), 3.0 / 4.0, 3.0 / 8.0, M_PI / 4.0);
+
+    // C3 = bellipse([1.7-.7i   1/2   1/4  pi/4], N, [.77-.2i, .05])
+    auto inner2 = createEllipseBoundary(Complex(1.7, -0.7), 1.0 / 2.0, 1.0 / 4.0, M_PI / 4.0);
+
+    // C4 = bellipse([-1.7   3/8   3/4], N, [-.7, .2])
+    auto inner3 = createEllipseBoundary(Complex(-1.7, 0), 3.0 / 8.0, 3.0 / 4.0);
+
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3});
+
+    return ThesisExamplePreset{
+        "Thesis Example 2",
+        "Mixed boundaries (m=4): inverted ellipse outer with three inner ellipses",
+        domain,
+        {Complex(0.6, 0.1), Complex(0.77, -0.2), Complex(-0.7, 0)},
+        {0.14, 0.05, 0.2},
+        makeConfig(128)
+    };
 }
 
+// MATLAB th_gen_ex3.m: m=4, identity map (all circles)
 ThesisExamplePreset ThesisExamples::makeExample3()
 {
-    throw std::runtime_error("ThesisExamples::makeExample3 not implemented");
+    // C1 = bcircle([0  1], N)
+    auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+
+    // C2 = bcircle([-.5   .25], N, [-.4  .25])
+    auto inner1 = createCircularBoundary(Complex(-0.5, 0), 0.25);
+
+    // C3 = bcircle([.25+.43i  .25], N, [.35+.43i  .25])
+    auto inner2 = createCircularBoundary(Complex(0.25, 0.43), 0.25);
+
+    // C4 = bcircle([.25-.43i  .25], N, [.35-.43i  .25])
+    auto inner3 = createCircularBoundary(Complex(0.25, -0.43), 0.25);
+
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3});
+
+    return ThesisExamplePreset{
+        "Thesis Example 3",
+        "Identity map (m=4): unit circle outer with three inner circles",
+        domain,
+        {Complex(-0.4, 0), Complex(0.35, 0.43), Complex(0.35, -0.43)},
+        {0.25, 0.25, 0.25},
+        makeConfig(256)
+    };
 }
 
+// MATLAB th_gen_ex4.m: m=7, high connectivity (ellipses)
+// Note: C8 is defined in MATLAB but not used in tregion (C1-C7 only)
 ThesisExamplePreset ThesisExamples::makeExample4()
 {
-    throw std::runtime_error("ThesisExamples::makeExample4 not implemented");
+    // C1 = bellipse([0  2   1], N)
+    auto outer = createEllipseBoundary(Complex(0, 0), 2.0, 1.0);
+
+    // C2 = bellipse([1.2+.3i  1/4  1/8  -pi/12], N, [.8+.15i, .1])
+    auto inner1 = createEllipseBoundary(Complex(1.2, 0.3), 1.0 / 4.0, 1.0 / 8.0, -M_PI / 12.0);
+
+    // C3 = bellipse([1-.3i  1/4  1/8  pi/12], N, [.7-.15i, .1])
+    auto inner2 = createEllipseBoundary(Complex(1.0, -0.3), 1.0 / 4.0, 1.0 / 8.0, M_PI / 12.0);
+
+    // C4 = bellipse([.5   1/4  1/8], N, [.4,  .1])
+    auto inner3 = createEllipseBoundary(Complex(0.5, 0), 1.0 / 4.0, 1.0 / 8.0);
+
+    // C5 = bellipse([-.8  1/8  1/4], N, [-.6,  .1])
+    auto inner4 = createEllipseBoundary(Complex(-0.8, 0), 1.0 / 8.0, 1.0 / 4.0);
+
+    // C6 = bellipse([-.25+.5i  1/4  1/8], N, [-.2+.4i,  .15])
+    auto inner5 = createEllipseBoundary(Complex(-0.25, 0.5), 1.0 / 4.0, 1.0 / 8.0);
+
+    // C7 = bellipse([-.3-.5i  1/4  1/8  pi/6], N, [-.3-.4i,  .15])
+    auto inner6 = createEllipseBoundary(Complex(-0.3, -0.5), 1.0 / 4.0, 1.0 / 8.0, M_PI / 6.0);
+
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3, inner4, inner5, inner6});
+
+    return ThesisExamplePreset{
+        "Thesis Example 4",
+        "High connectivity (m=7): ellipse outer with six inner ellipses",
+        domain,
+        {Complex(0.8, 0.15), Complex(0.7, -0.15), Complex(0.4, 0),
+         Complex(-0.6, 0), Complex(-0.2, 0.4), Complex(-0.3, -0.4)},
+        {0.1, 0.1, 0.1, 0.1, 0.15, 0.15},
+        makeConfig(128)
+    };
 }
 
+// MATLAB th_gen_ex5.m: m=3, simple ellipses
 ThesisExamplePreset ThesisExamples::makeExample5()
 {
-    throw std::runtime_error("ThesisExamples::makeExample5 not implemented");
+    // C1 = bellipse([0  2   3/2], N)
+    auto outer = createEllipseBoundary(Complex(0, 0), 2.0, 3.0 / 2.0);
+
+    // C2 = bellipse([-.8  3/16   3/8   0], N, [-.47  .15])
+    auto inner1 = createEllipseBoundary(Complex(-0.8, 0), 3.0 / 16.0, 3.0 / 8.0, 0.0);
+
+    // C3 = bellipse([.7-.1i   3/8   3/16  pi/4], N, [.4-.1i  .15])
+    auto inner2 = createEllipseBoundary(Complex(0.7, -0.1), 3.0 / 8.0, 3.0 / 16.0, M_PI / 4.0);
+
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2});
+
+    return ThesisExamplePreset{
+        "Thesis Example 5",
+        "Ellipses (m=3): ellipse outer with two inner ellipses",
+        domain,
+        {Complex(-0.47, 0), Complex(0.4, -0.1)},
+        {0.15, 0.15},
+        makeConfig(256)
+    };
 }
 
-FornbergMCConfiguration ThesisExamples::makeConfig(int /*N*/)
+FornbergMCConfiguration ThesisExamples::makeConfig(int N)
 {
-    throw std::runtime_error("ThesisExamples::makeConfig not implemented");
+    FornbergMCConfiguration config;
+    config.N = N;
+    config.newton_tolerance = 1e-14;
+    config.cgm_tolerance = 1e-15;
+    config.initial_guess_method = FornbergMCConfiguration::InitialGuessMethod::MANUAL;
+    return config;
 }
 
 } // namespace conformality::examples
