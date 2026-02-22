@@ -158,6 +158,20 @@ target_link_libraries(conformality_gui
     spdlog::spdlog_header_only
 )
 
+# CLI executable
+add_executable(conformality_cli
+    ${CMAKE_SOURCE_DIR}/src/cli/main.cpp
+    $<TARGET_OBJECTS:map_objects>
+    $<TARGET_OBJECTS:util_objects>
+    $<TARGET_OBJECTS:domain_objects>
+    $<TARGET_OBJECTS:example_objects>
+    $<TARGET_OBJECTS:fftw_wrapper>
+)
+target_link_libraries(conformality_cli
+    ${FFTW_LIB}
+    spdlog::spdlog_header_only
+)
+
 #####
 # Testing section
 FetchContent_Declare(
