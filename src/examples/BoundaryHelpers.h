@@ -24,6 +24,7 @@
 
 #include <memory>
 
+/// Factory functions for creating common boundary shapes used in thesis examples and tests.
 namespace conformality::examples
 {
 

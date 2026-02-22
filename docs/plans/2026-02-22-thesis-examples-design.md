@@ -36,6 +36,10 @@ public:
     std::vector<Complex> sample(size_t numPoints) const override;
     double findParameterization(const Complex& z) const override;
 
+    Complex getCenter() const;
+    double getAlpha() const;
+    double getRotation() const;
+
 private:
     Complex m_center;
     double m_alpha;
@@ -101,6 +105,13 @@ class ThesisExamples
 public:
     static ThesisExamplePreset getExample(int exampleNumber);
     static std::vector<int> availableExamples();  // {3, 5, 2, 4}
+
+private:
+    static ThesisExamplePreset makeExample2();
+    static ThesisExamplePreset makeExample3();
+    static ThesisExamplePreset makeExample4();
+    static ThesisExamplePreset makeExample5();
+    static FornbergMCConfiguration makeConfig(int N);
 };
 
 } // namespace conformality::examples
@@ -131,7 +142,8 @@ public:
 
 - `newton_tolerance = 1e-14`
 - `cgm_tolerance = 1e-15`
-- `normalization_condition = {1, 0, 0}`
+- `initial_guess_method = MANUAL`
+- All presets rely on FornbergMC's default normalization condition `[1, 0, 0]` (hardcoded in the solver, not configurable per-preset)
 - Other values use `FornbergMCConfiguration` defaults
 
 ### Error Handling
@@ -141,9 +153,8 @@ public:
 ## CMake Integration
 
 - `InvertedEllipseComponent` added to `domain_objects`
-- New `example_objects` object library in `src/examples/`
-- `example_objects` links against `domain_objects`, `method_objects`
-- GUI target links against `example_objects`
+- New `example_objects` object library in `src/examples/`, linked into both `conformality_gui` and `test_exec` via `$<TARGET_OBJECTS:example_objects>`
+- `example_objects` links against `spdlog::spdlog_header_only` for logging support
 
 ## Testing
 

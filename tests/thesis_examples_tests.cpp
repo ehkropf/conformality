@@ -161,3 +161,20 @@ TEST(ThesisExamples, AllPresetsHaveMatchingGuessAndBoundaryCount)
             << "Example " << n << ": radii count mismatch";
     }
 }
+
+TEST(ThesisExamples, AllPresetBoundariesEvaluateToFinitePoints)
+{
+    for (int n : ThesisExamples::availableExamples())
+    {
+        auto preset = ThesisExamples::getExample(n);
+        auto& boundaries = preset.target_domain->getBoundaries();
+        for (size_t i = 0; i < boundaries.size(); ++i)
+        {
+            Complex z = boundaries[i]->evaluate(0.0);
+            EXPECT_TRUE(std::isfinite(z.real()))
+                << "Example " << n << ", boundary " << i << ": non-finite real part";
+            EXPECT_TRUE(std::isfinite(z.imag()))
+                << "Example " << n << ", boundary " << i << ": non-finite imag part";
+        }
+    }
+}

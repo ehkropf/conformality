@@ -17,7 +17,6 @@
  */
 
 #include <gtest/gtest.h>
-#include "../src/domains/BoundaryComponent.h"
 #include "../src/domains/InvertedEllipseComponent.h"
 
 #include <cmath>
@@ -124,7 +123,7 @@ TEST(InvertedEllipseComponent, FindParameterizationRoundTrip)
 {
     InvertedEllipseComponent comp(Complex(0, 0), 0.3);
 
-    for (double t_orig : {0.5, 1.0, M_PI / 2.0, M_PI, 4.0, 5.5})
+    for (double t_orig : {0.01, 0.5, 1.0, M_PI / 2.0, M_PI, 4.0, 5.5, 6.2})
     {
         Complex z = comp.evaluate(t_orig);
         double t_found = comp.findParameterization(z);
@@ -157,4 +156,21 @@ TEST(InvertedEllipseComponent, InvalidAlphaThrows)
     EXPECT_THROW(InvertedEllipseComponent(Complex(0, 0), 1.0), std::invalid_argument);
     EXPECT_THROW(InvertedEllipseComponent(Complex(0, 0), -0.5), std::invalid_argument);
     EXPECT_THROW(InvertedEllipseComponent(Complex(0, 0), 1.5), std::invalid_argument);
+}
+
+TEST(InvertedEllipseComponent, FindParameterizationReturnsValidParameterForOffCurvePoint)
+{
+    InvertedEllipseComponent comp(Complex(0, 0), 0.3);
+
+    // For off-curve points, findParameterization returns the parameter of
+    // the nearest curve point (ternary search always converges for [0, 2*pi])
+    Complex far_point(100.0, 100.0);
+    double t = comp.findParameterization(far_point);
+    EXPECT_GE(t, 0.0);
+    EXPECT_LT(t, 2.0 * M_PI);
+
+    // The result should be a valid curve point
+    Complex z = comp.evaluate(t);
+    EXPECT_TRUE(std::isfinite(z.real()));
+    EXPECT_TRUE(std::isfinite(z.imag()));
 }

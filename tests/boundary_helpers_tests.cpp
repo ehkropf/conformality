@@ -110,3 +110,24 @@ TEST(BoundaryHelpers, InvertedEllipseWrapsComponent)
     EXPECT_NEAR(z0.real(), 1.0 / 0.3, 1e-12);
     EXPECT_NEAR(z0.imag(), 0.0, 1e-12);
 }
+
+// --- Input validation ---
+
+TEST(BoundaryHelpers, CircleInvalidRadiusThrows)
+{
+    EXPECT_THROW(createCircularBoundary(Complex(0, 0), 0.0), std::invalid_argument);
+    EXPECT_THROW(createCircularBoundary(Complex(0, 0), -1.0), std::invalid_argument);
+}
+
+TEST(BoundaryHelpers, EllipseInvalidSemiAxesThrows)
+{
+    EXPECT_THROW(createEllipseBoundary(Complex(0, 0), 0.0, 1.0), std::invalid_argument);
+    EXPECT_THROW(createEllipseBoundary(Complex(0, 0), 1.0, 0.0), std::invalid_argument);
+    EXPECT_THROW(createEllipseBoundary(Complex(0, 0), -1.0, 1.0), std::invalid_argument);
+}
+
+TEST(BoundaryHelpers, InvertedEllipseInvalidAlphaPropagates)
+{
+    EXPECT_THROW(createInvertedEllipseBoundary(Complex(0, 0), 0.0), std::invalid_argument);
+    EXPECT_THROW(createInvertedEllipseBoundary(Complex(0, 0), 1.0), std::invalid_argument);
+}

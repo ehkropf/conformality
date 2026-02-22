@@ -28,6 +28,7 @@
 namespace conformality::examples
 {
 
+/// Preset configuration for a thesis example, including domain, initial guesses, and solver config.
 struct ThesisExamplePreset
 {
     std::string name;
@@ -38,6 +39,7 @@ struct ThesisExamplePreset
     FornbergMCConfiguration config;
 };
 
+/// Provides hardcoded thesis example presets (from MATLAB th_gen_ex*.m files).
 class ThesisExamples
 {
 public:

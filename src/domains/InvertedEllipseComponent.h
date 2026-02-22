@@ -20,6 +20,12 @@
 
 #include "BoundaryComponent.h"
 
+/**
+ * @brief Boundary component for the inverted ellipse parameterization (MATLAB binvellip).
+ *
+ * z(t) = 1 / conj(ellipse(t)) + center, where ellipse(t) is a rotated ellipse
+ * with eccentricity controlled by alpha in (0, 1). See design/fornberg/fornmc/binvellip.m.
+ */
 class InvertedEllipseComponent : public BoundaryComponent
 {
 public:

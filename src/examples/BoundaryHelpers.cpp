@@ -19,12 +19,17 @@
 #include "BoundaryHelpers.h"
 
 #include <cmath>
+#include <stdexcept>
 
 namespace conformality::examples
 {
 
 std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
 {
+    if (radius <= 0.0)
+    {
+        throw std::invalid_argument("createCircularBoundary: radius must be positive");
+    }
     auto component = std::make_shared<AnalyticBoundaryComponent>(
         [center, radius](double theta) {
             return center + radius * Complex(std::cos(theta), std::sin(theta));
@@ -39,6 +44,10 @@ std::shared_ptr<Boundary> createCircularBoundary(Complex center, double radius)
 std::shared_ptr<Boundary> createEllipseBoundary(
     Complex center, double semi_major, double semi_minor, double rotation)
 {
+    if (semi_major <= 0.0 || semi_minor <= 0.0)
+    {
+        throw std::invalid_argument("createEllipseBoundary: semi-axes must be positive");
+    }
     auto component = std::make_shared<AnalyticBoundaryComponent>(
         [center, semi_major, semi_minor, rotation](double t) {
             double cosR = std::cos(rotation);
