@@ -118,14 +118,24 @@ void VisualizationPanel::generateBoundariesForDomain(std::shared_ptr<Domain> dom
 {
     constexpr int numPoints = 200;
 
-    // Try multiply-connected first
+    // Try multiply-connected first (FornbergCanonicalDomain inherits from MC, not SC)
     auto mcDomain = std::dynamic_pointer_cast<MultiplyConnectedDomain>(domain);
     if (mcDomain)
     {
         const auto& boundaries = mcDomain->getBoundaries();
         for (size_t b = 0; b < boundaries.size(); ++b)
         {
-            auto samples = boundaries[b]->sample(numPoints);
+            std::vector<std::vector<Complex>> samples;
+            try
+            {
+                samples = boundaries[b]->sample(numPoints);
+            }
+            catch (const std::exception& e)
+            {
+                spdlog::warn("Failed to sample boundary {}: {}", b, e.what());
+                continue;
+            }
+
             for (size_t comp = 0; comp < samples.size(); ++comp)
             {
                 BoundaryCurve curve;
@@ -159,7 +169,17 @@ void VisualizationPanel::generateBoundariesForDomain(std::shared_ptr<Domain> dom
     auto scDomain = std::dynamic_pointer_cast<SimplyConnectedDomain>(domain);
     if (scDomain)
     {
-        auto samples = scDomain->getBoundary().sample(numPoints);
+        std::vector<std::vector<Complex>> samples;
+        try
+        {
+            samples = scDomain->getBoundary().sample(numPoints);
+        }
+        catch (const std::exception& e)
+        {
+            spdlog::warn("Failed to sample boundary: {}", e.what());
+            return;
+        }
+
         for (size_t comp = 0; comp < samples.size(); ++comp)
         {
             BoundaryCurve curve;
@@ -178,7 +198,10 @@ void VisualizationPanel::generateBoundariesForDomain(std::shared_ptr<Domain> dom
             }
             out.push_back(std::move(curve));
         }
+        return;
     }
+
+    spdlog::warn("generateBoundariesForDomain: unrecognized domain type; no boundaries generated");
 }
 
 // --- Bounds and titles ---
@@ -264,7 +287,7 @@ void VisualizationPanel::generateSourceGrid()
         return;
     }
 
-    // For StarlikeDomain, generate polar grid (radials + contours) — matches old behavior
+    // For StarlikeDomain, generate polar grid (radials + contours) to reflect star-shaped geometry
     auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
     if (starlikeDomain)
     {
@@ -307,7 +330,8 @@ void VisualizationPanel::generateSourceGrid()
         return;
     }
 
-    // For any domain (including MC), generate Cartesian grid with contains() filtering
+    // For non-starlike domains (including MC), fall back to Cartesian grid.
+    // Points outside the domain are set to NaN so ImPlot's SkipNaN draws only the interior.
     BoundingBox bounds = computeBounds(m_sourceBoundaries);
     double marginX = (bounds.xMax - bounds.xMin) * 0.05;
     double marginY = (bounds.yMax - bounds.yMin) * 0.05;
@@ -317,6 +341,7 @@ void VisualizationPanel::generateSourceGrid()
     double yMax = bounds.yMax + marginY;
 
     int pointsPerLine = 100;
+    bool containsFailureLogged = false;
 
     // Horizontal lines
     for (int i = 0; i < m_gridDensity; ++i)
@@ -327,7 +352,21 @@ void VisualizationPanel::generateSourceGrid()
         {
             double x = xMin + (xMax - xMin) * static_cast<double>(j) / pointsPerLine;
             Complex z(x, y);
-            if (sourceDomain->contains(z))
+            bool inDomain = false;
+            try
+            {
+                inDomain = sourceDomain->contains(z);
+            }
+            catch (const std::exception& e)
+            {
+                if (!containsFailureLogged)
+                {
+                    spdlog::warn("Domain contains() check failed at z=({}, {}): {}", x, y, e.what());
+                    containsFailureLogged = true;
+                }
+            }
+
+            if (inDomain)
             {
                 line.x.push_back(x);
                 line.y.push_back(y);
@@ -350,7 +389,21 @@ void VisualizationPanel::generateSourceGrid()
         {
             double y = yMin + (yMax - yMin) * static_cast<double>(j) / pointsPerLine;
             Complex z(x, y);
-            if (sourceDomain->contains(z))
+            bool inDomain = false;
+            try
+            {
+                inDomain = sourceDomain->contains(z);
+            }
+            catch (const std::exception& e)
+            {
+                if (!containsFailureLogged)
+                {
+                    spdlog::warn("Domain contains() check failed at z=({}, {}): {}", x, y, e.what());
+                    containsFailureLogged = true;
+                }
+            }
+
+            if (inDomain)
             {
                 line.x.push_back(x);
                 line.y.push_back(y);
@@ -376,11 +429,11 @@ void VisualizationPanel::generateTargetGrid()
 
     int totalPoints = 0;
     int failedPoints = 0;
-    bool firstFailureLogged = false;
 
     for (const auto& sourceLine : m_sourceGridLines)
     {
         GridLine targetLine;
+        bool firstFailureLogged = false;
         for (size_t i = 0; i < sourceLine.x.size(); ++i)
         {
             double sx = sourceLine.x[i];
@@ -421,17 +474,6 @@ void VisualizationPanel::generateTargetGrid()
                 if (!firstFailureLogged)
                 {
                     spdlog::debug("Grid map evaluation failed at z=({}, {}): {}", z.real(), z.imag(), e.what());
-                    firstFailureLogged = true;
-                }
-            }
-            catch (...)
-            {
-                ++failedPoints;
-                targetLine.x.push_back(std::numeric_limits<double>::quiet_NaN());
-                targetLine.y.push_back(std::numeric_limits<double>::quiet_NaN());
-                if (!firstFailureLogged)
-                {
-                    spdlog::warn("Grid map evaluation: unknown error at z=({}, {})", z.real(), z.imag());
                     firstFailureLogged = true;
                 }
             }
