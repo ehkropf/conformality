@@ -136,6 +136,13 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
         // Store residual for history
         m_residual_history.push_back(m_current_residual);
 
+        if (mp_status_manager)
+        {
+            std::ostringstream oss;
+            oss << "Newton iteration " << (iter + 1) << ": residual=" << m_current_residual;
+            mp_status_manager->reportInfo("FornbergMC", oss.str());
+        }
+
         // Boundary redistribution if needed
         if (iter % m_config.redistribution_frequency == 0 && m_config.enable_redistribution)
         {

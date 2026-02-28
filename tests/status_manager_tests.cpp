@@ -17,8 +17,11 @@
  */
 
 #include <gtest/gtest.h>
+#include <atomic>
 #include <fstream>
 #include <filesystem>
+#include <thread>
+#include <vector>
 #include "../src/core/StatusManager.h"
 
 // RAII helper for test file cleanup
@@ -458,4 +461,105 @@ TEST_F(StatusManagerTest, ConsoleOnlyDoesNotCreateFile)
 
     // Verify getLogOutput returns correct value
     EXPECT_EQ(manager.getLogOutput(), LogOutput::CONSOLE);
+}
+
+// --- Thread safety tests ---
+
+TEST_F(StatusManagerTest, ThreadSafety_ConcurrentWrites)
+{
+    const int num_threads = 4;
+    const int messages_per_thread = 100;
+
+    std::vector<std::thread> threads;
+    for (int t = 0; t < num_threads; ++t)
+    {
+        threads.emplace_back([this, t, messages_per_thread]() {
+            for (int i = 0; i < messages_per_thread; ++i)
+            {
+                p_statusManager->reportInfo("Thread" + std::to_string(t),
+                                            "Message " + std::to_string(i));
+            }
+        });
+    }
+
+    for (auto& thread : threads) thread.join();
+
+    auto messages = p_statusManager->getMessages();
+    EXPECT_EQ(messages.size(), static_cast<size_t>(num_threads * messages_per_thread));
+}
+
+TEST_F(StatusManagerTest, ThreadSafety_ReadWhileWriting)
+{
+    std::atomic<bool> stop{false};
+
+    // Writer thread
+    std::thread writer([this, &stop]() {
+        int i = 0;
+        while (!stop.load())
+        {
+            p_statusManager->reportInfo("Writer", "Message " + std::to_string(i++));
+        }
+    });
+
+    // Reader thread — exercise all read paths concurrently
+    std::thread reader([this, &stop]() {
+        while (!stop.load())
+        {
+            auto all = p_statusManager->getMessages();
+            auto filtered = p_statusManager->getMessages(StatusLevel::INFO);
+            auto tiered = p_statusManager->getMessagesAtOrAbove(StatusLevel::WARNING);
+            (void)p_statusManager->hasWarnings();
+            (void)p_statusManager->hasErrors();
+            (void)all;
+            (void)filtered;
+            (void)tiered;
+        }
+    });
+
+    // Let them run for a short burst
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    stop.store(true);
+
+    writer.join();
+    reader.join();
+
+    // No crash means success; verify we got some messages
+    EXPECT_GT(p_statusManager->getMessages().size(), 0u);
+}
+
+// --- Callback tests ---
+
+TEST_F(StatusManagerTest, Callback_InvokedOnReport)
+{
+    std::vector<StatusMessage> received;
+    p_statusManager->setStatusCallback([&received](const StatusMessage& msg) {
+        received.push_back(msg);
+    });
+
+    p_statusManager->reportInfo("TestComp", "Hello");
+    p_statusManager->reportWarning("TestComp", "Warning");
+
+    ASSERT_EQ(received.size(), 2u);
+    EXPECT_EQ(received[0].level, StatusLevel::INFO);
+    EXPECT_EQ(received[0].message, "Hello");
+    EXPECT_EQ(received[1].level, StatusLevel::WARNING);
+    EXPECT_EQ(received[1].message, "Warning");
+}
+
+TEST_F(StatusManagerTest, Callback_ClearedSafely)
+{
+    int callCount = 0;
+    p_statusManager->setStatusCallback([&callCount](const StatusMessage&) {
+        ++callCount;
+    });
+
+    p_statusManager->reportInfo("Test", "Before clear");
+    EXPECT_EQ(callCount, 1);
+
+    // Clear callback
+    p_statusManager->setStatusCallback(nullptr);
+
+    // Reporting after clearing should not crash and not invoke old callback
+    EXPECT_NO_THROW(p_statusManager->reportInfo("Test", "After clear"));
+    EXPECT_EQ(callCount, 1);
 }
