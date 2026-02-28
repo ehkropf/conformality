@@ -80,6 +80,8 @@ void GuiController::loadThesisExample(int exampleNumber)
 {
     using namespace conformality::examples;
 
+    clear();
+
     try
     {
         auto preset = ThesisExamples::getExample(exampleNumber);
@@ -97,16 +99,18 @@ void GuiController::loadThesisExample(int exampleNumber)
     }
     catch (const std::invalid_argument& e)
     {
+        m_lastErrorMessage = e.what();
         if (m_onStatusUpdate)
         {
-            m_onStatusUpdate("Failed to load example: " + std::string(e.what()));
+            m_onStatusUpdate("Failed to load example: " + m_lastErrorMessage);
         }
     }
     catch (const std::runtime_error& e)
     {
+        m_lastErrorMessage = e.what();
         if (m_onStatusUpdate)
         {
-            m_onStatusUpdate("Failed to load example: " + std::string(e.what()));
+            m_onStatusUpdate("Failed to load example: " + m_lastErrorMessage);
         }
     }
 }
@@ -154,6 +158,8 @@ bool GuiController::computeMapping()
     m_lastComputationSuccessful = false;
     m_lastConvergenceError = 0.0;
     m_lastErrorMessage.clear();
+    m_lastIterationCount = 0;
+    m_hasConverged = false;
 
     if (m_onStatusUpdate)
     {
