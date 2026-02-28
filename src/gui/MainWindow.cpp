@@ -13,6 +13,7 @@ MainWindow::MainWindow()
     , m_statusMessage{"Ready"}
     , mp_application{nullptr}
     , m_showGrid{true}
+    , m_gridDensity{8}
 {
 }
 
@@ -99,7 +100,10 @@ void MainWindow::renderMenuBar()
         {
             if (ImGui::MenuItem("New"))
             {
-                // Future: Reset to default configuration
+                if (mp_controller)
+                {
+                    mp_controller->reset();
+                }
             }
             ImGui::Separator();
             if (ImGui::MenuItem("Exit"))
@@ -123,6 +127,32 @@ void MainWindow::renderMenuBar()
             }
             ImGui::Separator();
             ImGui::MenuItem("Demo Window", nullptr, &m_showDemoWindow);
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Examples"))
+        {
+            if (ImGui::MenuItem("Thesis Ex 3 (Identity, m=4)"))
+            {
+                if (mp_controller) mp_controller->loadThesisExample(3);
+            }
+            if (ImGui::MenuItem("Thesis Ex 5 (Ellipses, m=3)"))
+            {
+                if (mp_controller) mp_controller->loadThesisExample(5);
+            }
+            if (ImGui::MenuItem("Thesis Ex 2 (Mixed, m=4)"))
+            {
+                if (mp_controller) mp_controller->loadThesisExample(2);
+            }
+            if (ImGui::MenuItem("Thesis Ex 4 (High connectivity, m=7)"))
+            {
+                if (mp_controller) mp_controller->loadThesisExample(4);
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Reset"))
+            {
+                if (mp_controller) mp_controller->reset();
+            }
             ImGui::EndMenu();
         }
 
@@ -185,6 +215,7 @@ void MainWindow::renderControlPanel()
         else
         {
             ImGui::TextDisabled("No map loaded");
+            ImGui::TextDisabled("Use Examples menu to load a preset");
         }
 
         ImGui::Separator();
@@ -198,16 +229,24 @@ void MainWindow::renderControlPanel()
             }
         }
 
-        static int gridDensity = 8;
-        if (ImGui::SliderInt("Grid Density", &gridDensity, 4, 16))
+        if (ImGui::SliderInt("Grid Density", &m_gridDensity, 4, 16))
         {
             if (mp_visualizationPanel)
             {
-                mp_visualizationPanel->setGridDensity(gridDensity);
+                mp_visualizationPanel->setGridDensity(m_gridDensity);
             }
         }
 
         ImGui::Separator();
+
+        // Computation results
+        if (mp_controller && mp_controller->getLastIterationCount() > 0)
+        {
+            ImGui::Text("Iterations: %d", mp_controller->getLastIterationCount());
+            ImGui::Text("Residual: %.2e", mp_controller->getLastConvergenceError());
+            ImGui::Text("Converged: %s", mp_controller->hasConverged() ? "Yes" : "No");
+            ImGui::Separator();
+        }
 
         // Compute button
         bool isComputing = mp_controller ? mp_controller->isComputing() : false;
@@ -261,10 +300,19 @@ void MainWindow::renderStatusPanel()
 
         if (mp_controller)
         {
-            ImGui::SameLine();
             if (!mp_controller->getLastErrorMessage().empty())
             {
+                ImGui::SameLine();
                 ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
+            }
+
+            if (mp_controller->getLastIterationCount() > 0)
+            {
+                ImGui::SameLine();
+                ImGui::Text("| Iter: %d | Residual: %.2e | %s",
+                            mp_controller->getLastIterationCount(),
+                            mp_controller->getLastConvergenceError(),
+                            mp_controller->hasConverged() ? "Converged" : "Not converged");
             }
         }
 

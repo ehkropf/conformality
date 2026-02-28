@@ -35,6 +35,8 @@ private:
     bool m_lastComputationSuccessful;
     double m_lastConvergenceError;
     std::string m_lastErrorMessage;
+    int m_lastIterationCount;
+    bool m_hasConverged;
 
     // Callbacks for GUI updates
     std::function<void()> m_onComputationComplete;
@@ -59,6 +61,17 @@ public:
      * @param description Optional human-readable description
      */
     void loadMap(std::shared_ptr<ConformalMap> map, const std::string& description = "");
+
+    /**
+     * @brief Load a thesis example by number and prepare it for computation
+     * @param exampleNumber Thesis example number (2, 3, 4, or 5)
+     */
+    void loadThesisExample(int exampleNumber);
+
+    /**
+     * @brief Clear the current map and reset all state back to blank
+     */
+    void reset();
 
     /**
      * @brief Clear the current map and reset state
@@ -112,6 +125,10 @@ public:
      * @return Error message string
      */
     const std::string& getLastErrorMessage() const { return m_lastErrorMessage; }
+
+    int getLastIterationCount() const { return m_lastIterationCount; }
+
+    bool hasConverged() const { return m_hasConverged; }
 
     /**
      * @brief Set callback for computation completion
