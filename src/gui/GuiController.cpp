@@ -183,6 +183,10 @@ bool GuiController::computeMapping()
     m_lastIterationCount = 0;
     m_hasConverged = false;
     m_cancelRequested.store(false);
+    {
+        std::lock_guard<std::mutex> lock(m_progressMutex);
+        m_liveProgress = ComputationProgress{};
+    }
 
     // Join any previous thread that hasn't been joined yet
     if (m_computeThread.joinable())
@@ -198,8 +202,21 @@ bool GuiController::computeMapping()
     return true;
 }
 
+void GuiController::getLiveProgress(int& iteration, double& residual) const
+{
+    std::lock_guard<std::mutex> lock(m_progressMutex);
+    iteration = m_liveProgress.currentIteration;
+    residual = m_liveProgress.currentResidual;
+}
+
 void GuiController::computeInBackground()
 {
+    // Reset live progress
+    {
+        std::lock_guard<std::mutex> lock(m_progressMutex);
+        m_liveProgress = ComputationProgress{};
+    }
+
     try
     {
         // Wire cancellation check into the method
@@ -209,8 +226,44 @@ void GuiController::computeInBackground()
             method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
         }
 
-        // Downcast for FornbergMC-specific result extraction
+        // Downcast for FornbergMC-specific StatusManager and result extraction
         auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
+
+        // Wire StatusManager callback for live progress updates
+        auto status_manager = fm ? std::dynamic_pointer_cast<StatusManager>(fm->getStatusManager()) : nullptr;
+        if (status_manager)
+        {
+            status_manager->setStatusCallback([this](const StatusMessage& msg) {
+                postStatusMessage("[" + msg.component + "] " + msg.message);
+
+                // Parse iteration progress from FornbergMC INFO messages
+                if (msg.component == "FornbergMC" && msg.level == StatusLevel::INFO
+                    && msg.message.find("Newton iteration") != std::string::npos)
+                {
+                    std::lock_guard<std::mutex> lock(m_progressMutex);
+                    // Parse "Newton iteration N: residual=X"
+                    auto colon_pos = msg.message.find(':');
+                    auto eq_pos = msg.message.find("residual=");
+                    if (colon_pos != std::string::npos)
+                    {
+                        try
+                        {
+                            auto iter_str = msg.message.substr(17, colon_pos - 17);
+                            m_liveProgress.currentIteration = std::stoi(iter_str);
+                        }
+                        catch (const std::exception&) {}
+                    }
+                    if (eq_pos != std::string::npos)
+                    {
+                        try
+                        {
+                            m_liveProgress.currentResidual = std::stod(msg.message.substr(eq_pos + 9));
+                        }
+                        catch (const std::exception&) {}
+                    }
+                }
+            });
+        }
 
         mp_currentMap->compute();
 
@@ -238,11 +291,20 @@ void GuiController::computeInBackground()
         postStatusMessage("Computation failed: " + m_lastErrorMessage);
     }
 
-    // Clear cancellation check to avoid dangling this pointer
+    // Clear cancellation check and StatusManager callback to avoid dangling references
     auto method_cleanup = mp_currentMap->getMethod();
     if (method_cleanup)
     {
         method_cleanup->setCancellationCheck(nullptr);
+    }
+    auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(method_cleanup);
+    if (fm_cleanup)
+    {
+        auto sm = std::dynamic_pointer_cast<StatusManager>(fm_cleanup->getStatusManager());
+        if (sm)
+        {
+            sm->setStatusCallback(nullptr);
+        }
     }
 
     // Release happens-before: GUI thread reads results after observing m_isComputing == false

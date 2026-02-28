@@ -19,7 +19,9 @@
 #ifndef STATUS_MANAGER_H
 #define STATUS_MANAGER_H
 
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -174,11 +176,16 @@ public:
  */
 class StatusManager : public IStatusManager
 {
+public:
+    using StatusCallback = std::function<void(const StatusMessage&)>;
+
 private:
     std::vector<StatusMessage> m_messages;  /**< Storage for status messages */
     size_t m_maxMessages{1000};             /**< Maximum number of messages to store */
     std::shared_ptr<spdlog::logger> mp_logger; /**< spdlog logger instance; defaults to spdlog's default logger until enableLogging() is called */
     LogOutput m_logOutput{LogOutput::NONE};    /**< Current log output configuration */
+    mutable std::mutex m_mutex;                /**< Protects all mutable state for thread safety */
+    StatusCallback m_statusCallback;           /**< Optional callback invoked on each new message */
 
 public:
     /**
@@ -282,6 +289,12 @@ public:
      * @return True if errors are present, false otherwise
      */
     bool hasErrors() const override;
+
+    /**
+     * @brief Set a callback invoked on each new message (thread-safe)
+     * @param callback Function to call, or nullptr to clear
+     */
+    void setStatusCallback(StatusCallback callback);
 
     /**
      * @brief Set the maximum number of messages to store
