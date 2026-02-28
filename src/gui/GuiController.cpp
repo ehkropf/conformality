@@ -7,6 +7,7 @@
 #include "../methods/FornbergMC.h"
 #include "../methods/PMatrixBuilder.h"
 #include "../numerics/CGSolver.h"
+#include <sstream>
 
 GuiController::GuiController()
     : mp_currentMap{nullptr}
@@ -220,7 +221,7 @@ void GuiController::computeInBackground()
             method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
         }
 
-        // Downcast for FornbergMC-specific StatusManager and result extraction
+        // Downcast for FornbergMC-specific result extraction and StatusManager access
         auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
 
         // Wire StatusManager callback for live progress updates
@@ -230,30 +231,19 @@ void GuiController::computeInBackground()
             status_manager->setStatusCallback([this](const StatusMessage& msg) {
                 postStatusMessage("[" + msg.component + "] " + msg.message);
 
-                // Parse iteration progress from FornbergMC INFO messages
+                // Parse structured progress data from FornbergMC Newton iteration reports
+                // Details format: "<iteration> <residual>" (machine-readable, set in FornbergMC::compute)
                 if (msg.component == "FornbergMC" && msg.level == StatusLevel::INFO
-                    && msg.message.find("Newton iteration") != std::string::npos)
+                    && !msg.details.empty())
                 {
-                    std::lock_guard<std::mutex> lock(m_progressMutex);
-                    // Parse "Newton iteration N: residual=X"
-                    auto colon_pos = msg.message.find(':');
-                    auto eq_pos = msg.message.find("residual=");
-                    if (colon_pos != std::string::npos)
+                    std::istringstream iss(msg.details);
+                    int iter;
+                    double residual;
+                    if (iss >> iter >> residual)
                     {
-                        try
-                        {
-                            auto iter_str = msg.message.substr(17, colon_pos - 17);
-                            m_liveProgress.currentIteration = std::stoi(iter_str);
-                        }
-                        catch (const std::exception&) {}
-                    }
-                    if (eq_pos != std::string::npos)
-                    {
-                        try
-                        {
-                            m_liveProgress.currentResidual = std::stod(msg.message.substr(eq_pos + 9));
-                        }
-                        catch (const std::exception&) {}
+                        std::lock_guard<std::mutex> lock(m_progressMutex);
+                        m_liveProgress.currentIteration = iter;
+                        m_liveProgress.currentResidual = residual;
                     }
                 }
             });

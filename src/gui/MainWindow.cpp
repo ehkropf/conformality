@@ -194,6 +194,12 @@ void MainWindow::renderMainLayout()
 
     if (ImGui::Begin("MainLayout", nullptr, window_flags))
     {
+        // Snapshot live progress once per frame for consistent display
+        if (mp_controller && mp_controller->isComputing())
+        {
+            mp_controller->getLiveProgress(m_cachedLiveIter, m_cachedLiveResidual);
+        }
+
         // Three-panel layout: Control | Visualization | Status
 
         // Control Panel (left column)
@@ -267,14 +273,10 @@ void MainWindow::renderControlPanel()
 
         if (isComputing)
         {
-            int liveIter = 0;
-            double liveResidual = 0.0;
-            mp_controller->getLiveProgress(liveIter, liveResidual);
-
-            if (liveIter > 0)
+            if (m_cachedLiveIter > 0)
             {
-                ImGui::Text("Iteration: %d", liveIter);
-                ImGui::Text("Residual: %.2e", liveResidual);
+                ImGui::Text("Iteration: %d", m_cachedLiveIter);
+                ImGui::Text("Residual: %.2e", m_cachedLiveResidual);
             }
             else
             {
@@ -335,13 +337,10 @@ void MainWindow::renderStatusPanel()
         {
             if (mp_controller->isComputing())
             {
-                int liveIter = 0;
-                double liveResidual = 0.0;
-                mp_controller->getLiveProgress(liveIter, liveResidual);
-                if (liveIter > 0)
+                if (m_cachedLiveIter > 0)
                 {
                     ImGui::SameLine();
-                    ImGui::Text("| Iter: %d | Residual: %.2e", liveIter, liveResidual);
+                    ImGui::Text("| Iter: %d | Residual: %.2e", m_cachedLiveIter, m_cachedLiveResidual);
                 }
             }
             else

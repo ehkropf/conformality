@@ -138,9 +138,11 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
         if (mp_status_manager)
         {
-            std::ostringstream oss;
-            oss << "Newton iteration " << (iter + 1) << ": residual=" << m_current_residual;
-            mp_status_manager->reportInfo("FornbergMC", oss.str());
+            std::ostringstream msg;
+            msg << "Newton iteration " << (iter + 1) << ": residual=" << m_current_residual;
+            std::ostringstream det;
+            det << (iter + 1) << " " << m_current_residual;
+            mp_status_manager->reportInfo("FornbergMC", msg.str(), det.str());
         }
 
         // Boundary redistribution if needed

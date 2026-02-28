@@ -563,3 +563,63 @@ TEST_F(StatusManagerTest, Callback_ClearedSafely)
     EXPECT_NO_THROW(p_statusManager->reportInfo("Test", "After clear"));
     EXPECT_EQ(callCount, 1);
 }
+
+TEST_F(StatusManagerTest, Callback_ReentrantReportDoesNotDeadlock)
+{
+    int callCount = 0;
+    p_statusManager->setStatusCallback([this, &callCount](const StatusMessage&) {
+        ++callCount;
+        if (callCount == 1)
+        {
+            // Re-enter StatusManager from within callback
+            p_statusManager->reportInfo("Reentrant", "From callback");
+        }
+    });
+
+    p_statusManager->reportInfo("Test", "Trigger");
+
+    EXPECT_EQ(callCount, 2);
+    auto messages = p_statusManager->getMessages();
+    EXPECT_EQ(messages.size(), 2u);
+}
+
+TEST_F(StatusManagerTest, Callback_InvokedConcurrentlyFromMultipleWriters)
+{
+    std::atomic<int> callCount{0};
+    p_statusManager->setStatusCallback([&callCount](const StatusMessage&) {
+        ++callCount;
+    });
+
+    const int num_threads = 4;
+    const int messages_per_thread = 50;
+    std::vector<std::thread> threads;
+    for (int t = 0; t < num_threads; ++t)
+    {
+        threads.emplace_back([this, t, messages_per_thread]() {
+            for (int i = 0; i < messages_per_thread; ++i)
+            {
+                p_statusManager->reportInfo("Thread" + std::to_string(t),
+                                            "Msg " + std::to_string(i));
+            }
+        });
+    }
+
+    for (auto& thread : threads) thread.join();
+
+    EXPECT_EQ(callCount.load(), num_threads * messages_per_thread);
+}
+
+TEST_F(StatusManagerTest, Callback_ExceptionDoesNotCrashCaller)
+{
+    p_statusManager->setStatusCallback([](const StatusMessage&) {
+        throw std::runtime_error("callback error");
+    });
+
+    // reportInfo should not propagate the callback's exception
+    EXPECT_NO_THROW(p_statusManager->reportInfo("Test", "Should not crash"));
+
+    // Message should still be stored despite callback failure
+    auto messages = p_statusManager->getMessages();
+    EXPECT_EQ(messages.size(), 1u);
+    EXPECT_EQ(messages[0].message, "Should not crash");
+}

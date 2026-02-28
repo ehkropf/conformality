@@ -48,8 +48,8 @@ private:
     // Live progress from worker thread (protected by m_progressMutex)
     struct ComputationProgress
     {
-        int currentIteration{0};
-        double currentResidual{0.0};
+        int currentIteration{0};    ///< 1-based Newton iteration number (0 = not started)
+        double currentResidual{0.0}; ///< Newton update residual norm
     };
     mutable std::mutex m_progressMutex;
     ComputationProgress m_liveProgress;
@@ -156,8 +156,8 @@ public:
 
     /**
      * @brief Get a snapshot of live computation progress (thread-safe)
-     * @param iteration Output: current iteration number
-     * @param residual Output: current residual value
+     * @param iteration Output: 1-based Newton iteration number (0 if no iteration reported yet)
+     * @param residual Output: current Newton residual (meaningful only when iteration > 0)
      */
     void getLiveProgress(int& iteration, double& residual) const;
 

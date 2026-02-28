@@ -173,6 +173,10 @@ public:
  * This class provides a concrete implementation of the IStatusManager interface,
  * managing status messages with configurable limits and filtering capabilities.
  * Messages are stored in memory with automatic cleanup when limits are exceeded.
+ *
+ * All public methods are thread-safe; concurrent reads and writes are serialized
+ * via an internal mutex. Registered status callbacks are invoked outside the lock
+ * to avoid deadlock when the callback calls back into StatusManager.
  */
 class StatusManager : public IStatusManager
 {
@@ -317,10 +321,12 @@ public:
 
 private:
     /**
-     * @brief Add a message to storage with automatic cleanup
+     * @brief Add a message to storage with automatic cleanup and callback notification
      * @param msg Status message to add
      *
      * If the message count exceeds maxMessages, the oldest message is removed.
+     * If a status callback is registered, it is invoked after releasing the lock.
+     * Callback exceptions are caught and logged, never propagated to the caller.
      */
     void addMessage(const StatusMessage& msg);
 };

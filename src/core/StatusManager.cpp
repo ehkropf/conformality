@@ -247,9 +247,21 @@ void StatusManager::addMessage(const StatusMessage& msg)
         callback_copy = m_statusCallback;
     }
 
-    // Invoke callback outside the lock to avoid deadlock if callback calls back into StatusManager
+    // Invoke callback outside the lock to avoid deadlock if callback calls back into StatusManager.
+    // Wrap in try-catch so a throwing callback cannot crash the caller of reportInfo/reportWarning/etc.
     if (callback_copy)
     {
-        callback_copy(msg);
+        try
+        {
+            callback_copy(msg);
+        }
+        catch (const std::exception& e)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_logOutput != LogOutput::NONE && mp_logger)
+            {
+                mp_logger->error("StatusManager callback threw: {}", e.what());
+            }
+        }
     }
 }
