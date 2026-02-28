@@ -1,6 +1,7 @@
 #include "VisualizationPanel.h"
 #include "../core/ConformalMap.h"
-#include "../numerics/Grid.h"
+#include "../domains/Domain.h"
+#include "../domains/FornbergCanonicalDomain.h"
 #include "imgui.h"
 #include "implot.h"
 #include <cmath>
@@ -8,7 +9,7 @@
 
 VisualizationPanel::VisualizationPanel()
     : m_showGrid{true}
-    , m_showCanonicalDomain{true}
+    , m_showSourceDomain{true}
     , m_showTargetDomain{true}
     , m_gridDensity{8}
     , mp_currentMap{nullptr}
@@ -22,28 +23,31 @@ VisualizationPanel::~VisualizationPanel()
 
 bool VisualizationPanel::initialize()
 {
-    // Generate default unit circle boundary
-    generateCanonicalBoundary();
-    generateCanonicalGrid();
-    
+    // Generate default unit circle as placeholder source boundary
+    BoundaryCurve unitCircle;
+    unitCircle.label = "Unit Circle";
+    int numPoints = 200;
+    for (int i = 0; i <= numPoints; ++i)
+    {
+        double angle = 2.0 * M_PI * i / numPoints;
+        unitCircle.x.push_back(cos(angle));
+        unitCircle.y.push_back(sin(angle));
+    }
+    m_sourceBoundaries.clear();
+    m_sourceBoundaries.push_back(std::move(unitCircle));
+
     return true;
 }
 
 void VisualizationPanel::render()
 {
-    // Split the visualization area into two plots side by side
-    ImVec2 plotSize = ImVec2(-1, -1);
-    plotSize.x = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-    
-    // Canonical domain plot (left side)
-    if (m_showCanonicalDomain)
+    if (m_showSourceDomain)
     {
-        renderCanonicalDomain();
+        renderSourceDomain();
     }
-    
+
     ImGui::SameLine();
-    
-    // Target domain plot (right side)
+
     if (m_showTargetDomain)
     {
         renderTargetDomain();
@@ -53,16 +57,41 @@ void VisualizationPanel::render()
 void VisualizationPanel::shutdown()
 {
     clearGridData();
+    m_sourceBoundaries.clear();
+    m_targetBoundaries.clear();
     mp_currentMap.reset();
 }
 
 void VisualizationPanel::updateMap(std::shared_ptr<ConformalMap> map)
 {
     mp_currentMap = map;
-    
-    // Regenerate visualization data
-    generateSourceBoundary();
-    generateTargetBoundary();
+
+    if (!mp_currentMap)
+    {
+        return;
+    }
+
+    // Generate boundaries from source and target domains
+    auto sourceDomain = mp_currentMap->getSourceDomain();
+    auto targetDomain = mp_currentMap->getTargetDomain();
+
+    if (sourceDomain)
+    {
+        m_sourceBoundaries.clear();
+        generateBoundariesForDomain(sourceDomain, m_sourceBoundaries);
+    }
+
+    if (targetDomain)
+    {
+        m_targetBoundaries.clear();
+        generateBoundariesForDomain(targetDomain, m_targetBoundaries);
+    }
+
+    // Generate grids
+    if (sourceDomain)
+    {
+        generateSourceGrid();
+    }
     if (m_showGrid)
     {
         generateTargetGrid();
@@ -74,240 +103,339 @@ void VisualizationPanel::setGridDensity(int density)
     if (density > 0 && density != m_gridDensity)
     {
         m_gridDensity = density;
-        generateCanonicalGrid();
         if (mp_currentMap)
         {
+            generateSourceGrid();
             generateTargetGrid();
         }
     }
 }
 
-void VisualizationPanel::renderCanonicalDomain()
+// --- Boundary generation ---
+
+void VisualizationPanel::generateBoundariesForDomain(std::shared_ptr<Domain> domain, std::vector<BoundaryCurve>& out)
 {
-    ImVec2 plotSize = ImVec2(-1, -1);
-    plotSize.x = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
-    
-    if (ImPlot::BeginPlot("Source Domain (Unit Circle)", plotSize, ImPlotFlags_Equal))
+    constexpr int numPoints = 200;
+
+    // Try multiply-connected first
+    auto mcDomain = std::dynamic_pointer_cast<MultiplyConnectedDomain>(domain);
+    if (mcDomain)
     {
-        ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-1.5, 1.5, -1.5, 1.5, ImGuiCond_FirstUseEver);
-        
-        // Plot source domain boundary (unit circle)
-        if (!m_canonicalBoundaryX.empty() && !m_canonicalBoundaryY.empty())
+        const auto& boundaries = mcDomain->getBoundaries();
+        for (size_t b = 0; b < boundaries.size(); ++b)
         {
-            ImPlot::PlotLine("Unit Circle", 
-                           m_canonicalBoundaryX.data(), 
-                           m_canonicalBoundaryY.data(), 
-                           static_cast<int>(m_canonicalBoundaryX.size()));
+            auto samples = boundaries[b]->sample(numPoints);
+            for (size_t comp = 0; comp < samples.size(); ++comp)
+            {
+                BoundaryCurve curve;
+                if (b == 0)
+                {
+                    curve.label = "Outer Boundary";
+                }
+                else
+                {
+                    curve.label = "Hole " + std::to_string(b);
+                }
+
+                for (const auto& z : samples[comp])
+                {
+                    curve.x.push_back(z.real());
+                    curve.y.push_back(z.imag());
+                }
+                // Close the curve
+                if (!samples[comp].empty())
+                {
+                    curve.x.push_back(samples[comp].front().real());
+                    curve.y.push_back(samples[comp].front().imag());
+                }
+                out.push_back(std::move(curve));
+            }
         }
-        
-        // Plot conformal grid if enabled
-        if (m_showGrid && !m_canonicalGridX.empty() && !m_canonicalGridY.empty())
+        return;
+    }
+
+    // Try simply-connected
+    auto scDomain = std::dynamic_pointer_cast<SimplyConnectedDomain>(domain);
+    if (scDomain)
+    {
+        auto samples = scDomain->getBoundary().sample(numPoints);
+        for (size_t comp = 0; comp < samples.size(); ++comp)
         {
-            // Plot grid lines in source domain (unit circle)
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            
-            // Plot canonical grid (circles and radials in unit disk)
-            ImPlot::PlotLine("Grid", 
-                           m_canonicalGridX.data(), 
-                           m_canonicalGridY.data(), 
-                           static_cast<int>(m_canonicalGridX.size()));
-            
-            ImPlot::PopStyleColor();
+            BoundaryCurve curve;
+            curve.label = "Boundary";
+
+            for (const auto& z : samples[comp])
+            {
+                curve.x.push_back(z.real());
+                curve.y.push_back(z.imag());
+            }
+            // Close the curve
+            if (!samples[comp].empty())
+            {
+                curve.x.push_back(samples[comp].front().real());
+                curve.y.push_back(samples[comp].front().imag());
+            }
+            out.push_back(std::move(curve));
         }
-        
-        ImPlot::EndPlot();
     }
 }
 
-void VisualizationPanel::renderTargetDomain()
+// --- Bounds and titles ---
+
+BoundingBox VisualizationPanel::computeBounds(const std::vector<BoundaryCurve>& boundaries) const
 {
-    ImVec2 plotSize = ImVec2(-1, -1);
-    plotSize.x = (ImGui::GetContentRegionAvail().x);
-    
-    if (ImPlot::BeginPlot("Target Domain (Starlike)", plotSize, ImPlotFlags_Equal))
+    BoundingBox box{
+        std::numeric_limits<double>::max(),
+        std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::max(),
+        std::numeric_limits<double>::lowest()
+    };
+
+    bool hasData = false;
+    for (const auto& curve : boundaries)
     {
-        ImPlot::SetupAxes("Real", "Imaginary");
-        ImPlot::SetupAxisLimits(ImAxis_X1, -3.0, 3.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, -2.0, 2.0, ImGuiCond_FirstUseEver);
-        ImPlot::SetupAxesLimits(-3.0, 3.0, -2.0, 2.0, ImGuiCond_FirstUseEver);
-        
-        // Plot target domain boundary (starlike)
-        if (!m_targetBoundaryX.empty() && !m_targetBoundaryY.empty())
+        for (size_t i = 0; i < curve.x.size(); ++i)
         {
-            ImPlot::PlotLine("Starlike Boundary", 
-                           m_targetBoundaryX.data(), 
-                           m_targetBoundaryY.data(), 
-                           static_cast<int>(m_targetBoundaryX.size()));
+            double px = curve.x[i];
+            double py = curve.y[i];
+            if (std::isnan(px) || std::isnan(py))
+            {
+                continue;
+            }
+            if (px < box.xMin) box.xMin = px;
+            if (px > box.xMax) box.xMax = px;
+            if (py < box.yMin) box.yMin = py;
+            if (py > box.yMax) box.yMax = py;
+            hasData = true;
         }
-        
-        // Plot mapped conformal grid if enabled and available
-        if (m_showGrid && mp_currentMap && !m_targetGridX.empty() && !m_targetGridY.empty())
-        {
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            
-            // Plot the mapped grid points as scatter plot
-            ImPlot::PlotScatter("Mapped Grid", 
-                              m_targetGridX.data(), 
-                              m_targetGridY.data(), 
-                              static_cast<int>(m_targetGridX.size()));
-            
-            ImPlot::PopStyleColor();
-        }
-        
-        // Show message if no map is loaded
-        if (!mp_currentMap)
-        {
-            ImPlot::PlotText("No mapping computed", 0.0, 0.0);
-        }
-        
-        ImPlot::EndPlot();
     }
+
+    if (!hasData)
+    {
+        box = {-1.5, 1.5, -1.5, 1.5};
+    }
+
+    return box;
 }
 
-void VisualizationPanel::generateCanonicalGrid()
+std::string VisualizationPanel::determinePlotTitle(std::shared_ptr<Domain> domain, bool isSource) const
 {
-    clearGridData();
-    
-    // Generate grid data for the canonical domain (unit circle)
-    // Pre-generate data to avoid doing it every frame in render
-    
-    // We don't actually need to store the grid data since it's generated
-    // algorithmically in renderCanonicalDomain(). The grid visibility
-    // is controlled by m_showGrid flag during rendering.
+    if (!domain)
+    {
+        return isSource ? "Source Domain" : "Target Domain";
+    }
+
+    // Check most specific types first
+    if (std::dynamic_pointer_cast<FornbergCanonicalDomain>(domain))
+    {
+        return "Canonical Domain";
+    }
+    if (std::dynamic_pointer_cast<CircularDomain>(domain))
+    {
+        return isSource ? "Source Domain (Circle)" : "Target Domain (Circle)";
+    }
+    if (auto starlike = std::dynamic_pointer_cast<StarlikeDomain>(domain))
+    {
+        return isSource ? "Source Domain (Starlike)" : "Target Domain (Starlike)";
+    }
+    if (std::dynamic_pointer_cast<MultiplyConnectedDomain>(domain))
+    {
+        return isSource ? "Source Domain (MC)" : "Target Domain (MC)";
+    }
+
+    return isSource ? "Source Domain" : "Target Domain";
 }
 
-void VisualizationPanel::generateTargetGrid()
+// --- Grid generation ---
+
+void VisualizationPanel::generateSourceGrid()
 {
+    m_sourceGridLines.clear();
+
     if (!mp_currentMap)
     {
         return;
     }
 
-    m_targetGridX.clear();
-    m_targetGridY.clear();
-
-    // Generate mapped grid points by evaluating the conformal map
-    // at grid points in the source domain (ellipse)
-
     auto sourceDomain = mp_currentMap->getSourceDomain();
-    auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
-    if (!starlikeDomain)
+    if (!sourceDomain)
     {
         return;
     }
 
-    Complex center = starlikeDomain->getCenter();
-    int pointsPerLine = 50;
+    // For StarlikeDomain, generate polar grid (radials + contours) — matches old behavior
+    auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
+    if (starlikeDomain)
+    {
+        Complex center = starlikeDomain->getCenter();
+        int pointsPerLine = 100;
+
+        // Radial lines
+        for (int i = 0; i < m_gridDensity; ++i)
+        {
+            double angle = 2.0 * M_PI * i / m_gridDensity;
+            double maxRadius = starlikeDomain->getRadius(angle);
+
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double r = static_cast<double>(j) / pointsPerLine * maxRadius;
+                Complex z = center + Complex(r * cos(angle), r * sin(angle));
+                line.x.push_back(z.real());
+                line.y.push_back(z.imag());
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+
+        // Contour lines (scaled boundary curves)
+        int numContours = m_gridDensity / 2;
+        for (int i = 1; i < numContours; ++i)
+        {
+            double scale = static_cast<double>(i) / numContours;
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double angle = 2.0 * M_PI * j / pointsPerLine;
+                double radius = starlikeDomain->getRadius(angle) * scale;
+                Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
+                line.x.push_back(z.real());
+                line.y.push_back(z.imag());
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+        return;
+    }
+
+    // For any domain (including MC), generate Cartesian grid with contains() filtering
+    BoundingBox bounds = computeBounds(m_sourceBoundaries);
+    double marginX = (bounds.xMax - bounds.xMin) * 0.05;
+    double marginY = (bounds.yMax - bounds.yMin) * 0.05;
+    double xMin = bounds.xMin - marginX;
+    double xMax = bounds.xMax + marginX;
+    double yMin = bounds.yMin - marginY;
+    double yMax = bounds.yMax + marginY;
+
+    int pointsPerLine = 100;
+
+    // Horizontal lines
+    for (int i = 0; i < m_gridDensity; ++i)
+    {
+        double y = yMin + (yMax - yMin) * (i + 0.5) / m_gridDensity;
+        GridLine line;
+        for (int j = 0; j <= pointsPerLine; ++j)
+        {
+            double x = xMin + (xMax - xMin) * static_cast<double>(j) / pointsPerLine;
+            Complex z(x, y);
+            if (sourceDomain->contains(z))
+            {
+                line.x.push_back(x);
+                line.y.push_back(y);
+            }
+            else
+            {
+                line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+            }
+        }
+        m_sourceGridLines.push_back(std::move(line));
+    }
+
+    // Vertical lines
+    for (int i = 0; i < m_gridDensity; ++i)
+    {
+        double x = xMin + (xMax - xMin) * (i + 0.5) / m_gridDensity;
+        GridLine line;
+        for (int j = 0; j <= pointsPerLine; ++j)
+        {
+            double y = yMin + (yMax - yMin) * static_cast<double>(j) / pointsPerLine;
+            Complex z(x, y);
+            if (sourceDomain->contains(z))
+            {
+                line.x.push_back(x);
+                line.y.push_back(y);
+            }
+            else
+            {
+                line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+            }
+        }
+        m_sourceGridLines.push_back(std::move(line));
+    }
+}
+
+void VisualizationPanel::generateTargetGrid()
+{
+    m_targetGridLines.clear();
+
+    if (!mp_currentMap)
+    {
+        return;
+    }
 
     int totalPoints = 0;
     int failedPoints = 0;
     bool firstFailureLogged = false;
 
-    // Map radial lines from ellipse center to boundary
-    for (int i = 0; i < m_gridDensity; ++i)
+    for (const auto& sourceLine : m_sourceGridLines)
     {
-        double angle = 2.0 * M_PI * i / m_gridDensity;
-        double maxRadius = starlikeDomain->getRadius(angle);
-
-        for (int j = 1; j <= pointsPerLine; ++j) // Skip center point
+        GridLine targetLine;
+        for (size_t i = 0; i < sourceLine.x.size(); ++i)
         {
+            double sx = sourceLine.x[i];
+            double sy = sourceLine.y[i];
+
+            if (std::isnan(sx) || std::isnan(sy))
+            {
+                targetLine.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                targetLine.y.push_back(std::numeric_limits<double>::quiet_NaN());
+                continue;
+            }
+
             ++totalPoints;
-            double r = static_cast<double>(j) / pointsPerLine * maxRadius;
-            Complex z = center + Complex(r * cos(angle), r * sin(angle));
+            Complex z(sx, sy);
 
             try
             {
                 Complex w = mp_currentMap->map(z);
-                m_targetGridX.push_back(w.real());
-                m_targetGridY.push_back(w.imag());
+                targetLine.x.push_back(w.real());
+                targetLine.y.push_back(w.imag());
             }
             catch (const std::invalid_argument& e)
             {
                 ++failedPoints;
+                targetLine.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                targetLine.y.push_back(std::numeric_limits<double>::quiet_NaN());
                 if (!firstFailureLogged)
                 {
-                    spdlog::warn("Grid radial map evaluation configuration error: {}", e.what());
+                    spdlog::warn("Grid map evaluation configuration error: {}", e.what());
                     firstFailureLogged = true;
                 }
             }
             catch (const std::runtime_error& e)
             {
                 ++failedPoints;
+                targetLine.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                targetLine.y.push_back(std::numeric_limits<double>::quiet_NaN());
                 if (!firstFailureLogged)
                 {
-                    spdlog::debug("Grid radial map evaluation failed at z=({}, {}): {}",
-                                  z.real(), z.imag(), e.what());
+                    spdlog::debug("Grid map evaluation failed at z=({}, {}): {}", z.real(), z.imag(), e.what());
                     firstFailureLogged = true;
                 }
             }
             catch (...)
             {
                 ++failedPoints;
+                targetLine.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                targetLine.y.push_back(std::numeric_limits<double>::quiet_NaN());
                 if (!firstFailureLogged)
                 {
-                    spdlog::warn("Grid radial map evaluation: unknown error at z=({}, {})",
-                                 z.real(), z.imag());
+                    spdlog::warn("Grid map evaluation: unknown error at z=({}, {})", z.real(), z.imag());
                     firstFailureLogged = true;
                 }
             }
         }
-    }
-
-    // Reset so contour loop logs its own first failure independently
-    firstFailureLogged = false;
-
-    // Map elliptical contour lines (scaled ellipses)
-    int numContours = m_gridDensity / 2;
-    for (int i = 1; i < numContours; ++i)
-    {
-        double scale = static_cast<double>(i) / numContours;
-
-        for (int j = 0; j <= 100; ++j)
-        {
-            ++totalPoints;
-            double angle = 2.0 * M_PI * j / 100;
-            double radius = starlikeDomain->getRadius(angle) * scale;
-            Complex z = center + Complex(radius * cos(angle), radius * sin(angle));
-
-            try
-            {
-                Complex w = mp_currentMap->map(z);
-                m_targetGridX.push_back(w.real());
-                m_targetGridY.push_back(w.imag());
-            }
-            catch (const std::invalid_argument& e)
-            {
-                ++failedPoints;
-                if (!firstFailureLogged)
-                {
-                    spdlog::warn("Grid contour map evaluation configuration error: {}", e.what());
-                    firstFailureLogged = true;
-                }
-            }
-            catch (const std::runtime_error& e)
-            {
-                ++failedPoints;
-                if (!firstFailureLogged)
-                {
-                    spdlog::debug("Grid contour map evaluation failed at z=({}, {}): {}",
-                                  z.real(), z.imag(), e.what());
-                    firstFailureLogged = true;
-                }
-            }
-            catch (...)
-            {
-                ++failedPoints;
-                if (!firstFailureLogged)
-                {
-                    spdlog::warn("Grid contour map evaluation: unknown error at z=({}, {})",
-                                 z.real(), z.imag());
-                    firstFailureLogged = true;
-                }
-            }
-        }
+        m_targetGridLines.push_back(std::move(targetLine));
     }
 
     if (totalPoints > 0 && failedPoints > 0)
@@ -320,86 +448,127 @@ void VisualizationPanel::generateTargetGrid()
         }
         else
         {
-            spdlog::debug("Grid generation: {}/{} points failed map evaluation",
-                          failedPoints, totalPoints);
+            spdlog::debug("Grid generation: {}/{} points failed map evaluation", failedPoints, totalPoints);
         }
     }
 }
 
-void VisualizationPanel::generateCanonicalBoundary()
+// --- Rendering ---
+
+void VisualizationPanel::renderSourceDomain()
 {
-    m_canonicalBoundaryX.clear();
-    m_canonicalBoundaryY.clear();
-    
-    // Generate unit circle boundary
-    int numPoints = 200;
-    for (int i = 0; i <= numPoints; ++i)
+    ImVec2 plotSize = ImVec2(-1, -1);
+    plotSize.x = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+
+    std::string title = "Source Domain";
+    if (mp_currentMap && mp_currentMap->getSourceDomain())
     {
-        double angle = 2.0 * M_PI * i / numPoints;
-        m_canonicalBoundaryX.push_back(cos(angle));
-        m_canonicalBoundaryY.push_back(sin(angle));
+        title = determinePlotTitle(mp_currentMap->getSourceDomain(), true);
+    }
+
+    if (ImPlot::BeginPlot(title.c_str(), plotSize, ImPlotFlags_Equal))
+    {
+        ImPlot::SetupAxes("Real", "Imaginary");
+
+        BoundingBox bounds = computeBounds(m_sourceBoundaries);
+        double rangeX = bounds.xMax - bounds.xMin;
+        double rangeY = bounds.yMax - bounds.yMin;
+        double margin = std::max(rangeX, rangeY) * 0.15;
+        ImPlot::SetupAxesLimits(bounds.xMin - margin, bounds.xMax + margin,
+                                bounds.yMin - margin, bounds.yMax + margin,
+                                ImGuiCond_FirstUseEver);
+
+        // Plot boundary curves
+        for (const auto& curve : m_sourceBoundaries)
+        {
+            if (!curve.x.empty())
+            {
+                ImPlot::PlotLine(curve.label.c_str(),
+                                 curve.x.data(), curve.y.data(),
+                                 static_cast<int>(curve.x.size()));
+            }
+        }
+
+        // Plot grid lines (hidden from legend)
+        if (m_showGrid && !m_sourceGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            for (const auto& line : m_sourceGridLines)
+            {
+                if (!line.x.empty())
+                {
+                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
+                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
+                }
+            }
+            ImPlot::PopStyleColor();
+        }
+
+        ImPlot::EndPlot();
     }
 }
 
-void VisualizationPanel::generateSourceBoundary()
+void VisualizationPanel::renderTargetDomain()
 {
-    if (!mp_currentMap)
-    {
-        return;
-    }
-    
-    m_sourceBoundaryX.clear();
-    m_sourceBoundaryY.clear();
-    
-    // Generate source domain boundary from source domain
-    auto sourceDomain = mp_currentMap->getSourceDomain();
-    if (!sourceDomain)
-    {
-        return;
-    }
-    
-    // Sample boundary points using domain's getRadius method
-    auto starlikeDomain = std::dynamic_pointer_cast<StarlikeDomain>(sourceDomain);
-    if (!starlikeDomain)
-    {
-        return;
-    }
-    
-    Complex center = starlikeDomain->getCenter();
-    int numPoints = 200;
-    for (int i = 0; i <= numPoints; ++i)
-    {
-        double angle = 2.0 * M_PI * i / numPoints;
-        double radius = starlikeDomain->getRadius(angle);
-        
-        Complex boundary_point = center + Complex(radius, 0.0) * Complex(cos(angle), sin(angle));
-        m_sourceBoundaryX.push_back(boundary_point.real());
-        m_sourceBoundaryY.push_back(boundary_point.imag());
-    }
-}
+    ImVec2 plotSize = ImVec2(-1, -1);
+    plotSize.x = ImGui::GetContentRegionAvail().x;
 
-void VisualizationPanel::generateTargetBoundary()
-{
-    m_targetBoundaryX.clear();
-    m_targetBoundaryY.clear();
-    
-    // For Theodorsen method, target is always unit circle
-    int numPoints = 200;
-    for (int i = 0; i <= numPoints; ++i)
+    std::string title = "Target Domain";
+    if (mp_currentMap && mp_currentMap->getTargetDomain())
     {
-        double angle = 2.0 * M_PI * i / numPoints;
-        m_targetBoundaryX.push_back(cos(angle));
-        m_targetBoundaryY.push_back(sin(angle));
+        title = determinePlotTitle(mp_currentMap->getTargetDomain(), false);
+    }
+
+    if (ImPlot::BeginPlot(title.c_str(), plotSize, ImPlotFlags_Equal))
+    {
+        ImPlot::SetupAxes("Real", "Imaginary");
+
+        BoundingBox bounds = computeBounds(m_targetBoundaries);
+        double rangeX = bounds.xMax - bounds.xMin;
+        double rangeY = bounds.yMax - bounds.yMin;
+        double margin = std::max(rangeX, rangeY) * 0.15;
+        ImPlot::SetupAxesLimits(bounds.xMin - margin, bounds.xMax + margin,
+                                bounds.yMin - margin, bounds.yMax + margin,
+                                ImGuiCond_FirstUseEver);
+
+        // Plot boundary curves
+        for (const auto& curve : m_targetBoundaries)
+        {
+            if (!curve.x.empty())
+            {
+                ImPlot::PlotLine(curve.label.c_str(),
+                                 curve.x.data(), curve.y.data(),
+                                 static_cast<int>(curve.x.size()));
+            }
+        }
+
+        // Plot mapped grid lines (hidden from legend)
+        if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            for (const auto& line : m_targetGridLines)
+            {
+                if (!line.x.empty())
+                {
+                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
+                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
+                }
+            }
+            ImPlot::PopStyleColor();
+        }
+
+        // Show message if no map is loaded
+        if (!mp_currentMap)
+        {
+            ImPlot::PlotText("No mapping computed", 0.0, 0.0);
+        }
+
+        ImPlot::EndPlot();
     }
 }
 
 void VisualizationPanel::clearGridData()
 {
-    m_canonicalGridX.clear();
-    m_canonicalGridY.clear();
-    m_targetGridX.clear();
-    m_targetGridY.clear();
-    
-    // Note: Don't clear boundary data here - it should persist
-    // Boundary data is managed separately in generate*Boundary() methods
+    m_sourceGridLines.clear();
+    m_targetGridLines.clear();
 }
