@@ -211,12 +211,6 @@ void GuiController::getLiveProgress(int& iteration, double& residual) const
 
 void GuiController::computeInBackground()
 {
-    // Reset live progress
-    {
-        std::lock_guard<std::mutex> lock(m_progressMutex);
-        m_liveProgress = ComputationProgress{};
-    }
-
     try
     {
         // Wire cancellation check into FornbergMC if applicable
@@ -248,7 +242,7 @@ void GuiController::computeInBackground()
                             auto iter_str = msg.message.substr(17, colon_pos - 17);
                             m_liveProgress.currentIteration = std::stoi(iter_str);
                         }
-                        catch (...) {}
+                        catch (const std::exception&) {}
                     }
                     if (eq_pos != std::string::npos)
                     {
@@ -256,7 +250,7 @@ void GuiController::computeInBackground()
                         {
                             m_liveProgress.currentResidual = std::stod(msg.message.substr(eq_pos + 9));
                         }
-                        catch (...) {}
+                        catch (const std::exception&) {}
                     }
                 }
             });
