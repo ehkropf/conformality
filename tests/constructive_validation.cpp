@@ -968,9 +968,10 @@ protected:
 TEST_F(Thesis3DiagnosticTest, Iteration1MatchesOctaveState)
 {
     // Octave reference values (from thesis3_iteration_debug.m at N=256):
-    // Iteration 1: CG converges in 36 iterations, normU = 0.1
+    // Iteration 1: normU = 0.1
     // After iteration 1: c = [-0.5; 0.25+0.43i; 0.25-0.43i], rho = [0.25; 0.25; 0.25]
-    // (identity map converges in 1 iteration since all boundaries are circles)
+    // (identity map for circles: first iteration corrects the offset initial guesses,
+    //  second iteration confirms convergence at ~1e-14)
     FornbergMC method(config);
     method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
@@ -1027,8 +1028,8 @@ TEST_F(Thesis3DiagnosticTest, Iteration1MatchesOctaveState)
 
 TEST_F(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues)
 {
-    // This test catches the GH-92 bug: iteration 2's D/g contain inf values
-    // in C++, but Octave produces finite values with max|D2| = 256, max|g2| ~ 4.5e-14
+    // Regression test for GH-92: before the fix, iteration 2's D/g contained inf values
+    // in C++. Octave reference: max|D2| = 256, max|g2| ~ 4.5e-14 (all finite).
     FornbergMC method(config);
     method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;
@@ -1047,7 +1048,7 @@ TEST_F(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues)
     // --- Iteration 2 ---
     method.formSystem();
 
-    // Octave: D2 max abs = 256, g2 max abs ~ 4.5e-14, no inf/nan
+    // Verify D and g are finite (GH-92 regression point)
     double D_max = 0.0;
     for (int i = 0; i < method.m_D.rows(); ++i)
     {
@@ -1084,7 +1085,7 @@ TEST_F(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues)
 
 TEST_F(Thesis3DiagnosticTest, FullNewtonConvergenceN256)
 {
-    // Full convergence test at N=256 (the thesis3 case that hangs in CLI/GUI)
+    // Full convergence test at N=256 (thesis3 case that hung in CLI/GUI before GH-92 fix)
     FornbergMC method(config);
     method.setStatusManager(std::make_shared<StatusManager>());
     method.mp_user_domain = domain;

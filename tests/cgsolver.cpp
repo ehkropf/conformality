@@ -276,7 +276,7 @@ TEST_F(CGSolverTest, EarlyExitOnNonFiniteMatVecProduct)
 
     int n = 10;
     Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
-    // Matrix-vector product that returns inf on the first call
+    // Matrix-vector product that always returns a vector with inf in position 0
     auto bad_function = [](const Eigen::VectorXd& x) {
         Eigen::VectorXd result = x;
         result(0) = std::numeric_limits<double>::infinity();
@@ -286,4 +286,47 @@ TEST_F(CGSolverTest, EarlyExitOnNonFiniteMatVecProduct)
     solver.solve(bad_function, b);
     // Should not converge, and should not run the full max_cgm_iterations
     EXPECT_FALSE(solver.hasConverged());
+    EXPECT_LT(solver.getLastConvergenceInfo().iterations, config.max_cgm_iterations);
+}
+
+TEST_F(CGSolverTest, ThrowsOnInfRHSWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(0) = std::numeric_limits<double>::infinity();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    EXPECT_THROW(solver.solve(identity_function, b), std::runtime_error);
+}
+
+TEST_F(CGSolverTest, ThrowsOnNanRHSWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(3) = std::numeric_limits<double>::quiet_NaN();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    EXPECT_THROW(solver.solve(identity_function, b), std::runtime_error);
+}
+
+TEST_F(CGSolverTest, ThrowsOnNonFiniteMatVecProductWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto bad_function = [](const Eigen::VectorXd& x) {
+        Eigen::VectorXd result = x;
+        result(0) = std::numeric_limits<double>::infinity();
+        return result;
+    };
+
+    EXPECT_THROW(solver.solve(bad_function, b), std::runtime_error);
 }

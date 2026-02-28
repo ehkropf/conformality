@@ -164,13 +164,17 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         return Eigen::VectorXd::Zero(n);
     }
 
-    // Early exit on non-finite RHS (prevents infinite CG loop)
+    // Early exit on non-finite RHS (avoids running all CG iterations with NaN/inf propagation)
     if (!std::isfinite(b_norm))
     {
+        std::string msg = "Non-finite RHS norm detected (" + std::to_string(b_norm) + "). Aborting CG.";
         if (mp_statusManager)
         {
-            mp_statusManager->reportWarning("CGSolver",
-                "Non-finite RHS norm detected (" + std::to_string(b_norm) + "). Aborting CG.");
+            mp_statusManager->reportWarning("CGSolver", msg);
+        }
+        else
+        {
+            throw std::runtime_error("CGSolver: " + msg);
         }
         info.converged = false;
         info.iterations = 0;
@@ -190,12 +194,16 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     // Early exit on non-finite initial residual
     if (!std::isfinite(initial_residual))
     {
+        std::ostringstream oss;
+        oss << std::scientific << std::setprecision(6);
+        oss << "Non-finite initial residual (" << initial_residual << "). Aborting CG.";
         if (mp_statusManager)
         {
-            std::ostringstream oss;
-            oss << std::scientific << std::setprecision(6);
-            oss << "Non-finite initial residual (" << initial_residual << "). Aborting CG.";
             mp_statusManager->reportWarning("CGSolver", oss.str());
+        }
+        else
+        {
+            throw std::runtime_error("CGSolver: " + oss.str());
         }
         info.converged = false;
         info.iterations = 0;
@@ -253,17 +261,26 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         double current_residual = std::sqrt(rsnew);
         double relative_residual = current_residual / b_norm;
 
-        // Break on non-finite residual (NaN/inf cascade)
+        // Early exit on non-finite residual (NaN/inf cascade)
         if (!std::isfinite(current_residual))
         {
+            std::ostringstream oss;
+            oss << std::scientific << std::setprecision(6);
+            oss << "Non-finite residual at iteration " << iter << ": " << current_residual;
             if (mp_statusManager)
             {
-                std::ostringstream oss;
-                oss << std::scientific << std::setprecision(6);
-                oss << "Non-finite residual at iteration " << iter << ": " << current_residual;
                 mp_statusManager->reportWarning("CGSolver", oss.str());
             }
-            break;
+            else
+            {
+                throw std::runtime_error("CGSolver: " + oss.str());
+            }
+            info.converged = false;
+            info.iterations = iter + 1;
+            info.final_residual = current_residual;
+            info.relative_residual = std::numeric_limits<double>::infinity();
+            info.used_best_iterate = false;
+            return x;
         }
 
         info.residual_history.push_back(current_residual);

@@ -7,7 +7,7 @@
 %   - Initial state (S, c, rho)
 %   - After formSystem (D, g, abs_eta) for iterations 1 and 2
 %   - After solveSystem (U) for iterations 1 and 2
-%   - After newtonUpdate (S, c, rho, normU) for iteration 1
+%   - After newtonUpdate (S, c, rho, normU) for iterations 1 and 2
 %
 % Run: octave --no-gui tests/reference_data/octave/thesis3_iteration_debug.m
 

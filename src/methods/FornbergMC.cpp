@@ -71,8 +71,9 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
     m_connectivity = mp_user_domain->getConnectivity();
 
-    // Use source domain as canonical domain if it's already a FornbergCanonicalDomain
-    // (this is the case when the caller provides manual initial guesses via ConformalMap)
+    // Use source domain as canonical domain if it's already a FornbergCanonicalDomain.
+    // This preserves caller-provided initial guesses; the GEOMETRIC_CENTROIDS fallback
+    // can produce poor initial guesses that cause Newton divergence (GH-92).
     auto source_domain = map_instance.getSourceDomain();
     mp_canonical_domain = std::dynamic_pointer_cast<FornbergCanonicalDomain>(source_domain);
 
@@ -147,7 +148,7 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
         formSystem();
         solveSystem();
 
-        // Fail-fast: check for degenerate solution before applying Newton update
+        // Fail-fast: check for non-finite values in CG solution before applying Newton update
         double u_inf_norm = m_U.lpNorm<Eigen::Infinity>();
         if (!std::isfinite(u_inf_norm))
         {
