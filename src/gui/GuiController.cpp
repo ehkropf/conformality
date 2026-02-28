@@ -213,14 +213,15 @@ void GuiController::computeInBackground()
 {
     try
     {
-        // Wire cancellation check into FornbergMC if applicable
-        auto fm = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
-        if (fm)
+        // Wire cancellation check into the method
+        auto method = mp_currentMap->getMethod();
+        if (method)
         {
-            fm->setCancellationCheck([this]() { return m_cancelRequested.load(); });
+            method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
         }
 
         // Wire StatusManager callback for live progress updates
+        auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
         auto status_manager = fm ? std::dynamic_pointer_cast<StatusManager>(fm->getStatusManager()) : nullptr;
         if (status_manager)
         {
@@ -283,10 +284,14 @@ void GuiController::computeInBackground()
     }
 
     // Clear cancellation check and StatusManager callback to avoid dangling references
-    auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
+    auto method_cleanup = mp_currentMap->getMethod();
+    if (method_cleanup)
+    {
+        method_cleanup->setCancellationCheck(nullptr);
+    }
+    auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(method_cleanup);
     if (fm_cleanup)
     {
-        fm_cleanup->setCancellationCheck(nullptr);
         auto sm = std::dynamic_pointer_cast<StatusManager>(fm_cleanup->getStatusManager());
         if (sm)
         {
