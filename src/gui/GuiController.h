@@ -45,6 +45,16 @@ private:
     std::mutex m_messageQueueMutex;
     std::deque<std::string> m_messageQueue;
 
+    // Live progress from worker thread (protected by m_progressMutex)
+    struct ComputationProgress
+    {
+        int currentIteration{0};
+        double currentResidual{0.0};
+        std::string statusText;
+    };
+    mutable std::mutex m_progressMutex;
+    ComputationProgress m_liveProgress;
+
     // Computation results (written by worker thread before m_isComputing goes false)
     bool m_lastComputationSuccessful{false};
     double m_lastConvergenceError{0.0};
@@ -144,6 +154,13 @@ public:
      * @return true if computing
      */
     bool isComputing() const { return m_isComputing.load(); }
+
+    /**
+     * @brief Get a snapshot of live computation progress (thread-safe)
+     * @param iteration Output: current iteration number
+     * @param residual Output: current residual value
+     */
+    void getLiveProgress(int& iteration, double& residual) const;
 
     /**
      * @brief Check if last computation was successful

@@ -151,11 +151,13 @@ void StatusManager::reportError(const std::string& component, const std::string&
 
 std::vector<StatusMessage> StatusManager::getMessages() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return m_messages;
 }
 
 std::vector<StatusMessage> StatusManager::getMessages(StatusLevel level) const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<StatusMessage> filteredMessages;
     std::copy_if(m_messages.begin(), m_messages.end(), std::back_inserter(filteredMessages),
                  [level](const StatusMessage& msg) { return msg.level == level; });
@@ -164,6 +166,7 @@ std::vector<StatusMessage> StatusManager::getMessages(StatusLevel level) const
 
 std::vector<StatusMessage> StatusManager::getMessagesAtOrAbove(StatusLevel minLevel) const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<StatusMessage> filteredMessages;
     std::copy_if(m_messages.begin(), m_messages.end(), std::back_inserter(filteredMessages),
                  [minLevel](const StatusMessage& msg) { return msg.level >= minLevel; });
@@ -172,17 +175,20 @@ std::vector<StatusMessage> StatusManager::getMessagesAtOrAbove(StatusLevel minLe
 
 void StatusManager::clearMessages()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_messages.clear();
 }
 
 bool StatusManager::hasWarnings() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return std::any_of(m_messages.begin(), m_messages.end(),
                        [](const StatusMessage& msg) { return msg.level == StatusLevel::WARNING; });
 }
 
 bool StatusManager::hasErrors() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return std::any_of(m_messages.begin(), m_messages.end(),
                        [](const StatusMessage& msg) { return msg.level == StatusLevel::ERROR; });
 }
@@ -195,8 +201,15 @@ void StatusManager::flush()
     }
 }
 
+void StatusManager::setStatusCallback(StatusCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_statusCallback = std::move(callback);
+}
+
 void StatusManager::addMessage(const StatusMessage& msg)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_messages.push_back(msg);
 
     if (m_messages.size() > m_maxMessages)
@@ -213,5 +226,11 @@ void StatusManager::addMessage(const StatusMessage& msg)
             logMsg += " | " + msg.details;
         }
         mp_logger->log(toSpdlogLevel(msg.level), logMsg);
+    }
+
+    // Invoke callback if set
+    if (m_statusCallback)
+    {
+        m_statusCallback(msg);
     }
 }
