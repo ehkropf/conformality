@@ -5,6 +5,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include <cmath>
+#include <limits>
 #include <spdlog/spdlog.h>
 
 VisualizationPanel::VisualizationPanel()
@@ -234,7 +235,7 @@ std::string VisualizationPanel::determinePlotTitle(std::shared_ptr<Domain> domai
     {
         return isSource ? "Source Domain (Circle)" : "Target Domain (Circle)";
     }
-    if (auto starlike = std::dynamic_pointer_cast<StarlikeDomain>(domain))
+    if (std::dynamic_pointer_cast<StarlikeDomain>(domain))
     {
         return isSource ? "Source Domain (Starlike)" : "Target Domain (Starlike)";
     }

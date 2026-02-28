@@ -1,15 +1,12 @@
 #pragma once
 
 #include "../core/Types.h"
-#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
 
 class ConformalMap;
 class Domain;
-class MultiplyConnectedDomain;
-class SimplyConnectedDomain;
 
 struct BoundaryCurve
 {
