@@ -103,6 +103,11 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(ConstructiveFourierProperties, IdentityM4OuterCoefficientIsUnity);
     FRIEND_TEST(ConstructiveFourierProperties, AnnulusFourierCoefficientDecay);
     FRIEND_TEST(ConstructiveFourierProperties, GeneralM3FourierCoefficientDecay);
+
+    // GH-92 diagnostic tests (tests/constructive_validation.cpp)
+    FRIEND_TEST(Thesis3DiagnosticTest, Iteration1MatchesOctaveState);
+    FRIEND_TEST(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues);
+    FRIEND_TEST(Thesis3DiagnosticTest, FullNewtonConvergenceN256);
 #endif
 
 private:

@@ -930,3 +930,190 @@ TEST_F(ConstructiveFourierProperties, GeneralM3FourierCoefficientDecay)
             << ") should decay relative to dominant (" << dominant << ")";
     }
 }
+
+// ============================================================================
+// GH-92: Thesis3 N=256 Iteration Divergence Diagnostic
+// ============================================================================
+
+class Thesis3DiagnosticTest : public ::testing::Test
+{
+protected:
+    FornbergMCConfiguration config;
+    std::shared_ptr<MultiplyConnectedDomain> domain;
+    std::vector<Complex> initial_centers;
+    std::vector<double> initial_radii;
+
+    void SetUp() override
+    {
+        config.N = 256;
+        config.max_newton_iterations = 20;
+        config.newton_tolerance = 1e-14;
+        config.cgm_tolerance = 1e-15;
+        config.max_cgm_iterations = 100;
+        config.verbose = false;
+
+        auto outer = createCircularBoundary(Complex(0, 0), 1.0);
+        auto inner1 = createCircularBoundary(Complex(-0.5, 0.0), 0.25);
+        auto inner2 = createCircularBoundary(Complex(0.25, 0.43), 0.25);
+        auto inner3 = createCircularBoundary(Complex(0.25, -0.43), 0.25);
+        domain = std::make_shared<MultiplyConnectedDomain>(
+            std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2, inner3}
+        );
+
+        initial_centers = {Complex(-0.4, 0.0), Complex(0.35, 0.43), Complex(0.35, -0.43)};
+        initial_radii = {0.25, 0.25, 0.25};
+    }
+};
+
+TEST_F(Thesis3DiagnosticTest, Iteration1MatchesOctaveState)
+{
+    // Octave reference values (from thesis3_iteration_debug.m at N=256):
+    // Iteration 1: CG converges in 36 iterations, normU = 0.1
+    // After iteration 1: c = [-0.5; 0.25+0.43i; 0.25-0.43i], rho = [0.25; 0.25; 0.25]
+    // (identity map converges in 1 iteration since all boundaries are circles)
+    FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
+    method.mp_user_domain = domain;
+    method.m_connectivity = 4;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        initial_centers, initial_radii, config.N
+    );
+    method.initializeNewtonIteration();
+
+    // --- Iteration 1 ---
+    method.formSystem();
+
+    // Verify D matrix and g vector are finite after iteration 1
+    ASSERT_TRUE(method.m_D.allFinite())
+        << "D matrix has non-finite values after iteration 1 formSystem";
+    ASSERT_TRUE(method.m_g.allFinite())
+        << "g vector has non-finite values after iteration 1 formSystem";
+
+    method.solveSystem();
+
+    // Verify solution is finite
+    ASSERT_TRUE(method.m_U.allFinite())
+        << "U vector has non-finite values after iteration 1 solveSystem";
+
+    method.newtonUpdate();
+
+    // Octave: normU for iteration 1 = 1.0e-01
+    EXPECT_NEAR(method.m_current_residual, 0.1, 1e-3)
+        << "Iteration 1 residual should be ~0.1 (matching Octave)";
+
+    // After iteration 1, the moduli should be very close to target values
+    // (identity map for circles: c -> actual centers, rho -> actual radii)
+    const std::vector<Complex> target_centers = {
+        Complex(-0.5, 0.0), Complex(0.25, 0.43), Complex(0.25, -0.43)};
+    const std::vector<double> target_radii = {0.25, 0.25, 0.25};
+
+    for (int i = 0; i < 3; ++i)
+    {
+        Complex c_val = method.m_conformal_moduli(2 * i);
+        double rho_val = std::real(method.m_conformal_moduli(2 * i + 1));
+        EXPECT_NEAR(std::abs(c_val - target_centers[i]), 0.0, 1e-6)
+            << "After iter 1: c[" << i << "] = " << c_val
+            << ", expected " << target_centers[i];
+        EXPECT_NEAR(rho_val, target_radii[i], 1e-6)
+            << "After iter 1: rho[" << i << "] = " << rho_val
+            << ", expected " << target_radii[i];
+    }
+
+    // Verify S values are finite and in reasonable range
+    ASSERT_TRUE(method.m_S.allFinite())
+        << "S matrix has non-finite values after iteration 1";
+}
+
+TEST_F(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues)
+{
+    // This test catches the GH-92 bug: iteration 2's D/g contain inf values
+    // in C++, but Octave produces finite values with max|D2| = 256, max|g2| ~ 4.5e-14
+    FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
+    method.mp_user_domain = domain;
+    method.m_connectivity = 4;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        initial_centers, initial_radii, config.N
+    );
+    method.initializeNewtonIteration();
+
+    // Run iteration 1
+    method.formSystem();
+    method.solveSystem();
+    method.newtonUpdate();
+
+    // --- Iteration 2 ---
+    method.formSystem();
+
+    // Octave: D2 max abs = 256, g2 max abs ~ 4.5e-14, no inf/nan
+    double D_max = 0.0;
+    for (int i = 0; i < method.m_D.rows(); ++i)
+    {
+        for (int j = 0; j < method.m_D.cols(); ++j)
+        {
+            D_max = std::max(D_max, std::abs(method.m_D(i, j)));
+        }
+    }
+    double g_max = 0.0;
+    for (int i = 0; i < method.m_g.size(); ++i)
+    {
+        g_max = std::max(g_max, std::abs(method.m_g(i)));
+    }
+
+    EXPECT_TRUE(method.m_D.allFinite())
+        << "GH-92: D matrix has non-finite values in iteration 2. max|D| = " << D_max;
+    EXPECT_TRUE(method.m_g.allFinite())
+        << "GH-92: g vector has non-finite values in iteration 2. max|g| = " << g_max;
+
+    // If D is finite, verify the solve also works
+    if (method.m_D.allFinite() && method.m_g.allFinite())
+    {
+        method.solveSystem();
+        EXPECT_TRUE(method.m_U.allFinite())
+            << "GH-92: U vector has non-finite values in iteration 2 solve";
+
+        method.newtonUpdate();
+
+        // Octave: iteration 2 normU = 1.354e-14 (converged)
+        EXPECT_LT(method.m_current_residual, 1e-10)
+            << "Iteration 2 should have near-zero residual (Octave: 1.35e-14)";
+    }
+}
+
+TEST_F(Thesis3DiagnosticTest, FullNewtonConvergenceN256)
+{
+    // Full convergence test at N=256 (the thesis3 case that hangs in CLI/GUI)
+    FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
+    method.mp_user_domain = domain;
+    method.m_connectivity = 4;
+    method.m_is_annulus = false;
+    method.mp_canonical_domain = std::make_shared<FornbergCanonicalDomain>(
+        initial_centers, initial_radii, config.N
+    );
+    method.initializeNewtonIteration();
+
+    bool converged = false;
+    for (int iter = 0; iter < config.max_newton_iterations; ++iter)
+    {
+        method.formSystem();
+        method.solveSystem();
+        method.newtonUpdate();
+
+        // Check for non-finite residual (the GH-92 failure mode)
+        ASSERT_TRUE(std::isfinite(method.m_current_residual))
+            << "GH-92: Non-finite residual at iteration " << (iter + 1)
+            << ": " << method.m_current_residual;
+
+        if (method.checkConvergence(config.newton_tolerance))
+        {
+            converged = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(converged)
+        << "Thesis3 (N=256) should converge within "
+        << config.max_newton_iterations << " iterations";
+}
