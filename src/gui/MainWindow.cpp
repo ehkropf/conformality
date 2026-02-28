@@ -103,6 +103,8 @@ void MainWindow::renderMenuBar()
     {
         if (ImGui::BeginMenu("File"))
         {
+            bool computing = mp_controller && mp_controller->isComputing();
+            if (computing) ImGui::BeginDisabled();
             if (ImGui::MenuItem("New"))
             {
                 if (mp_controller)
@@ -110,6 +112,7 @@ void MainWindow::renderMenuBar()
                     mp_controller->reset();
                 }
             }
+            if (computing) ImGui::EndDisabled();
             ImGui::Separator();
             if (ImGui::MenuItem("Exit"))
             {

@@ -235,6 +235,13 @@ void GuiController::computeInBackground()
         postStatusMessage("Computation failed: " + m_lastErrorMessage);
     }
 
+    // Clear cancellation check to avoid dangling this pointer
+    auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
+    if (fm_cleanup)
+    {
+        fm_cleanup->setCancellationCheck(nullptr);
+    }
+
     // Release happens-before: GUI thread reads results after observing m_isComputing == false
     m_isComputing.store(false);
 }
