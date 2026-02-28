@@ -211,12 +211,6 @@ void GuiController::getLiveProgress(int& iteration, double& residual) const
 
 void GuiController::computeInBackground()
 {
-    // Reset live progress
-    {
-        std::lock_guard<std::mutex> lock(m_progressMutex);
-        m_liveProgress = ComputationProgress{};
-    }
-
     try
     {
         // Wire cancellation check into the method

@@ -50,7 +50,6 @@ private:
     {
         int currentIteration{0};
         double currentResidual{0.0};
-        std::string statusText;
     };
     mutable std::mutex m_progressMutex;
     ComputationProgress m_liveProgress;
