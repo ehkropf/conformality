@@ -39,6 +39,10 @@ private:
     bool m_showGrid;
     int m_gridDensity;
 
+    // Cached per-frame live progress (read once in renderMainLayout)
+    int m_cachedLiveIter{0};
+    double m_cachedLiveResidual{0.0};
+
     // Callback for status updates
     void onStatusUpdate(const std::string& message);
     void onComputationComplete();

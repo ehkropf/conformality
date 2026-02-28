@@ -194,6 +194,12 @@ void MainWindow::renderMainLayout()
 
     if (ImGui::Begin("MainLayout", nullptr, window_flags))
     {
+        // Snapshot live progress once per frame for consistent display
+        if (mp_controller && mp_controller->isComputing())
+        {
+            mp_controller->getLiveProgress(m_cachedLiveIter, m_cachedLiveResidual);
+        }
+
         // Three-panel layout: Control | Visualization | Status
 
         // Control Panel (left column)
@@ -267,7 +273,16 @@ void MainWindow::renderControlPanel()
 
         if (isComputing)
         {
-            ImGui::Text("Computing...");
+            if (m_cachedLiveIter > 0)
+            {
+                ImGui::Text("Iteration: %d", m_cachedLiveIter);
+                ImGui::Text("Residual: %.2e", m_cachedLiveResidual);
+            }
+            else
+            {
+                ImGui::Text("Initializing...");
+            }
+
             if (ImGui::Button("Cancel", ImVec2(-1, 0)))
             {
                 if (mp_controller)
@@ -320,19 +335,30 @@ void MainWindow::renderStatusPanel()
 
         if (mp_controller)
         {
-            if (!mp_controller->getLastErrorMessage().empty())
+            if (mp_controller->isComputing())
             {
-                ImGui::SameLine();
-                ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
+                if (m_cachedLiveIter > 0)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("| Iter: %d | Residual: %.2e", m_cachedLiveIter, m_cachedLiveResidual);
+                }
             }
-
-            if (mp_controller->getLastIterationCount() > 0)
+            else
             {
-                ImGui::SameLine();
-                ImGui::Text("| Iter: %d | Residual: %.2e | %s",
-                            mp_controller->getLastIterationCount(),
-                            mp_controller->getLastConvergenceError(),
-                            mp_controller->hasConverged() ? "Converged" : "Not converged");
+                if (!mp_controller->getLastErrorMessage().empty())
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
+                }
+
+                if (mp_controller->getLastIterationCount() > 0)
+                {
+                    ImGui::SameLine();
+                    ImGui::Text("| Iter: %d | Residual: %.2e | %s",
+                                mp_controller->getLastIterationCount(),
+                                mp_controller->getLastConvergenceError(),
+                                mp_controller->hasConverged() ? "Converged" : "Not converged");
+                }
             }
         }
 

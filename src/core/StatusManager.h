@@ -19,7 +19,9 @@
 #ifndef STATUS_MANAGER_H
 #define STATUS_MANAGER_H
 
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -171,14 +173,23 @@ public:
  * This class provides a concrete implementation of the IStatusManager interface,
  * managing status messages with configurable limits and filtering capabilities.
  * Messages are stored in memory with automatic cleanup when limits are exceeded.
+ *
+ * All public methods are thread-safe; concurrent reads and writes are serialized
+ * via an internal mutex. Registered status callbacks are invoked outside the lock
+ * to avoid deadlock when the callback calls back into StatusManager.
  */
 class StatusManager : public IStatusManager
 {
+public:
+    using StatusCallback = std::function<void(const StatusMessage&)>;
+
 private:
     std::vector<StatusMessage> m_messages;  /**< Storage for status messages */
     size_t m_maxMessages{1000};             /**< Maximum number of messages to store */
     std::shared_ptr<spdlog::logger> mp_logger; /**< spdlog logger instance; defaults to spdlog's default logger until enableLogging() is called */
     LogOutput m_logOutput{LogOutput::NONE};    /**< Current log output configuration */
+    mutable std::mutex m_mutex;                /**< Protects all mutable state for thread safety */
+    StatusCallback m_statusCallback;           /**< Optional callback invoked on each new message */
 
 public:
     /**
@@ -284,16 +295,22 @@ public:
     bool hasErrors() const override;
 
     /**
+     * @brief Set a callback invoked on each new message (thread-safe)
+     * @param callback Function to call, or nullptr to clear
+     */
+    void setStatusCallback(StatusCallback callback);
+
+    /**
      * @brief Set the maximum number of messages to store
      * @param maxMsgs New maximum message count
      */
-    void setMaxMessages(size_t maxMsgs) { m_maxMessages = maxMsgs; }
+    void setMaxMessages(size_t maxMsgs);
 
     /**
      * @brief Get the current log output configuration
      * @return Current LogOutput setting
      */
-    LogOutput getLogOutput() const { return m_logOutput; }
+    LogOutput getLogOutput() const;
 
     /**
      * @brief Flush any pending log output
@@ -304,10 +321,12 @@ public:
 
 private:
     /**
-     * @brief Add a message to storage with automatic cleanup
+     * @brief Add a message to storage with automatic cleanup and callback notification
      * @param msg Status message to add
      *
      * If the message count exceeds maxMessages, the oldest message is removed.
+     * If a status callback is registered, it is invoked after releasing the lock.
+     * Callback exceptions are caught and logged, never propagated to the caller.
      */
     void addMessage(const StatusMessage& msg);
 };

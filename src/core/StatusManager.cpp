@@ -75,6 +75,7 @@ StatusManager::StatusManager(size_t maxMsgs) : m_maxMessages(maxMsgs)
 
 void StatusManager::enableLogging(LogOutput output, const std::string& filePath, StatusLevel minLevel)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_logOutput = output;
 
     if (output == LogOutput::NONE)
@@ -151,11 +152,13 @@ void StatusManager::reportError(const std::string& component, const std::string&
 
 std::vector<StatusMessage> StatusManager::getMessages() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return m_messages;
 }
 
 std::vector<StatusMessage> StatusManager::getMessages(StatusLevel level) const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<StatusMessage> filteredMessages;
     std::copy_if(m_messages.begin(), m_messages.end(), std::back_inserter(filteredMessages),
                  [level](const StatusMessage& msg) { return msg.level == level; });
@@ -164,6 +167,7 @@ std::vector<StatusMessage> StatusManager::getMessages(StatusLevel level) const
 
 std::vector<StatusMessage> StatusManager::getMessagesAtOrAbove(StatusLevel minLevel) const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     std::vector<StatusMessage> filteredMessages;
     std::copy_if(m_messages.begin(), m_messages.end(), std::back_inserter(filteredMessages),
                  [minLevel](const StatusMessage& msg) { return msg.level >= minLevel; });
@@ -172,46 +176,92 @@ std::vector<StatusMessage> StatusManager::getMessagesAtOrAbove(StatusLevel minLe
 
 void StatusManager::clearMessages()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_messages.clear();
 }
 
 bool StatusManager::hasWarnings() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return std::any_of(m_messages.begin(), m_messages.end(),
                        [](const StatusMessage& msg) { return msg.level == StatusLevel::WARNING; });
 }
 
 bool StatusManager::hasErrors() const
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     return std::any_of(m_messages.begin(), m_messages.end(),
                        [](const StatusMessage& msg) { return msg.level == StatusLevel::ERROR; });
 }
 
 void StatusManager::flush()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (mp_logger)
     {
         mp_logger->flush();
     }
 }
 
+void StatusManager::setMaxMessages(size_t maxMsgs)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_maxMessages = maxMsgs;
+}
+
+LogOutput StatusManager::getLogOutput() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_logOutput;
+}
+
+void StatusManager::setStatusCallback(StatusCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_statusCallback = std::move(callback);
+}
+
 void StatusManager::addMessage(const StatusMessage& msg)
 {
-    m_messages.push_back(msg);
-
-    if (m_messages.size() > m_maxMessages)
+    StatusCallback callback_copy;
     {
-        m_messages.erase(m_messages.begin());
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_messages.push_back(msg);
+
+        if (m_messages.size() > m_maxMessages)
+        {
+            m_messages.erase(m_messages.begin());
+        }
+
+        // Output via spdlog if logging is enabled
+        if (m_logOutput != LogOutput::NONE && mp_logger)
+        {
+            std::string logMsg = "[" + msg.component + "] " + msg.message;
+            if (!msg.details.empty())
+            {
+                logMsg += " | " + msg.details;
+            }
+            mp_logger->log(toSpdlogLevel(msg.level), logMsg);
+        }
+
+        callback_copy = m_statusCallback;
     }
 
-    // Output via spdlog if logging is enabled
-    if (m_logOutput != LogOutput::NONE && mp_logger)
+    // Invoke callback outside the lock to avoid deadlock if callback calls back into StatusManager.
+    // Wrap in try-catch so a throwing callback cannot crash the caller of reportInfo/reportWarning/etc.
+    if (callback_copy)
     {
-        std::string logMsg = "[" + msg.component + "] " + msg.message;
-        if (!msg.details.empty())
+        try
         {
-            logMsg += " | " + msg.details;
+            callback_copy(msg);
         }
-        mp_logger->log(toSpdlogLevel(msg.level), logMsg);
+        catch (const std::exception& e)
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (m_logOutput != LogOutput::NONE && mp_logger)
+            {
+                mp_logger->error("StatusManager callback threw: {}", e.what());
+            }
+        }
     }
 }
