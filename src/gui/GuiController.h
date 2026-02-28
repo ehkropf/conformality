@@ -69,12 +69,12 @@ public:
     void loadThesisExample(int exampleNumber);
 
     /**
-     * @brief Clear the current map and reset all state back to blank
+     * @brief Full user-facing reset: clears map, state, and visualization
      */
     void reset();
 
     /**
-     * @brief Clear the current map and reset state
+     * @brief Clear map and computation state (does not touch visualization)
      */
     void clear();
 
