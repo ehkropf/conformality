@@ -23,6 +23,7 @@
 #include "../core/Types.h"
 #include "../core/StatusManager.h"
 #include <Eigen/Dense>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -85,6 +86,7 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager);
+    FRIEND_TEST(FornbergMCCancellationTest, CancelsAtNextNewtonIteration);
 
     // Constructive validation tests (tests/constructive_validation.cpp)
     FRIEND_TEST(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli);
@@ -111,6 +113,9 @@ private:
 
     // Logging
     std::shared_ptr<IStatusManager> mp_status_manager{nullptr};  // Optional status manager for logging
+
+    // Cancellation
+    std::function<bool()> m_cancellationCheck;  // Returns true if computation should be cancelled
 
     // Matrix construction components
     std::unique_ptr<PMatrixBuilder> mp_matrix_builder{nullptr};
@@ -206,6 +211,15 @@ public:
     std::shared_ptr<IStatusManager> getStatusManager() const
     {
         return mp_status_manager;
+    }
+
+    /**
+     * @brief Set a cancellation check callback for cooperative cancellation
+     * @param check Function returning true if computation should be cancelled
+     */
+    void setCancellationCheck(std::function<bool()> check)
+    {
+        m_cancellationCheck = std::move(check);
     }
 
     /**

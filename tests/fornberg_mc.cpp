@@ -1684,3 +1684,40 @@ TEST_F(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutS
     // Without StatusManager, degenerate abs_eta must throw (not silently skip scaling)
     EXPECT_THROW(method.newtonUpdate(), std::runtime_error);
 }
+
+// --- Cancellation tests ---
+
+class FornbergMCCancellationTest : public FornbergMCStatusManagerTest
+{
+};
+
+TEST_F(FornbergMCCancellationTest, CancelsAtNextNewtonIteration)
+{
+    auto domain = createAnnulusDomain();
+
+    auto source_domain = FornbergCanonicalDomain::createFromUserDomain(
+        domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    config.max_newton_iterations = 20;
+    auto fm = std::make_shared<FornbergMC>(config);
+
+    // Cancellation check that returns true immediately — should cancel on first iteration
+    fm->setCancellationCheck([]() { return true; });
+
+    auto map = std::make_shared<ConformalMap>(source_domain, domain, fm);
+
+    // compute() should throw "Computation cancelled" from the Newton loop
+    try
+    {
+        map->compute();
+        FAIL() << "Expected runtime_error for cancelled computation";
+    }
+    catch (const std::runtime_error& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("cancelled"), std::string::npos)
+            << "Expected 'cancelled' in error message, got: " << e.what();
+    }
+}

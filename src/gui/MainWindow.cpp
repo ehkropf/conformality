@@ -58,6 +58,11 @@ bool MainWindow::initialize()
 
 void MainWindow::render()
 {
+    if (mp_controller)
+    {
+        mp_controller->update();
+    }
+
     renderMenuBar();
     renderMainLayout();
 
@@ -132,6 +137,9 @@ void MainWindow::renderMenuBar()
 
         if (ImGui::BeginMenu("Examples"))
         {
+            bool computing = mp_controller && mp_controller->isComputing();
+            if (computing) ImGui::BeginDisabled();
+
             if (ImGui::MenuItem("Thesis Ex 3 (Identity, m=4)"))
             {
                 if (mp_controller) mp_controller->loadThesisExample(3);
@@ -153,6 +161,8 @@ void MainWindow::renderMenuBar()
             {
                 if (mp_controller) mp_controller->reset();
             }
+
+            if (computing) ImGui::EndDisabled();
             ImGui::EndMenu();
         }
 
@@ -255,6 +265,13 @@ void MainWindow::renderControlPanel()
         if (isComputing)
         {
             ImGui::Text("Computing...");
+            if (ImGui::Button("Cancel", ImVec2(-1, 0)))
+            {
+                if (mp_controller)
+                {
+                    mp_controller->cancelComputation();
+                }
+            }
         }
         else
         {
