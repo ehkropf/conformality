@@ -114,9 +114,6 @@ private:
     // Logging
     std::shared_ptr<IStatusManager> mp_status_manager{nullptr};  // Optional status manager for logging
 
-    // Cancellation
-    std::function<bool()> m_cancellationCheck;  // Returns true if computation should be cancelled
-
     // Matrix construction components
     std::unique_ptr<PMatrixBuilder> mp_matrix_builder{nullptr};
     std::unique_ptr<CGSolver> mp_cg_solver{nullptr};
@@ -211,15 +208,6 @@ public:
     std::shared_ptr<IStatusManager> getStatusManager() const
     {
         return mp_status_manager;
-    }
-
-    /**
-     * @brief Set a cancellation check callback for cooperative cancellation
-     * @param check Function returning true if computation should be cancelled
-     */
-    void setCancellationCheck(std::function<bool()> check)
-    {
-        m_cancellationCheck = std::move(check);
     }
 
     /**

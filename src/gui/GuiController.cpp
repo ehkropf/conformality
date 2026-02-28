@@ -202,12 +202,15 @@ void GuiController::computeInBackground()
 {
     try
     {
-        // Wire cancellation check into FornbergMC if applicable
-        auto fm = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
-        if (fm)
+        // Wire cancellation check into the method
+        auto method = mp_currentMap->getMethod();
+        if (method)
         {
-            fm->setCancellationCheck([this]() { return m_cancelRequested.load(); });
+            method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
         }
+
+        // Downcast for FornbergMC-specific result extraction
+        auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
 
         mp_currentMap->compute();
 
@@ -236,10 +239,10 @@ void GuiController::computeInBackground()
     }
 
     // Clear cancellation check to avoid dangling this pointer
-    auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
-    if (fm_cleanup)
+    auto method_cleanup = mp_currentMap->getMethod();
+    if (method_cleanup)
     {
-        fm_cleanup->setCancellationCheck(nullptr);
+        method_cleanup->setCancellationCheck(nullptr);
     }
 
     // Release happens-before: GUI thread reads results after observing m_isComputing == false
