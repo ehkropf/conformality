@@ -37,6 +37,7 @@ private:
 
     // GUI state for controls
     bool m_showGrid;
+    int m_gridDensity;
 
     // Callback for status updates
     void onStatusUpdate(const std::string& message);
