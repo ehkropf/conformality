@@ -20,6 +20,7 @@
 
 #include "../core/Types.h"
 
+#include <functional>
 #include <memory>
 
 // Forward declarations to avoid circular dependency
@@ -46,6 +47,7 @@ protected:
     double m_achieved_accuracy;
     int m_max_iterations;
     int m_iteration_count;
+    std::function<bool()> m_cancellationCheck;  ///< Returns true if computation should be cancelled
 
 public:
     /**
@@ -114,6 +116,15 @@ public:
      * @param max Maximum number of iterations
      */
     void setMaxIterations(int max);
+
+    /**
+     * @brief Set a cancellation check callback for cooperative cancellation
+     * @param check Function returning true if computation should be cancelled, or nullptr to clear
+     */
+    void setCancellationCheck(std::function<bool()> check)
+    {
+        m_cancellationCheck = std::move(check);
+    }
 
     /**
      * @brief Validate a domain for use with this method

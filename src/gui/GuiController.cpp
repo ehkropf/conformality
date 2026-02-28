@@ -11,12 +11,6 @@
 GuiController::GuiController()
     : mp_currentMap{nullptr}
     , mp_visualizationPanel{nullptr}
-    , m_isComputing{false}
-    , m_lastComputationSuccessful{false}
-    , m_lastConvergenceError{0.0}
-    , m_lastErrorMessage{""}
-    , m_lastIterationCount{0}
-    , m_hasConverged{false}
 {
 }
 
@@ -32,9 +26,28 @@ bool GuiController::initialize()
 
 void GuiController::shutdown()
 {
+    cancelAndJoin();
     mp_currentMap.reset();
     m_mapDescription.clear();
     mp_visualizationPanel = nullptr;
+}
+
+void GuiController::update()
+{
+    // Drain message queue → fire status callbacks on GUI thread
+    pollStatusMessages();
+
+    // Check if background computation finished
+    if (!m_isComputing.load() && m_computeThread.joinable())
+    {
+        m_computeThread.join();
+        updateVisualization();
+
+        if (m_onComputationComplete)
+        {
+            m_onComputationComplete();
+        }
+    }
 }
 
 void GuiController::setVisualizationPanel(VisualizationPanel* panel)
@@ -44,6 +57,8 @@ void GuiController::setVisualizationPanel(VisualizationPanel* panel)
 
 void GuiController::loadMap(std::shared_ptr<ConformalMap> map, const std::string& description)
 {
+    cancelAndJoin();
+
     mp_currentMap = map;
     m_mapDescription = description;
     m_lastComputationSuccessful = false;
@@ -62,6 +77,8 @@ void GuiController::loadMap(std::shared_ptr<ConformalMap> map, const std::string
 
 void GuiController::clear()
 {
+    cancelAndJoin();
+
     mp_currentMap.reset();
     m_mapDescription.clear();
     m_lastComputationSuccessful = false;
@@ -125,6 +142,11 @@ void GuiController::reset()
     }
 }
 
+void GuiController::cancelComputation()
+{
+    m_cancelRequested.store(true);
+}
+
 bool GuiController::hasMap() const
 {
     return mp_currentMap != nullptr;
@@ -149,29 +171,51 @@ bool GuiController::computeMapping()
         return false;
     }
 
-    if (m_isComputing)
+    if (m_isComputing.load())
     {
         return false;
     }
 
-    m_isComputing = true;
+    // Reset result state before launching
     m_lastComputationSuccessful = false;
     m_lastConvergenceError = 0.0;
     m_lastErrorMessage.clear();
     m_lastIterationCount = 0;
     m_hasConverged = false;
+    m_cancelRequested.store(false);
 
-    if (m_onStatusUpdate)
+    // Join any previous thread that hasn't been joined yet
+    if (m_computeThread.joinable())
     {
-        m_onStatusUpdate("Computing conformal map...");
+        m_computeThread.join();
     }
 
+    m_isComputing.store(true);
+    postStatusMessage("Computing conformal map...");
+
+    m_computeThread = std::thread(&GuiController::computeInBackground, this);
+
+    return true;
+}
+
+void GuiController::computeInBackground()
+{
     try
     {
-        mp_currentMap->compute();
-        m_lastComputationSuccessful = true;
+        // Wire cancellation check into the method
+        auto method = mp_currentMap->getMethod();
+        if (method)
+        {
+            method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
+        }
 
-        auto fm = std::dynamic_pointer_cast<FornbergMC>(mp_currentMap->getMethod());
+        // Downcast for FornbergMC-specific result extraction
+        auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
+
+        mp_currentMap->compute();
+
+        // Extract results (still on worker thread, but before m_isComputing goes false)
+        m_lastComputationSuccessful = true;
         if (fm)
         {
             m_lastConvergenceError = fm->getCurrentResidual();
@@ -179,42 +223,66 @@ bool GuiController::computeMapping()
             m_hasConverged = fm->hasConverged();
         }
 
-        updateVisualization();
-
-        if (m_onStatusUpdate)
-        {
-            m_onStatusUpdate("Computation completed successfully");
-        }
+        postStatusMessage("Computation completed successfully");
     }
     catch (const std::invalid_argument& e)
     {
         m_lastComputationSuccessful = false;
         m_lastErrorMessage = e.what();
-
-        if (m_onStatusUpdate)
-        {
-            m_onStatusUpdate("Configuration error: " + m_lastErrorMessage);
-        }
+        postStatusMessage("Configuration error: " + m_lastErrorMessage);
     }
     catch (const std::runtime_error& e)
     {
         m_lastComputationSuccessful = false;
         m_lastErrorMessage = e.what();
+        postStatusMessage("Computation failed: " + m_lastErrorMessage);
+    }
 
+    // Clear cancellation check to avoid dangling this pointer
+    auto method_cleanup = mp_currentMap->getMethod();
+    if (method_cleanup)
+    {
+        method_cleanup->setCancellationCheck(nullptr);
+    }
+
+    // Release happens-before: GUI thread reads results after observing m_isComputing == false
+    m_isComputing.store(false);
+}
+
+void GuiController::postStatusMessage(const std::string& message)
+{
+    std::lock_guard<std::mutex> lock(m_messageQueueMutex);
+    m_messageQueue.push_back(message);
+}
+
+void GuiController::pollStatusMessages()
+{
+    std::deque<std::string> messages;
+    {
+        std::lock_guard<std::mutex> lock(m_messageQueueMutex);
+        messages.swap(m_messageQueue);
+    }
+
+    for (const auto& msg : messages)
+    {
         if (m_onStatusUpdate)
         {
-            m_onStatusUpdate("Computation failed: " + m_lastErrorMessage);
+            m_onStatusUpdate(msg);
         }
     }
+}
 
-    m_isComputing = false;
-
-    if (m_onComputationComplete)
+void GuiController::cancelAndJoin()
+{
+    if (m_isComputing.load())
     {
-        m_onComputationComplete();
+        m_cancelRequested.store(true);
     }
-
-    return m_lastComputationSuccessful;
+    if (m_computeThread.joinable())
+    {
+        m_computeThread.join();
+    }
+    m_cancelRequested.store(false);
 }
 
 void GuiController::setOnComputationComplete(std::function<void()> callback)

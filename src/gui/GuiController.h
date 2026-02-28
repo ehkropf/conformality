@@ -1,8 +1,12 @@
 #pragma once
 
-#include <memory>
+#include <atomic>
+#include <deque>
 #include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 
 class ConformalMap;
 class VisualizationPanel;
@@ -16,6 +20,9 @@ class VisualizationPanel;
  * The controller starts in a blank state and accepts any ConformalMap via
  * the loadMap() method. After computation, it extracts method-specific
  * results (e.g. convergence info from FornbergMC) when available.
+ *
+ * Computation runs on a background thread to keep the GUI responsive.
+ * Call update() each frame to process status messages and detect completion.
  */
 class GuiController
 {
@@ -29,19 +36,31 @@ private:
     // Map description
     std::string m_mapDescription;
 
-    // Computation state
-    bool m_isComputing;
+    // Computation state (atomic for cross-thread access)
+    std::atomic<bool> m_isComputing{false};
+    std::atomic<bool> m_cancelRequested{false};
+    std::thread m_computeThread;
 
-    // Computation results
-    bool m_lastComputationSuccessful;
-    double m_lastConvergenceError;
+    // Thread-safe message queue for status updates from worker thread
+    std::mutex m_messageQueueMutex;
+    std::deque<std::string> m_messageQueue;
+
+    // Computation results (written by worker thread before m_isComputing goes false)
+    bool m_lastComputationSuccessful{false};
+    double m_lastConvergenceError{0.0};
     std::string m_lastErrorMessage;
-    int m_lastIterationCount;
-    bool m_hasConverged;
+    int m_lastIterationCount{0};
+    bool m_hasConverged{false};
 
-    // Callbacks for GUI updates
+    // Callbacks for GUI updates (only called from main/GUI thread)
     std::function<void()> m_onComputationComplete;
     std::function<void(const std::string&)> m_onStatusUpdate;
+
+    void postStatusMessage(const std::string& message);
+    void pollStatusMessages();
+    void computeInBackground();
+    void cancelAndJoin();
+    void updateVisualization();
 
 public:
     GuiController();
@@ -49,6 +68,15 @@ public:
 
     bool initialize();
     void shutdown();
+
+    /**
+     * @brief Poll for background thread completion and drain message queue
+     *
+     * Must be called each frame from the render loop. Delivers queued status
+     * messages to the onStatusUpdate callback, and when computation finishes,
+     * joins the thread, updates visualization, and fires onComputationComplete.
+     */
+    void update();
 
     /**
      * @brief Set the visualization panel to update
@@ -80,6 +108,14 @@ public:
     void clear();
 
     /**
+     * @brief Request cancellation of a running computation
+     *
+     * Sets a flag that the worker thread checks cooperatively. The computation
+     * will stop at the next cancellation check point (top of Newton loop).
+     */
+    void cancelComputation();
+
+    /**
      * @brief Check if a map is currently loaded
      * @return true if a map is loaded
      */
@@ -98,8 +134,8 @@ public:
     const std::string& getMapDescription() const;
 
     /**
-     * @brief Trigger computation of conformal map
-     * @return true if computation completed successfully
+     * @brief Launch background computation of conformal map
+     * @return true if computation was started, false if already computing or no map
      */
     bool computeMapping();
 
@@ -107,7 +143,7 @@ public:
      * @brief Check if computation is currently running
      * @return true if computing
      */
-    bool isComputing() const { return m_isComputing; }
+    bool isComputing() const { return m_isComputing.load(); }
 
     /**
      * @brief Check if last computation was successful
@@ -150,7 +186,4 @@ public:
      * @param callback Function to call with status messages
      */
     void setOnStatusUpdate(std::function<void(const std::string&)> callback);
-
-private:
-    void updateVisualization();
 };

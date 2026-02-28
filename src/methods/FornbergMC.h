@@ -23,6 +23,7 @@
 #include "../core/Types.h"
 #include "../core/StatusManager.h"
 #include <Eigen/Dense>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -85,6 +86,7 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateWarnsOnDegenerateAbsEta);
     FRIEND_TEST(FornbergMCStatusManagerTest, NewtonUpdateThrowsOnDegenerateAbsEtaWithoutStatusManager);
+    FRIEND_TEST(FornbergMCCancellationTest, CancelsAtNextNewtonIteration);
 
     // Constructive validation tests (tests/constructive_validation.cpp)
     FRIEND_TEST(ConstructiveIdentityMap, IdentityM4ConvergesToTargetModuli);

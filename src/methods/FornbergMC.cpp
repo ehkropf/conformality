@@ -114,6 +114,15 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
     for (int iter = 0; iter < m_config.max_newton_iterations && !m_is_converged; ++iter)
     {
+        if (m_cancellationCheck && m_cancellationCheck())
+        {
+            if (mp_status_manager)
+            {
+                mp_status_manager->reportInfo("FornbergMC", "Computation cancelled by user");
+            }
+            throw std::runtime_error("Computation cancelled");
+        }
+
         if (m_config.verbose)
         {
             printIterationDiagnostics(iter);
