@@ -300,13 +300,13 @@ public:
      * @brief Set the maximum number of messages to store
      * @param maxMsgs New maximum message count
      */
-    void setMaxMessages(size_t maxMsgs) { m_maxMessages = maxMsgs; }
+    void setMaxMessages(size_t maxMsgs);
 
     /**
      * @brief Get the current log output configuration
      * @return Current LogOutput setting
      */
-    LogOutput getLogOutput() const { return m_logOutput; }
+    LogOutput getLogOutput() const;
 
     /**
      * @brief Flush any pending log output

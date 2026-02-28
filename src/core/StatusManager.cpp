@@ -75,6 +75,7 @@ StatusManager::StatusManager(size_t maxMsgs) : m_maxMessages(maxMsgs)
 
 void StatusManager::enableLogging(LogOutput output, const std::string& filePath, StatusLevel minLevel)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_logOutput = output;
 
     if (output == LogOutput::NONE)
@@ -195,10 +196,23 @@ bool StatusManager::hasErrors() const
 
 void StatusManager::flush()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (mp_logger)
     {
         mp_logger->flush();
     }
+}
+
+void StatusManager::setMaxMessages(size_t maxMsgs)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_maxMessages = maxMsgs;
+}
+
+LogOutput StatusManager::getLogOutput() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_logOutput;
 }
 
 void StatusManager::setStatusCallback(StatusCallback callback)
@@ -209,28 +223,33 @@ void StatusManager::setStatusCallback(StatusCallback callback)
 
 void StatusManager::addMessage(const StatusMessage& msg)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_messages.push_back(msg);
-
-    if (m_messages.size() > m_maxMessages)
+    StatusCallback callback_copy;
     {
-        m_messages.erase(m_messages.begin());
-    }
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_messages.push_back(msg);
 
-    // Output via spdlog if logging is enabled
-    if (m_logOutput != LogOutput::NONE && mp_logger)
-    {
-        std::string logMsg = "[" + msg.component + "] " + msg.message;
-        if (!msg.details.empty())
+        if (m_messages.size() > m_maxMessages)
         {
-            logMsg += " | " + msg.details;
+            m_messages.erase(m_messages.begin());
         }
-        mp_logger->log(toSpdlogLevel(msg.level), logMsg);
+
+        // Output via spdlog if logging is enabled
+        if (m_logOutput != LogOutput::NONE && mp_logger)
+        {
+            std::string logMsg = "[" + msg.component + "] " + msg.message;
+            if (!msg.details.empty())
+            {
+                logMsg += " | " + msg.details;
+            }
+            mp_logger->log(toSpdlogLevel(msg.level), logMsg);
+        }
+
+        callback_copy = m_statusCallback;
     }
 
-    // Invoke callback if set
-    if (m_statusCallback)
+    // Invoke callback outside the lock to avoid deadlock if callback calls back into StatusManager
+    if (callback_copy)
     {
-        m_statusCallback(msg);
+        callback_copy(msg);
     }
 }
