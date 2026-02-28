@@ -224,6 +224,7 @@ void GuiController::computeInBackground()
         auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
 
         // Wire StatusManager callback for live progress updates
+        auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
         auto status_manager = fm ? std::dynamic_pointer_cast<StatusManager>(fm->getStatusManager()) : nullptr;
         if (status_manager)
         {
