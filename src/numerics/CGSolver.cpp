@@ -219,10 +219,15 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     info.residual_history.reserve(max_iterations);
     info.residual_history.push_back(initial_residual);
 
-    // Initialize best iterate tracking
+    // Initialize best iterate tracking with the residual vector, matching
+    // MATLAB cgm.m: "x_ = r; rmin = temp2;" where x_=r=b for zero initial
+    // guess. This ensures a non-trivial fallback when CG cannot improve on
+    // the initial guess, keeping Newton iteration progressing.
     if (m_config.enable_best_iterate)
     {
-        updateBestIterate(x, initial_residual, 0);
+        m_best_residual = initial_residual;
+        m_best_iterate = r;
+        m_best_iteration = 0;
     }
 
     // Log initial state
@@ -242,8 +247,11 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         Eigen::VectorXd Ap = A_function(p);
         double pAp = p.dot(Ap);
         
-        // Check for breakdown
-        if (std::abs(pAp) < 1e-14)
+        // Check for breakdown: only on non-positive or non-finite p'Ap.
+        // MATLAB cgm.m has no breakdown check and relies on best iterate
+        // tracking to recover from near-singular CG steps. We follow the
+        // same approach, only breaking on truly invalid values.
+        if (pAp <= 0.0 || !std::isfinite(pAp))
         {
             if (mp_statusManager)
             {
@@ -254,7 +262,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             }
             break;
         }
-        
+
         // Update solution and residual
         double alpha = rsold / pAp;
         x = x + alpha * p;
@@ -348,23 +356,29 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
 
 bool CGSolver::shouldRestart(const std::vector<double>& residual_history, int current_iter) const
 {
+    // Don't consider restarting if no restarts remain
+    if (m_restart_count >= m_config.max_cgm_restarts)
+    {
+        return false;
+    }
+
     if (current_iter < 10 || residual_history.size() < 10)
     {
         return false; // Too early to judge stagnation
     }
-    
+
     // Check if residual has stagnated
     const int check_length = 5;
     if (residual_history.size() < check_length + 1)
     {
         return false;
     }
-    
+
     double recent_residual = residual_history.back();
     double old_residual = residual_history[residual_history.size() - check_length - 1];
-    
+
     double improvement_rate = (old_residual - recent_residual) / old_residual;
-    
+
     return improvement_rate < m_config.cgm_restart_threshold;
 }
 

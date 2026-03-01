@@ -457,7 +457,7 @@ TEST_F(CGSolverTest, SolverTerminatesWithStagnatingSystem)
     EXPECT_LE(info.iterations, 30) << "Must terminate within iteration budget";
 }
 
-TEST_F(CGSolverTest, MaxRestartCountLogsWarning)
+TEST_F(CGSolverTest, MaxRestartCountStopsFurtherRestarts)
 {
     config.max_cgm_iterations = 200;
     config.max_cgm_restarts = 2;
@@ -481,27 +481,20 @@ TEST_F(CGSolverTest, MaxRestartCountLogsWarning)
     Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
     solver.solve(ill_conditioned, b);
 
-    // Check that a warning about max restart count was emitted
-    auto warnings = statusManager->getMessages(StatusLevel::WARNING);
-    bool found_restart_warning = false;
-    for (const auto& msg : warnings)
-    {
-        if (msg.message.find("Maximum restart count") != std::string::npos)
-        {
-            found_restart_warning = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(found_restart_warning) << "Expected WARNING about maximum restart count reached";
+    // After max restarts exhausted, shouldRestart() returns false and CG
+    // continues running normally. Verify restarts occurred via restart_count.
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_EQ(info.restart_count, 2) << "Expected exactly 2 restarts before stopping";
 }
 
-TEST_F(CGSolverTest, MaxRestartCountThrowsWithoutStatusManager)
+TEST_F(CGSolverTest, MaxRestartCountCompletesWithoutStatusManager)
 {
     config.max_cgm_iterations = 200;
     config.max_cgm_restarts = 2;
     config.cgm_restart_threshold = 0.99;
     CGSolver solver(config);
-    // Do NOT set StatusManager
+    // Do NOT set StatusManager — CG should still complete without throwing
+    // (shouldRestart returns false after max restarts, no performRestart call)
 
     int n = 20;
     auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
@@ -515,7 +508,7 @@ TEST_F(CGSolverTest, MaxRestartCountThrowsWithoutStatusManager)
     };
 
     Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
-    EXPECT_THROW(solver.solve(ill_conditioned, b), std::runtime_error);
+    EXPECT_NO_THROW(solver.solve(ill_conditioned, b));
 }
 
 TEST_F(CGSolverTest, ZeroMaxRestartsDisablesRestarts)

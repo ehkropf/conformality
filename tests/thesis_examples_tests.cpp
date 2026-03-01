@@ -123,7 +123,7 @@ TEST(ThesisExamples, Example2HasCorrectInitialGuesses)
 TEST(ThesisExamples, Example2HasCorrectN)
 {
     auto preset = ThesisExamples::getExample(2);
-    EXPECT_EQ(preset.config.N, 128);
+    EXPECT_EQ(preset.config.N, 256);  // Increased from MATLAB's 128 for CG convergence
 }
 
 // --- Example 4: High connectivity (m=7) ---

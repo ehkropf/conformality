@@ -68,7 +68,7 @@ ThesisExamplePreset ThesisExamples::makeExample2()
         domain,
         {Complex(0.6, 0.1), Complex(0.77, -0.2), Complex(-0.7, 0)},
         {0.14, 0.05, 0.2},
-        makeConfig(128)
+        makeConfig(256)  // MATLAB uses N=128, but N=256 needed for CG convergence
     };
 }
 
@@ -170,6 +170,8 @@ FornbergMCConfiguration ThesisExamples::makeConfig(int N)
     config.N = N;
     config.newton_tolerance = 1e-14;
     config.cgm_tolerance = 1e-15;
+    config.max_cgm_iterations = 50;   // Balance between quality and stability
+    config.max_cgm_restarts = 0;     // MATLAB cgm.m has no restart mechanism
     config.initial_guess_method = FornbergMCConfiguration::InitialGuessMethod::MANUAL;
     return config;
 }

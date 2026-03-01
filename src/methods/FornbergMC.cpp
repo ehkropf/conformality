@@ -719,25 +719,28 @@ void FornbergMC::solveSystem()
             "FornbergMC::solveSystem: System not formed");
     }
 
-    // Create D_function: applies D to a real vector
-    auto D_function = [this](const Eigen::VectorXd& x) -> Eigen::VectorXcd {
-        return m_D * x;
+    // Match MATLAB solve_system: work with real/imag parts of D separately
+    // and scale by 1/N for better numerical conditioning. MATLAB computes:
+    //   b = 2*real(D'*g)/N
+    //   A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N
+    // The /N scaling does not change the mathematical solution but improves
+    // CG convergence by reducing the magnitude of residuals and iterates.
+    const double N = static_cast<double>(m_config.N);
+    Eigen::MatrixXd DR = m_D.real();
+    Eigen::MatrixXd DI = m_D.imag();
+
+    // RHS: b = 2*real(D'*g)/N = 2*(DR'*real(g) + DI'*imag(g))/N
+    Eigen::VectorXd b = 2.0 * (DR.transpose() * m_g.real() + DI.transpose() * m_g.imag()) / N;
+
+    // Matrix-vector product: A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N
+    auto A_function = [&DR, &DI, N](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd DRx = DR * x;
+        Eigen::VectorXd DIx = DI * x;
+        return 2.0 * (DR.transpose() * DRx + DI.transpose() * DIx) / N;
     };
 
-    // Create D_adjoint_function: applies D† to a complex vector
-    auto D_adjoint_function = [this](const Eigen::VectorXcd& y) -> Eigen::VectorXcd {
-        return m_D.adjoint() * y;
-    };
-
-    // Compute transformed RHS: D† * g
-    Eigen::VectorXcd g_transformed = m_D.adjoint() * m_g;
-
-    // Solve the system
-    Eigen::VectorXd solution = mp_cg_solver->solveComplexSystem(
-        D_function,
-        D_adjoint_function,
-        g_transformed
-    );
+    // Solve using the real CG interface directly (matches MATLAB cgm call)
+    Eigen::VectorXd solution = mp_cg_solver->solve(A_function, b);
 
     // Store solution in m_U (as complex with zero imaginary part)
     m_U = solution.cast<std::complex<double>>();
