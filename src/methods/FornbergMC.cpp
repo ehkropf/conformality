@@ -71,12 +71,29 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
     m_connectivity = mp_user_domain->getConnectivity();
 
-    // Create canonical domain from user domain analysis
-    mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
-        mp_user_domain,
-        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
-        m_config.N
-    );
+    // Use source domain as canonical domain if it's already a FornbergCanonicalDomain.
+    // This preserves caller-provided initial guesses; the GEOMETRIC_CENTROIDS fallback
+    // can produce poor initial guesses that cause Newton divergence (GH-92).
+    auto source_domain = map_instance.getSourceDomain();
+    mp_canonical_domain = std::dynamic_pointer_cast<FornbergCanonicalDomain>(source_domain);
+
+    if (mp_canonical_domain)
+    {
+        if (mp_status_manager)
+        {
+            mp_status_manager->reportInfo("FornbergMC",
+                "Using source domain as canonical domain (manual initial guesses)");
+        }
+    }
+    else
+    {
+        // Create canonical domain from user domain analysis
+        mp_canonical_domain = FornbergCanonicalDomain::createFromUserDomain(
+            mp_user_domain,
+            FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+            m_config.N
+        );
+    }
 
     if (!mp_canonical_domain)
     {
@@ -130,6 +147,21 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
         formSystem();
         solveSystem();
+
+        // Fail-fast: check for non-finite values in CG solution before applying Newton update
+        double u_inf_norm = m_U.lpNorm<Eigen::Infinity>();
+        if (!std::isfinite(u_inf_norm))
+        {
+            std::string msg = "Newton iteration " + std::to_string(iter + 1) +
+                ": CG solver produced non-finite solution (||U||_inf = " +
+                std::to_string(u_inf_norm) + "). Aborting.";
+            if (mp_status_manager)
+            {
+                mp_status_manager->reportError("FornbergMC", msg);
+            }
+            throw std::runtime_error("FornbergMC: " + msg);
+        }
+
         newtonUpdate();
         m_is_converged = checkConvergence(effective_tolerance);
 

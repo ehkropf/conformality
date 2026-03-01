@@ -236,3 +236,97 @@ TEST_F(CGSolverTest, NoLoggingWithoutStatusManager)
     EXPECT_NO_THROW(solver.solve(identity_function, b));
     EXPECT_TRUE(solver.hasConverged());
 }
+
+// GH-92: CGSolver should exit early on non-finite input instead of looping
+
+TEST_F(CGSolverTest, EarlyExitOnInfRHS)
+{
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(0) = std::numeric_limits<double>::infinity();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    solver.solve(identity_function, b);
+    EXPECT_FALSE(solver.hasConverged());
+    EXPECT_EQ(solver.getLastConvergenceInfo().iterations, 0);
+}
+
+TEST_F(CGSolverTest, EarlyExitOnNanRHS)
+{
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(3) = std::numeric_limits<double>::quiet_NaN();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    solver.solve(identity_function, b);
+    EXPECT_FALSE(solver.hasConverged());
+    EXPECT_EQ(solver.getLastConvergenceInfo().iterations, 0);
+}
+
+TEST_F(CGSolverTest, EarlyExitOnNonFiniteMatVecProduct)
+{
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    // Matrix-vector product that always returns a vector with inf in position 0
+    auto bad_function = [](const Eigen::VectorXd& x) {
+        Eigen::VectorXd result = x;
+        result(0) = std::numeric_limits<double>::infinity();
+        return result;
+    };
+
+    solver.solve(bad_function, b);
+    // Should not converge, and should not run the full max_cgm_iterations
+    EXPECT_FALSE(solver.hasConverged());
+    EXPECT_LT(solver.getLastConvergenceInfo().iterations, config.max_cgm_iterations);
+}
+
+TEST_F(CGSolverTest, ThrowsOnInfRHSWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(0) = std::numeric_limits<double>::infinity();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    EXPECT_THROW(solver.solve(identity_function, b), std::runtime_error);
+}
+
+TEST_F(CGSolverTest, ThrowsOnNanRHSWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    b(3) = std::numeric_limits<double>::quiet_NaN();
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    EXPECT_THROW(solver.solve(identity_function, b), std::runtime_error);
+}
+
+TEST_F(CGSolverTest, ThrowsOnNonFiniteMatVecProductWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // Do NOT set StatusManager
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto bad_function = [](const Eigen::VectorXd& x) {
+        Eigen::VectorXd result = x;
+        result(0) = std::numeric_limits<double>::infinity();
+        return result;
+    };
+
+    EXPECT_THROW(solver.solve(bad_function, b), std::runtime_error);
+}

@@ -18,3 +18,4 @@ docs/diagrams/
 CMakePresets.json
 fftw.wisdom
 imgui.ini
+tests/reference_data/data/

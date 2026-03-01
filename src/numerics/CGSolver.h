@@ -54,13 +54,13 @@ public:
      */
     struct ConvergenceInfo
     {
-        bool converged;                    // Whether convergence was achieved
-        int iterations;                    // Number of iterations performed
-        double final_residual;             // Final residual norm
-        double relative_residual;          // Final relative residual
-        std::vector<double> residual_history; // History of residual norms
-        bool used_best_iterate;            // Whether best iterate was returned
-        int best_iterate_index;            // Iteration with minimum residual
+        bool converged = false;
+        int iterations = 0;
+        double final_residual = 0.0;
+        double relative_residual = 0.0;
+        std::vector<double> residual_history;
+        bool used_best_iterate = false;
+        int best_iterate_index = -1;
     };
 
 private:

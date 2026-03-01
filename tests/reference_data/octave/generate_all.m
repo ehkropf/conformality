@@ -262,4 +262,7 @@ save_reference_json(fullfile(output_dir, 'identity_m4_converged.json'), data);
 fprintf('  Wrote identity_m4_converged.json (converged in %d iterations)\n', length(history));
 
 
+%% ==================== Case 4: Thesis3 iteration debug (N=256) ====================
+thesis3_iteration_debug;
+
 fprintf('\n=== All reference data generated ===\n');
