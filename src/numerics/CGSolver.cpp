@@ -381,10 +381,14 @@ Eigen::VectorXd CGSolver::performRestart(const MatrixVectorProduct& A_function,
 
     if (m_restart_count >= m_config.max_cgm_restarts)
     {
+        std::string msg = "Maximum restart count (" + std::to_string(m_config.max_cgm_restarts) + ") reached";
         if (mp_statusManager)
         {
-            mp_statusManager->reportWarning("CGSolver",
-                "Maximum restart count (" + std::to_string(m_config.max_cgm_restarts) + ") reached");
+            mp_statusManager->reportWarning("CGSolver", msg);
+        }
+        else
+        {
+            throw std::runtime_error("CGSolver: " + msg);
         }
         return current_x;
     }

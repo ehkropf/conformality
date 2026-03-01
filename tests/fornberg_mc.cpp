@@ -1251,6 +1251,7 @@ TEST_F(FornbergMCNewtonUpdateTest, UpdatesCentersAndRadiiGeneral)
     // For 3-connected domain: both centers and radii are updated
     auto domain = createThreeConnectedDomain();
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
 
     method.mp_user_domain = domain;
     method.m_connectivity = 3;
@@ -1396,6 +1397,7 @@ TEST_F(FornbergMCNewtonUpdateTest, SyncsCanonicalDomain)
     // Verify canonical domain is updated with new moduli after Newton update
     auto domain = createThreeConnectedDomain();
     FornbergMC method(config);
+    method.setStatusManager(std::make_shared<StatusManager>());
 
     method.mp_user_domain = domain;
     method.m_connectivity = 3;

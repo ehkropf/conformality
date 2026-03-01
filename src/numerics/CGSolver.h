@@ -180,6 +180,7 @@ private:
      * @param b Right-hand side vector
      * @param x0 Initial guess
      * @param info Convergence information (output)
+     * @param max_iterations Maximum number of CG iterations for this invocation
      * @return Solution vector
      */
     Eigen::VectorXd cgIteration(const MatrixVectorProduct& A_function,
@@ -198,12 +199,16 @@ private:
 
     /**
      * @brief Perform CG restart with current iterate as new starting point
-     * @param A_function Matrix-vector product function  
+     *
+     * Returns current_x without restarting if the maximum restart count has been
+     * reached or no iteration budget remains.
+     *
+     * @param A_function Matrix-vector product function
      * @param b Right-hand side vector
      * @param current_x Current iterate
      * @param remaining_iters Remaining iteration budget
      * @param info Convergence information (input/output)
-     * @return Restarted solution vector
+     * @return Restarted solution vector, or current_x if restart was skipped
      */
     Eigen::VectorXd performRestart(const MatrixVectorProduct& A_function,
                                   const Eigen::VectorXd& b,
