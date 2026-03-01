@@ -61,6 +61,7 @@ public:
         std::vector<double> residual_history;
         bool used_best_iterate = false;
         int best_iterate_index = -1;
+        int restart_count = 0;
     };
 
 private:
@@ -72,6 +73,7 @@ private:
     mutable Eigen::VectorXd m_best_iterate;
     mutable double m_best_residual;
     mutable int m_best_iteration;
+    mutable int m_restart_count;
 
 public:
     /**
@@ -183,7 +185,8 @@ private:
     Eigen::VectorXd cgIteration(const MatrixVectorProduct& A_function,
                                const Eigen::VectorXd& b,
                                const Eigen::VectorXd& x0,
-                               ConvergenceInfo& info) const;
+                               ConvergenceInfo& info,
+                               int max_iterations) const;
 
     /**
      * @brief Check if restart is needed based on stagnation

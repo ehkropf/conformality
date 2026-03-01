@@ -38,6 +38,7 @@ struct FornbergMCConfiguration
     int max_cgm_iterations = 1000;          // Maximum CG iterations (should scale with N)
     bool enable_best_iterate = true;        // Track best iterate for non-convergent cases
     double cgm_restart_threshold = 0.1;     // Restart CG if residual stagnates
+    int max_cgm_restarts = 5;               // Maximum CG restarts before giving up
     
     // Matrix conditioning and stability
     bool monitor_eigenvalues = true;        // Check for nullspace issues

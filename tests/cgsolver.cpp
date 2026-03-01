@@ -330,3 +330,164 @@ TEST_F(CGSolverTest, ThrowsOnNonFiniteMatVecProductWithoutStatusManager)
 
     EXPECT_THROW(solver.solve(bad_function, b), std::runtime_error);
 }
+
+// GH-102: CG solver restart loop tests
+
+TEST_F(CGSolverTest, RestartRespectsIterationBudget)
+{
+    // Ill-conditioned diagonal system that triggers restarts
+    config.max_cgm_iterations = 50;
+    config.max_cgm_restarts = 10;
+    config.cgm_restart_threshold = 0.99; // Force restarts by requiring near-perfect improvement
+    CGSolver solver(config);
+
+    int n = 20;
+    // Ill-conditioned diagonal: eigenvalues span [0.01, 1.0]
+    auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd result(n);
+        for (int i = 0; i < n; ++i)
+        {
+            double eigenvalue = 0.01 + 0.99 * static_cast<double>(i) / (n - 1);
+            result(i) = eigenvalue * x(i);
+        }
+        return result;
+    };
+
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    solver.solve(ill_conditioned, b);
+
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_LE(info.iterations, 50) << "Total iterations must respect the global budget";
+}
+
+TEST_F(CGSolverTest, MaxRestartCountEnforced)
+{
+    config.max_cgm_iterations = 200;
+    config.max_cgm_restarts = 2;
+    config.cgm_restart_threshold = 0.99;
+    CGSolver solver(config);
+
+    int n = 20;
+    auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd result(n);
+        for (int i = 0; i < n; ++i)
+        {
+            double eigenvalue = 0.01 + 0.99 * static_cast<double>(i) / (n - 1);
+            result(i) = eigenvalue * x(i);
+        }
+        return result;
+    };
+
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    solver.solve(ill_conditioned, b);
+
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_LE(info.restart_count, 2) << "Restart count must not exceed max_cgm_restarts";
+}
+
+TEST_F(CGSolverTest, RestartIterationCountingIsCorrect)
+{
+    config.max_cgm_iterations = 100;
+    config.max_cgm_restarts = 5;
+    config.cgm_restart_threshold = 0.99;
+    CGSolver solver(config);
+
+    int n = 20;
+    auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd result(n);
+        for (int i = 0; i < n; ++i)
+        {
+            double eigenvalue = 0.01 + 0.99 * static_cast<double>(i) / (n - 1);
+            result(i) = eigenvalue * x(i);
+        }
+        return result;
+    };
+
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    solver.solve(ill_conditioned, b);
+
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_GT(info.iterations, 0) << "Should have performed some iterations";
+    EXPECT_FALSE(info.residual_history.empty()) << "Should have residual history";
+}
+
+TEST_F(CGSolverTest, RestartDoesNotAffectConvergingSystem)
+{
+    // Identity system converges immediately — no restarts should occur
+    config.max_cgm_restarts = 5;
+    CGSolver solver(config);
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto identity_function = [](const Eigen::VectorXd& x) { return x; };
+
+    solver.solve(identity_function, b);
+
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_TRUE(info.converged);
+    EXPECT_EQ(info.restart_count, 0) << "Well-conditioned system should not trigger restarts";
+}
+
+TEST_F(CGSolverTest, SolverTerminatesWithStagnatingSystem)
+{
+    // Regression: stagnating system must terminate (hung before GH-102 fix)
+    config.max_cgm_iterations = 30;
+    config.max_cgm_restarts = 3;
+    config.cgm_restart_threshold = 0.99;
+    CGSolver solver(config);
+
+    int n = 20;
+    auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd result(n);
+        for (int i = 0; i < n; ++i)
+        {
+            double eigenvalue = 0.01 + 0.99 * static_cast<double>(i) / (n - 1);
+            result(i) = eigenvalue * x(i);
+        }
+        return result;
+    };
+
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    solver.solve(ill_conditioned, b);
+
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_LE(info.iterations, 30) << "Must terminate within iteration budget";
+}
+
+TEST_F(CGSolverTest, MaxRestartCountLogsWarning)
+{
+    config.max_cgm_iterations = 200;
+    config.max_cgm_restarts = 2;
+    config.cgm_restart_threshold = 0.99;
+
+    auto statusManager = std::make_shared<StatusManager>();
+    CGSolver solver(config);
+    solver.setStatusManager(statusManager);
+
+    int n = 20;
+    auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        Eigen::VectorXd result(n);
+        for (int i = 0; i < n; ++i)
+        {
+            double eigenvalue = 0.01 + 0.99 * static_cast<double>(i) / (n - 1);
+            result(i) = eigenvalue * x(i);
+        }
+        return result;
+    };
+
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    solver.solve(ill_conditioned, b);
+
+    // Check that a warning about max restart count was emitted
+    auto warnings = statusManager->getMessages(StatusLevel::WARNING);
+    bool found_restart_warning = false;
+    for (const auto& msg : warnings)
+    {
+        if (msg.message.find("Maximum restart count") != std::string::npos)
+        {
+            found_restart_warning = true;
+            break;
+        }
+    }
+    EXPECT_TRUE(found_restart_warning) << "Expected WARNING about maximum restart count reached";
+}

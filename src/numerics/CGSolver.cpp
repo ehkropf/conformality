@@ -27,6 +27,7 @@ CGSolver::CGSolver(const FornbergMCConfiguration& config)
     , mp_statusManager{nullptr}
     , m_best_residual{std::numeric_limits<double>::max()}
     , m_best_iteration{-1}
+    , m_restart_count{0}
 {
 }
 
@@ -45,9 +46,10 @@ Eigen::VectorXd CGSolver::solve(const MatrixVectorProduct& A_function,
     
     // Run CG iteration
     ConvergenceInfo info;
-    Eigen::VectorXd solution = cgIteration(A_function, b, initial_guess, info);
+    Eigen::VectorXd solution = cgIteration(A_function, b, initial_guess, info, m_config.max_cgm_iterations);
     
     // Store convergence information
+    info.restart_count = m_restart_count;
     m_last_convergence_info = info;
 
     // Log final convergence status
@@ -149,7 +151,8 @@ bool CGSolver::runSelfTest(int size) const
 Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
                                      const Eigen::VectorXd& b,
                                      const Eigen::VectorXd& x0,
-                                     ConvergenceInfo& info) const
+                                     ConvergenceInfo& info,
+                                     int max_iterations) const
 {
     const int n = b.size();
     const double b_norm = b.norm();
@@ -213,7 +216,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     }
 
     info.residual_history.clear();
-    info.residual_history.reserve(m_config.max_cgm_iterations);
+    info.residual_history.reserve(max_iterations);
     info.residual_history.push_back(initial_residual);
 
     // Initialize best iterate tracking
@@ -233,7 +236,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     }
 
     // CG iteration loop
-    for (int iter = 0; iter < m_config.max_cgm_iterations; ++iter)
+    for (int iter = 0; iter < max_iterations; ++iter)
     {
         // Compute A*p
         Eigen::VectorXd Ap = A_function(p);
@@ -313,7 +316,8 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
                     << ", residual=" << current_residual;
                 mp_statusManager->reportDebug("CGSolver", oss.str());
             }
-            return performRestart(A_function, b, x, m_config.max_cgm_iterations - (iter + 1), info);
+            info.iterations = iter + 1;
+            return performRestart(A_function, b, x, max_iterations - (iter + 1), info);
         }
         
         // Update search direction
@@ -324,7 +328,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     
     // Did not converge within iteration limit
     info.converged = false;
-    info.iterations = m_config.max_cgm_iterations;
+    info.iterations = max_iterations;
     info.final_residual = std::sqrt(rsold);
     info.relative_residual = info.final_residual / b_norm;
     
@@ -374,13 +378,24 @@ Eigen::VectorXd CGSolver::performRestart(const MatrixVectorProduct& A_function,
     {
         return current_x;
     }
-    
+
+    if (m_restart_count >= m_config.max_cgm_restarts)
+    {
+        if (mp_statusManager)
+        {
+            mp_statusManager->reportWarning("CGSolver",
+                "Maximum restart count (" + std::to_string(m_config.max_cgm_restarts) + ") reached");
+        }
+        return current_x;
+    }
+    m_restart_count++;
+
     // Save current convergence info
     auto saved_info = info;
     
     // Restart CG with current iterate as initial guess
     ConvergenceInfo restart_info;
-    Eigen::VectorXd restarted_solution = cgIteration(A_function, b, current_x, restart_info);
+    Eigen::VectorXd restarted_solution = cgIteration(A_function, b, current_x, restart_info, remaining_iters);
     
     // Merge convergence information
     info.iterations = saved_info.iterations + restart_info.iterations;
@@ -421,6 +436,7 @@ void CGSolver::initializeSolverState(int system_size) const
     m_best_residual = std::numeric_limits<double>::max();
     m_best_iteration = -1;
     m_best_iterate.resize(system_size);
+    m_restart_count = 0;
 }
 
 void CGSolver::validateSystem(const MatrixVectorProduct& A_function,
