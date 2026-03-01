@@ -219,10 +219,10 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     info.residual_history.reserve(max_iterations);
     info.residual_history.push_back(initial_residual);
 
-    // Initialize best iterate tracking
+    // Initialize best iterate tracking (MATLAB cgm.m line 19: x_ = r)
     if (m_config.enable_best_iterate)
     {
-        updateBestIterate(x, initial_residual, 0);
+        updateBestIterate(r, initial_residual, 0);
     }
 
     // Log initial state
@@ -241,20 +241,39 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Compute A*p
         Eigen::VectorXd Ap = A_function(p);
         double pAp = p.dot(Ap);
-        
-        // Check for breakdown
-        if (std::abs(pAp) < 1e-14)
+
+        // Safety-net: catch degenerate systems (negative-definite, NaN/Inf).
+        // MATLAB cgm.m has no breakdown check — for well-posed Fornberg systems,
+        // D'D is positive definite and pAp > 0 throughout. This guard catches
+        // truly degenerate or corrupted systems.
+        if (pAp <= 0.0 || !std::isfinite(pAp))
         {
+            std::ostringstream oss;
+            oss << std::scientific << std::setprecision(6);
+            oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp
+                << " (expected positive for SPD system)";
             if (mp_statusManager)
             {
-                std::ostringstream oss;
-                oss << std::scientific << std::setprecision(6);
-                oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp;
                 mp_statusManager->reportWarning("CGSolver", oss.str());
             }
-            break;
+            else
+            {
+                throw std::runtime_error("CGSolver: " + oss.str());
+            }
+            info.converged = false;
+            info.iterations = iter;
+            info.final_residual = std::sqrt(rsold);
+            info.relative_residual = info.final_residual / b_norm;
+            if (m_config.enable_best_iterate && m_best_iteration >= 0)
+            {
+                info.used_best_iterate = true;
+                info.best_iterate_index = m_best_iteration;
+                return m_best_iterate;
+            }
+            info.used_best_iterate = false;
+            return x;
         }
-        
+
         // Update solution and residual
         double alpha = rsold / pAp;
         x = x + alpha * p;
@@ -282,12 +301,17 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             info.iterations = iter + 1;
             info.final_residual = current_residual;
             info.relative_residual = std::numeric_limits<double>::infinity();
+            if (m_config.enable_best_iterate && m_best_iteration >= 0)
+            {
+                info.used_best_iterate = true;
+                info.best_iterate_index = m_best_iteration;
+                return m_best_iterate;
+            }
             info.used_best_iterate = false;
             return x;
         }
 
         info.residual_history.push_back(current_residual);
-        
         // Update best iterate
         if (m_config.enable_best_iterate)
         {
@@ -348,6 +372,11 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
 
 bool CGSolver::shouldRestart(const std::vector<double>& residual_history, int current_iter) const
 {
+    if (m_config.max_cgm_restarts == 0)
+    {
+        return false; // Restarts disabled
+    }
+
     if (current_iter < 10 || residual_history.size() < 10)
     {
         return false; // Too early to judge stagnation

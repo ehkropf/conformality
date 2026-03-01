@@ -33,12 +33,12 @@ struct FornbergMCConfiguration
     bool enable_newton_damping = false;     // MATLAB uses undamped Newton (Phase 1 parity). Consider enabling in Phase 2 for robustness.
     double newton_damping_factor = 0.5;     // Step reduction multiplier when damping enabled
     
-    // Conjugate gradient solver parameters  
+    // Conjugate gradient solver parameters (defaults match MATLAB cgm.m)
     double cgm_tolerance = 1e-12;           // Relative residual tolerance for CG
-    int max_cgm_iterations = 1000;          // Maximum CG iterations (should scale with N)
+    int max_cgm_iterations = 20;            // MATLAB cgm.m line 7: num_iter=20
     bool enable_best_iterate = true;        // Track best iterate for non-convergent cases
     double cgm_restart_threshold = 0.1;     // Restart CG if residual stagnates
-    int max_cgm_restarts = 5;               // Maximum CG restarts before giving up (0 disables restarts)
+    int max_cgm_restarts = 0;               // MATLAB has no restarts; 0 disables
     
     // Matrix conditioning and stability
     bool monitor_eigenvalues = true;        // Check for nullspace issues

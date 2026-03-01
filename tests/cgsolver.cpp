@@ -109,13 +109,14 @@ TEST_F(CGSolverTest, ComplexSystemSolution)
     auto D_adjoint_function = [n](const Eigen::VectorXcd& x) -> Eigen::VectorXcd {
         Eigen::VectorXcd result(n);
         for (int i = 0; i < n; ++i) {
-            result[i] = Complex(x[i].real() - x[i].imag(), x[i].real() + x[i].imag()); // (1-i) * x[i]
+            // (1-i) * (a+bi) = (a+b) + (b-a)i
+            result[i] = Complex(x[i].real() + x[i].imag(), x[i].imag() - x[i].real());
         }
         return result;
     };
-    
+
     Eigen::VectorXcd g = Eigen::VectorXcd::Ones(n);
-    
+
     // This should solve the system without throwing
     EXPECT_NO_THROW(solver.solveComplexSystem(D_function, D_adjoint_function, g));
 }
@@ -545,4 +546,111 @@ TEST_F(CGSolverTest, ZeroMaxRestartsDisablesRestarts)
     const auto& info = solver.getLastConvergenceInfo();
     EXPECT_EQ(info.restart_count, 0) << "Zero max restarts should suppress all restarts";
     EXPECT_LE(info.iterations, 100) << "Must still terminate within iteration budget";
+}
+
+// GH-118: Safety-net breakdown check tests
+// The safety-net fires on pAp <= 0 or non-finite pAp (true degeneracy),
+// NOT on small positive values. MATLAB cgm.m has no breakdown check at all.
+
+TEST_F(CGSolverTest, BreakdownOnNegativeDefiniteSystem)
+{
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    // Negative-definite operator: A*x = -x, so p'Ap < 0
+    auto negative_definite = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return -x;
+    };
+
+    Eigen::VectorXd result = solver.solve(negative_definite, b);
+    EXPECT_FALSE(solver.hasConverged());
+    // Should break at iteration 0 (first pAp check)
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_EQ(info.iterations, 0);
+    // Best iterate should be r (residual = b for x0=0), not the zero initial guess.
+    // This verifies the MATLAB cgm.m line 19 fix: x_ = r.
+    EXPECT_TRUE(info.used_best_iterate);
+    EXPECT_GT(result.norm(), 0.0) << "Breakdown should return residual (r), not zero vector";
+    EXPECT_NEAR(result.norm(), b.norm(), 1e-14) << "Best iterate should be b (since x0=0, r=b)";
+}
+
+TEST_F(CGSolverTest, BreakdownOnNegativeDefiniteThrowsWithoutStatusManager)
+{
+    CGSolver solver(config);
+    // No StatusManager — should throw
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto negative_definite = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return -x;
+    };
+
+    EXPECT_THROW(solver.solve(negative_definite, b), std::runtime_error);
+}
+
+TEST_F(CGSolverTest, BreakdownOnNanMatVecProduct)
+{
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    // Returns NaN, so pAp = NaN which is !isfinite
+    auto nan_function = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return Eigen::VectorXd::Constant(x.size(), std::numeric_limits<double>::quiet_NaN());
+    };
+
+    solver.solve(nan_function, b);
+    EXPECT_FALSE(solver.hasConverged());
+}
+
+TEST_F(CGSolverTest, NoBreakdownOnSmallPositivePAp)
+{
+    // A system with very small eigenvalue: A*x = 1e-16 * x
+    // At iter 0: pAp = 1e-16 * ||b||² ≈ 1e-15 — the old abs(pAp) < 1e-14
+    // check would have broken down here. The new check (pAp <= 0) does not.
+    auto statusManager = std::make_shared<StatusManager>();
+    CGSolver solver(config);
+    solver.setStatusManager(statusManager);
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto small_eigenvalue = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return 1e-16 * x;
+    };
+
+    solver.solve(small_eigenvalue, b);
+    // Should converge (trivially solvable) without any breakdown warning
+    EXPECT_TRUE(solver.hasConverged());
+    auto warnings = statusManager->getMessages(StatusLevel::WARNING);
+    bool found_breakdown_warning = false;
+    for (const auto& msg : warnings)
+    {
+        if (msg.message.find("breakdown") != std::string::npos)
+        {
+            found_breakdown_warning = true;
+            break;
+        }
+    }
+    EXPECT_FALSE(found_breakdown_warning) << "Small positive pAp should not trigger breakdown";
+}
+
+TEST_F(CGSolverTest, BreakdownOnZeroPAp)
+{
+    // Zero matrix: A*x = 0 for all x, so pAp = 0 exactly.
+    // This is the PSD boundary case (D'D with nullspace).
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto zero_function = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return Eigen::VectorXd::Zero(x.size());
+    };
+
+    solver.solve(zero_function, b);
+    EXPECT_FALSE(solver.hasConverged());
+    EXPECT_EQ(solver.getLastConvergenceInfo().iterations, 0);
 }

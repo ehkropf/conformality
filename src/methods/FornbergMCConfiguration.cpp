@@ -165,7 +165,8 @@ void FornbergMCConfiguration::setFastComputation()
     newton_tolerance = 1e-8;
     cgm_tolerance = 1e-8;
     max_newton_iterations = 20;
-    max_cgm_iterations = 500;
+    max_cgm_iterations = 20;
+    max_cgm_restarts = 0;
     verbose = false;
     boundary_quality_check = false;
 }
