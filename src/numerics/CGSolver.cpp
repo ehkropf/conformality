@@ -259,7 +259,18 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             {
                 throw std::runtime_error("CGSolver: " + oss.str());
             }
-            break;
+            info.converged = false;
+            info.iterations = iter;
+            info.final_residual = std::sqrt(rsold);
+            info.relative_residual = info.final_residual / b_norm;
+            if (m_config.enable_best_iterate && m_best_iteration >= 0)
+            {
+                info.used_best_iterate = true;
+                info.best_iterate_index = m_best_iteration;
+                return m_best_iterate;
+            }
+            info.used_best_iterate = false;
+            return x;
         }
 
         // Update solution and residual
