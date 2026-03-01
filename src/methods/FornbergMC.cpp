@@ -719,25 +719,25 @@ void FornbergMC::solveSystem()
             "FornbergMC::solveSystem: System not formed");
     }
 
-    // Create D_function: applies D to a real vector
-    auto D_function = [this](const Eigen::VectorXd& x) -> Eigen::VectorXcd {
-        return m_D * x;
+    // MATLAB-style real/imaginary separation with /N scaling (namap.m lines 115, 123-124):
+    //   b = 2*real(D'*g)/N
+    //   A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N
+    // where DR = real(D), DI = imag(D). The /N scaling normalizes the system
+    // for better CG conditioning across different discretization sizes.
+    const double N = static_cast<double>(m_config.N);
+
+    // RHS: b = 2*real(D'*g)/N
+    Eigen::VectorXd b = (2.0 / N) * (m_D.adjoint() * m_g).real();
+
+    // Matrix-vector product: A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N
+    Eigen::MatrixXd DR = m_D.real();
+    Eigen::MatrixXd DI = m_D.imag();
+    auto A_function = [&DR, &DI, N](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return (2.0 / N) * (DR.transpose() * (DR * x) + DI.transpose() * (DI * x));
     };
 
-    // Create D_adjoint_function: applies D† to a complex vector
-    auto D_adjoint_function = [this](const Eigen::VectorXcd& y) -> Eigen::VectorXcd {
-        return m_D.adjoint() * y;
-    };
-
-    // Compute transformed RHS: D† * g
-    Eigen::VectorXcd g_transformed = m_D.adjoint() * m_g;
-
-    // Solve the system
-    Eigen::VectorXd solution = mp_cg_solver->solveComplexSystem(
-        D_function,
-        D_adjoint_function,
-        g_transformed
-    );
+    // Solve the real system directly
+    Eigen::VectorXd solution = mp_cg_solver->solve(A_function, b);
 
     // Store solution in m_U (as complex with zero imaginary part)
     m_U = solution.cast<std::complex<double>>();
