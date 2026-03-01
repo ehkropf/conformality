@@ -564,10 +564,16 @@ TEST_F(CGSolverTest, BreakdownOnNegativeDefiniteSystem)
         return -x;
     };
 
-    solver.solve(negative_definite, b);
+    Eigen::VectorXd result = solver.solve(negative_definite, b);
     EXPECT_FALSE(solver.hasConverged());
     // Should break at iteration 0 (first pAp check)
-    EXPECT_EQ(solver.getLastConvergenceInfo().iterations, 0);
+    const auto& info = solver.getLastConvergenceInfo();
+    EXPECT_EQ(info.iterations, 0);
+    // Best iterate should be r (residual = b for x0=0), not the zero initial guess.
+    // This verifies the MATLAB cgm.m line 19 fix: x_ = r.
+    EXPECT_TRUE(info.used_best_iterate);
+    EXPECT_GT(result.norm(), 0.0) << "Breakdown should return residual (r), not zero vector";
+    EXPECT_NEAR(result.norm(), b.norm(), 1e-14) << "Best iterate should be b (since x0=0, r=b)";
 }
 
 TEST_F(CGSolverTest, BreakdownOnNegativeDefiniteThrowsWithoutStatusManager)
@@ -629,4 +635,22 @@ TEST_F(CGSolverTest, NoBreakdownOnSmallPositivePAp)
         }
     }
     EXPECT_FALSE(found_breakdown_warning) << "Small positive pAp should not trigger breakdown";
+}
+
+TEST_F(CGSolverTest, BreakdownOnZeroPAp)
+{
+    // Zero matrix: A*x = 0 for all x, so pAp = 0 exactly.
+    // This is the PSD boundary case (D'D with nullspace).
+    CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
+
+    int n = 10;
+    Eigen::VectorXd b = Eigen::VectorXd::Ones(n);
+    auto zero_function = [](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return Eigen::VectorXd::Zero(x.size());
+    };
+
+    solver.solve(zero_function, b);
+    EXPECT_FALSE(solver.hasConverged());
+    EXPECT_EQ(solver.getLastConvergenceInfo().iterations, 0);
 }

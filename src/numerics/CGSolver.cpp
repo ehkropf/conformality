@@ -243,8 +243,9 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         double pAp = p.dot(Ap);
 
         // Safety-net: catch degenerate systems (negative-definite, NaN/Inf).
-        // MATLAB cgm.m has no breakdown check — normal CG doesn't need one because
-        // D'D is positive semi-definite. This guard only fires on true degeneracy.
+        // MATLAB cgm.m has no breakdown check — for well-posed Fornberg systems,
+        // D'D is positive definite and pAp > 0 throughout. This guard catches
+        // truly degenerate or corrupted systems.
         if (pAp <= 0.0 || !std::isfinite(pAp))
         {
             std::ostringstream oss;
@@ -300,12 +301,17 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             info.iterations = iter + 1;
             info.final_residual = current_residual;
             info.relative_residual = std::numeric_limits<double>::infinity();
+            if (m_config.enable_best_iterate && m_best_iteration >= 0)
+            {
+                info.used_best_iterate = true;
+                info.best_iterate_index = m_best_iteration;
+                return m_best_iterate;
+            }
             info.used_best_iterate = false;
             return x;
         }
 
         info.residual_history.push_back(current_residual);
-        
         // Update best iterate
         if (m_config.enable_best_iterate)
         {

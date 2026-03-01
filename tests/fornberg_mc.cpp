@@ -129,6 +129,8 @@ TEST_F(FornbergMCTest, ConfigurationPresets)
     fast_config.setFastComputation();
     EXPECT_EQ(fast_config.newton_tolerance, 1e-8);
     EXPECT_EQ(fast_config.max_newton_iterations, 20);
+    EXPECT_EQ(fast_config.max_cgm_iterations, 20);
+    EXPECT_EQ(fast_config.max_cgm_restarts, 0);
     EXPECT_FALSE(fast_config.verbose);
 
     FornbergMCConfiguration annulus_config;
@@ -937,8 +939,9 @@ TEST_F(FornbergMCSolveSystemTest, ReducesResidual)
     // We solve the least-squares problem: min ||D*U - g||
     // via the normal equations: D†D*U = D†g
     //
-    // The CG solver operates on the REAL system: 2*real(D†D)*x = 2*real(D†g)
-    // So we verify the real part of the normal equations residual.
+    // The CG solver operates on the real system with /N scaling:
+    //   A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N,  b = 2*real(D'*g)/N
+    // We verify the real part of the normal equations residual.
     auto domain = createAnnulusDomain();
 
     FornbergMC method(config);
