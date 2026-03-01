@@ -109,13 +109,14 @@ TEST_F(CGSolverTest, ComplexSystemSolution)
     auto D_adjoint_function = [n](const Eigen::VectorXcd& x) -> Eigen::VectorXcd {
         Eigen::VectorXcd result(n);
         for (int i = 0; i < n; ++i) {
-            result[i] = Complex(x[i].real() - x[i].imag(), x[i].real() + x[i].imag()); // (1-i) * x[i]
+            // (1-i) * (a+bi) = (a+b) + (b-a)i
+            result[i] = Complex(x[i].real() + x[i].imag(), x[i].imag() - x[i].real());
         }
         return result;
     };
-    
+
     Eigen::VectorXcd g = Eigen::VectorXcd::Ones(n);
-    
+
     // This should solve the system without throwing
     EXPECT_NO_THROW(solver.solveComplexSystem(D_function, D_adjoint_function, g));
 }

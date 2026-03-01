@@ -68,7 +68,7 @@ ThesisExamplePreset ThesisExamples::makeExample2()
         domain,
         {Complex(0.6, 0.1), Complex(0.77, -0.2), Complex(-0.7, 0)},
         {0.14, 0.05, 0.2},
-        makeConfig(128)
+        makeConfig(256)
     };
 }
 

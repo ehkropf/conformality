@@ -219,10 +219,10 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     info.residual_history.reserve(max_iterations);
     info.residual_history.push_back(initial_residual);
 
-    // Initialize best iterate tracking
+    // Initialize best iterate tracking (MATLAB cgm.m line 19: x_ = r)
     if (m_config.enable_best_iterate)
     {
-        updateBestIterate(x, initial_residual, 0);
+        updateBestIterate(r, initial_residual, 0);
     }
 
     // Log initial state
@@ -241,20 +241,27 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Compute A*p
         Eigen::VectorXd Ap = A_function(p);
         double pAp = p.dot(Ap);
-        
-        // Check for breakdown
-        if (std::abs(pAp) < 1e-14)
+
+        // Safety-net: catch degenerate systems (negative-definite, NaN/Inf).
+        // MATLAB cgm.m has no breakdown check — normal CG doesn't need one because
+        // D'D is positive semi-definite. This guard only fires on true degeneracy.
+        if (pAp <= 0.0 || !std::isfinite(pAp))
         {
+            std::ostringstream oss;
+            oss << std::scientific << std::setprecision(6);
+            oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp
+                << " (expected positive for SPD system)";
             if (mp_statusManager)
             {
-                std::ostringstream oss;
-                oss << std::scientific << std::setprecision(6);
-                oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp;
                 mp_statusManager->reportWarning("CGSolver", oss.str());
+            }
+            else
+            {
+                throw std::runtime_error("CGSolver: " + oss.str());
             }
             break;
         }
-        
+
         // Update solution and residual
         double alpha = rsold / pAp;
         x = x + alpha * p;
@@ -348,6 +355,11 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
 
 bool CGSolver::shouldRestart(const std::vector<double>& residual_history, int current_iter) const
 {
+    if (m_config.max_cgm_restarts == 0)
+    {
+        return false; // Restarts disabled
+    }
+
     if (current_iter < 10 || residual_history.size() < 10)
     {
         return false; // Too early to judge stagnation
