@@ -61,6 +61,7 @@ public:
         std::vector<double> residual_history;
         bool used_best_iterate = false;
         int best_iterate_index = -1;
+        int restart_count = 0;
     };
 
 private:
@@ -72,6 +73,7 @@ private:
     mutable Eigen::VectorXd m_best_iterate;
     mutable double m_best_residual;
     mutable int m_best_iteration;
+    mutable int m_restart_count;
 
 public:
     /**
@@ -178,12 +180,14 @@ private:
      * @param b Right-hand side vector
      * @param x0 Initial guess
      * @param info Convergence information (output)
+     * @param max_iterations Maximum number of CG iterations for this invocation
      * @return Solution vector
      */
     Eigen::VectorXd cgIteration(const MatrixVectorProduct& A_function,
                                const Eigen::VectorXd& b,
                                const Eigen::VectorXd& x0,
-                               ConvergenceInfo& info) const;
+                               ConvergenceInfo& info,
+                               int max_iterations) const;
 
     /**
      * @brief Check if restart is needed based on stagnation
@@ -195,12 +199,16 @@ private:
 
     /**
      * @brief Perform CG restart with current iterate as new starting point
-     * @param A_function Matrix-vector product function  
+     *
+     * Returns current_x without restarting if the maximum restart count has been
+     * reached or no iteration budget remains.
+     *
+     * @param A_function Matrix-vector product function
      * @param b Right-hand side vector
      * @param current_x Current iterate
      * @param remaining_iters Remaining iteration budget
      * @param info Convergence information (input/output)
-     * @return Restarted solution vector
+     * @return Restarted solution vector, or current_x if restart was skipped
      */
     Eigen::VectorXd performRestart(const MatrixVectorProduct& A_function,
                                   const Eigen::VectorXd& b,

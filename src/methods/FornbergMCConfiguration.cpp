@@ -69,6 +69,11 @@ void FornbergMCConfiguration::validate() const
         throw std::invalid_argument("FornbergMCConfiguration: cgm_restart_threshold must be in (0, 1)");
     }
 
+    if (max_cgm_restarts < 0)
+    {
+        throw std::invalid_argument("FornbergMCConfiguration: max_cgm_restarts must be non-negative");
+    }
+
     // Tolerance consistency check
     if (cgm_tolerance > newton_tolerance)
     {
