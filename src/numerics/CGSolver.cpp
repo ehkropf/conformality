@@ -348,6 +348,14 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
 
 bool CGSolver::shouldRestart(const std::vector<double>& residual_history, int current_iter) const
 {
+    // When restarts are disabled (max_cgm_restarts == 0), never trigger a restart.
+    // MATLAB reference (cgm.m) has no restart mechanism -- it just runs all iterations
+    // and returns the best iterate.
+    if (m_config.max_cgm_restarts == 0)
+    {
+        return false;
+    }
+
     if (current_iter < 10 || residual_history.size() < 10)
     {
         return false; // Too early to judge stagnation
