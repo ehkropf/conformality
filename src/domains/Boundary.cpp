@@ -96,6 +96,21 @@ std::vector<std::vector<Complex>> Boundary::sample(size_t numPoints) const
     return samples;
 }
 
+double Boundary::totalLength(size_t componentIndex) const
+{
+    if (components.empty())
+    {
+        throw std::runtime_error("Cannot get total length of empty boundary");
+    }
+
+    if (componentIndex >= components.size())
+    {
+        throw std::out_of_range("Component index out of range");
+    }
+
+    return components[componentIndex]->totalLength();
+}
+
 double Boundary::findParameterization(const Complex& z, size_t componentIndex) const
 {
     if (components.empty())

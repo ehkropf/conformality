@@ -20,9 +20,11 @@
 
 #include "../domains/BoundaryComponent.h"
 #include "../domains/InvertedEllipseComponent.h"
+#include "../domains/SplineBoundaryComponent.h"
 #include "../domains/Boundary.h"
 
 #include <memory>
+#include <vector>
 
 /// Factory functions for creating common boundary shapes used in thesis examples and tests.
 namespace conformality::examples
@@ -35,5 +37,10 @@ std::shared_ptr<Boundary> createEllipseBoundary(
 
 std::shared_ptr<Boundary> createInvertedEllipseBoundary(
     Complex center, double alpha, double rotation = 0.0);
+
+std::shared_ptr<Boundary> createSplineBoundary(
+    const std::vector<double>& xpts,
+    const std::vector<double>& ypts,
+    int refinement_N = 0);
 
 } // namespace conformality::examples

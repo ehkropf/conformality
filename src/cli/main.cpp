@@ -35,6 +35,7 @@ namespace
 {
 
 const std::map<std::string, int> EXAMPLE_NAMES = {
+    {"thesis1", 1},
     {"thesis2", 2},
     {"thesis3", 3},
     {"thesis4", 4},

@@ -23,29 +23,60 @@ using namespace conformality::examples;
 
 // --- availableExamples ---
 
-TEST(ThesisExamples, AvailableExamplesReturnsFourItems)
+TEST(ThesisExamples, AvailableExamplesReturnsFiveItems)
 {
     auto examples = ThesisExamples::availableExamples();
-    EXPECT_EQ(examples.size(), 4u);
+    EXPECT_EQ(examples.size(), 5u);
 }
 
 TEST(ThesisExamples, AvailableExamplesOrderedSimplestFirst)
 {
     auto examples = ThesisExamples::availableExamples();
-    ASSERT_EQ(examples.size(), 4u);
-    EXPECT_EQ(examples[0], 3);  // Identity (simplest)
-    EXPECT_EQ(examples[1], 5);  // Ellipses
-    EXPECT_EQ(examples[2], 2);  // Mixed (inverted ellipse)
-    EXPECT_EQ(examples[3], 4);  // High connectivity
+    ASSERT_EQ(examples.size(), 5u);
+    EXPECT_EQ(examples[0], 1);  // Spline boundary
+    EXPECT_EQ(examples[1], 3);  // Identity (simplest)
+    EXPECT_EQ(examples[2], 5);  // Ellipses
+    EXPECT_EQ(examples[3], 2);  // Mixed (inverted ellipse)
+    EXPECT_EQ(examples[4], 4);  // High connectivity
 }
 
 // --- Invalid example number ---
 
 TEST(ThesisExamples, InvalidExampleThrows)
 {
-    EXPECT_THROW(ThesisExamples::getExample(1), std::invalid_argument);
     EXPECT_THROW(ThesisExamples::getExample(0), std::invalid_argument);
     EXPECT_THROW(ThesisExamples::getExample(99), std::invalid_argument);
+}
+
+// --- Example 1: Spline outer boundary (m=3) ---
+
+TEST(ThesisExamples, Example1HasCorrectConnectivity)
+{
+    auto preset = ThesisExamples::getExample(1);
+    EXPECT_EQ(preset.target_domain->getConnectivity(), 3);
+}
+
+TEST(ThesisExamples, Example1HasCorrectInitialGuesses)
+{
+    auto preset = ThesisExamples::getExample(1);
+    EXPECT_EQ(preset.initial_centers.size(), 2u);
+    EXPECT_EQ(preset.initial_radii.size(), 2u);
+}
+
+TEST(ThesisExamples, Example1HasCorrectN)
+{
+    auto preset = ThesisExamples::getExample(1);
+    EXPECT_EQ(preset.config.N, 256);
+}
+
+TEST(ThesisExamples, Example1OuterBoundaryIsSpline)
+{
+    auto preset = ThesisExamples::getExample(1);
+    auto& boundaries = preset.target_domain->getBoundaries();
+    // Outer boundary should have non-2*pi total length (it's a spline)
+    double tl = boundaries[0]->totalLength();
+    EXPECT_NE(tl, 2.0 * M_PI);
+    EXPECT_GT(tl, 5.0);
 }
 
 // --- Example 3: Identity (m=4, all circles) ---

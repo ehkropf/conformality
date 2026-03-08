@@ -81,6 +81,13 @@ public:
     double findParameterization(const Complex& z, size_t componentIndex = 0) const;
 
     /**
+     * @brief Get the total parameter length for a boundary component
+     * @param componentIndex Index of the boundary component (default: 0)
+     * @return Total parameter length (delegates to component's totalLength())
+     */
+    double totalLength(size_t componentIndex = 0) const;
+
+    /**
      * @brief Add a boundary component
      * @param component Boundary component to add
      */

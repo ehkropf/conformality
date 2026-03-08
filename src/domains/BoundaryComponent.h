@@ -72,6 +72,11 @@ public:
      */
     virtual double findParameterization(const Complex& z) const = 0;
 
+    /**
+     * @brief Get the total parameter length for this boundary component
+     * @return Total parameter length (2*pi for angle-parameterized, arc-length for splines)
+     */
+    virtual double totalLength() const { return 2.0 * M_PI; }
 
     /**
      * @brief Set the status manager for this boundary component

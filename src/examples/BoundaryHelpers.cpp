@@ -74,4 +74,13 @@ std::shared_ptr<Boundary> createInvertedEllipseBoundary(
     return std::make_shared<Boundary>(component);
 }
 
+std::shared_ptr<Boundary> createSplineBoundary(
+    const std::vector<double>& xpts,
+    const std::vector<double>& ypts,
+    int refinement_N)
+{
+    auto component = std::make_shared<SplineBoundaryComponent>(xpts, ypts, refinement_N);
+    return std::make_shared<Boundary>(component);
+}
+
 } // namespace conformality::examples

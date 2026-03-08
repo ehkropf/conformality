@@ -47,6 +47,7 @@ public:
     static std::vector<int> availableExamples();
 
 private:
+    static ThesisExamplePreset makeExample1();
     static ThesisExamplePreset makeExample2();
     static ThesisExamplePreset makeExample3();
     static ThesisExamplePreset makeExample4();

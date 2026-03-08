@@ -28,6 +28,7 @@ ThesisExamplePreset ThesisExamples::getExample(int exampleNumber)
 {
     switch (exampleNumber)
     {
+        case 1: return makeExample1();
         case 2: return makeExample2();
         case 3: return makeExample3();
         case 4: return makeExample4();
@@ -35,13 +36,47 @@ ThesisExamplePreset ThesisExamples::getExample(int exampleNumber)
         default:
             throw std::invalid_argument(
                 "ThesisExamples: unsupported example number " + std::to_string(exampleNumber)
-                + " (available: 2, 3, 4, 5)");
+                + " (available: 1, 2, 3, 4, 5)");
     }
 }
 
 std::vector<int> ThesisExamples::availableExamples()
 {
-    return {3, 5, 2, 4};
+    return {1, 3, 5, 2, 4};
+}
+
+// MATLAB th_gen_ex1.m: m=3, spline outer boundary + two inner ellipses
+ThesisExamplePreset ThesisExamples::makeExample1()
+{
+    // Outer boundary: periodic cubic spline through 11 control points
+    // Control points extracted from th_gen_ex1_spline.mat
+    std::vector<double> xpts = {
+        1.956140, 1.570175, 0.710526, 0.008772, -0.412281, -1.289474,
+        -1.798246, -2.026316, -1.149123, 0.692982, 1.728070, 1.956140
+    };
+    std::vector<double> ypts = {
+        0.043860, 0.500000, 0.657895, 0.815789, 1.429825, 1.605263,
+        0.710526, -0.622807, -1.675439, -1.763158, -1.061404, 0.043860
+    };
+    auto outer = createSplineBoundary(xpts, ypts, 256);
+
+    // C2 = bellipse([-.9  3/16   3/4   0], N, [-.57-.1i, .2])
+    auto inner1 = createEllipseBoundary(Complex(-0.9, 0), 3.0 / 16.0, 3.0 / 4.0, 0.0);
+
+    // C3 = bellipse([.7-.5i   3/4   3/16  pi/4], N, [.25-.5i, .22])
+    auto inner2 = createEllipseBoundary(Complex(0.7, -0.5), 3.0 / 4.0, 3.0 / 16.0, M_PI / 4.0);
+
+    auto domain = std::make_shared<MultiplyConnectedDomain>(
+        std::vector<std::shared_ptr<Boundary>>{outer, inner1, inner2});
+
+    return ThesisExamplePreset{
+        "Thesis Example 1",
+        "Spline outer boundary (m=3): periodic cubic spline with two inner ellipses",
+        domain,
+        {Complex(-0.57, -0.1), Complex(0.25, -0.5)},
+        {0.2, 0.22},
+        makeConfig(256)
+    };
 }
 
 // MATLAB th_gen_ex2.m: m=4, mixed (inverted ellipse outer + inner ellipses)
