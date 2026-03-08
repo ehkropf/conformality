@@ -2,6 +2,7 @@
 #include "VisualizationPanel.h"
 #include "GuiController.h"
 #include "Application.h"
+#include "../core/MethodInfo.h"
 #include "imgui.h"
 #include "implot.h"
 
@@ -258,13 +259,19 @@ void MainWindow::renderControlPanel()
 
         ImGui::Separator();
 
-        // Computation results
-        if (mp_controller && mp_controller->getLastIterationCount() > 0)
+        // Computation results from MethodInfo
+        if (mp_controller)
         {
-            ImGui::Text("Iterations: %d", mp_controller->getLastIterationCount());
-            ImGui::Text("Residual: %.2e", mp_controller->getLastConvergenceError());
-            ImGui::Text("Converged: %s", mp_controller->hasConverged() ? "Yes" : "No");
-            ImGui::Separator();
+            const auto& info = mp_controller->getLastMethodInfo();
+            if (!info.results.empty())
+            {
+                for (const auto& field : info.results)
+                {
+                    auto display = formatMethodInfoValue(field.value);
+                    ImGui::Text("%s: %s", field.label.c_str(), display.c_str());
+                }
+                ImGui::Separator();
+            }
         }
 
         // Compute button
@@ -351,13 +358,15 @@ void MainWindow::renderStatusPanel()
                     ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
                 }
 
-                if (mp_controller->getLastIterationCount() > 0)
+                const auto& info = mp_controller->getLastMethodInfo();
+                if (!info.results.empty())
                 {
-                    ImGui::SameLine();
-                    ImGui::Text("| Iter: %d | Residual: %.2e | %s",
-                                mp_controller->getLastIterationCount(),
-                                mp_controller->getLastConvergenceError(),
-                                mp_controller->hasConverged() ? "Converged" : "Not converged");
+                    for (const auto& field : info.results)
+                    {
+                        ImGui::SameLine();
+                        auto display = formatMethodInfoValue(field.value);
+                        ImGui::Text("| %s: %s", field.label.c_str(), display.c_str());
+                    }
                 }
             }
         }

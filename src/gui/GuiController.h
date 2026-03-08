@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../core/MethodInfo.h"
+
 #include <atomic>
 #include <deque>
 #include <functional>
@@ -18,8 +20,8 @@ class VisualizationPanel;
  * and computation, and handles parameter updates and map generation.
  *
  * The controller starts in a blank state and accepts any ConformalMap via
- * the loadMap() method. After computation, it extracts method-specific
- * results (e.g. convergence info from FornbergMC) when available.
+ * the loadMap() method. After computation, it extracts results via the
+ * MethodInfo interface when available.
  *
  * Computation runs on a background thread to keep the GUI responsive.
  * Call update() each frame to process status messages and detect completion.
@@ -60,6 +62,7 @@ private:
     std::string m_lastErrorMessage;
     int m_lastIterationCount{0};
     bool m_hasConverged{false};
+    MethodInfo m_lastMethodInfo;
 
     // Callbacks for GUI updates (only called from main/GUI thread)
     std::function<void()> m_onComputationComplete;
@@ -190,6 +193,12 @@ public:
      * @return true if converged within tolerance
      */
     bool hasConverged() const { return m_hasConverged; }
+
+    /**
+     * @brief Get method info from last computation
+     * @return MethodInfo with parameters and results
+     */
+    const MethodInfo& getLastMethodInfo() const { return m_lastMethodInfo; }
 
     /**
      * @brief Set callback for computation completion
