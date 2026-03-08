@@ -23,6 +23,24 @@
 #include <cmath>
 #include <algorithm>
 
+MethodInfo TheodorsenMethod::getMethodInfo() const
+{
+    MethodInfo info;
+    info.name = "Theodorsen";
+
+    info.parameters = {
+        {"Sample points", static_cast<int>(n_points)},
+    };
+
+    info.results = {
+        {"Iterations", m_iteration_count},
+        {"Residual", residual_norm},
+        {"Converged", is_converged},
+    };
+
+    return info;
+}
+
 TheodorsenMethod::TheodorsenMethod(size_t num_points)
     : ConformalMapMethod()
     , n_points(num_points)

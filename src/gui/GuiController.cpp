@@ -67,6 +67,7 @@ void GuiController::loadMap(std::shared_ptr<ConformalMap> map, const std::string
     m_lastErrorMessage.clear();
     m_lastIterationCount = 0;
     m_hasConverged = false;
+    m_lastMethodInfo = {};
 
     updateVisualization();
 
@@ -87,6 +88,7 @@ void GuiController::clear()
     m_lastErrorMessage.clear();
     m_lastIterationCount = 0;
     m_hasConverged = false;
+    m_lastMethodInfo = {};
 
     if (m_onStatusUpdate)
     {
@@ -253,11 +255,19 @@ void GuiController::computeInBackground()
 
         // Extract results (still on worker thread, but before m_isComputing goes false)
         m_lastComputationSuccessful = true;
-        if (fm)
+        if (method)
         {
-            m_lastConvergenceError = fm->getCurrentResidual();
-            m_lastIterationCount = static_cast<int>(fm->getResidualHistory().size());
-            m_hasConverged = fm->hasConverged();
+            m_lastMethodInfo = method->getMethodInfo();
+        }
+        // Populate legacy fields from MethodInfo
+        for (const auto& field : m_lastMethodInfo.results)
+        {
+            if (field.label == "Iterations")
+                m_lastIterationCount = std::get<int>(field.value);
+            else if (field.label == "Residual")
+                m_lastConvergenceError = std::get<double>(field.value);
+            else if (field.label == "Converged")
+                m_hasConverged = std::get<bool>(field.value);
         }
 
         postStatusMessage("Computation completed successfully");

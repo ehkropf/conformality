@@ -1,5 +1,7 @@
 #pragma once
 
+#include "../core/MethodInfo.h"
+
 #include <atomic>
 #include <deque>
 #include <functional>
@@ -60,6 +62,7 @@ private:
     std::string m_lastErrorMessage;
     int m_lastIterationCount{0};
     bool m_hasConverged{false};
+    MethodInfo m_lastMethodInfo;
 
     // Callbacks for GUI updates (only called from main/GUI thread)
     std::function<void()> m_onComputationComplete;
@@ -190,6 +193,12 @@ public:
      * @return true if converged within tolerance
      */
     bool hasConverged() const { return m_hasConverged; }
+
+    /**
+     * @brief Get method info from last computation
+     * @return MethodInfo with parameters and results
+     */
+    const MethodInfo& getLastMethodInfo() const { return m_lastMethodInfo; }
 
     /**
      * @brief Set callback for computation completion
