@@ -46,14 +46,14 @@ public:
 
     /**
      * @brief Evaluate the boundary at parameter t
-     * @param t Parameter value in [0, 2π)
+     * @param t Parameter value in [0, totalLength())
      * @return Complex point on the boundary
      */
     virtual Complex evaluate(double t) const = 0;
 
     /**
      * @brief Evaluate the derivative of the boundary at parameter t
-     * @param t Parameter value in [0, 2π)
+     * @param t Parameter value in [0, totalLength())
      * @return Complex derivative value
      */
     virtual Complex evaluateDerivative(double t) const = 0;
@@ -72,6 +72,11 @@ public:
      */
     virtual double findParameterization(const Complex& z) const = 0;
 
+    /**
+     * @brief Get the total parameter length for this boundary component
+     * @return Total parameter length (2*pi for angle-parameterized, arc-length for splines)
+     */
+    virtual double totalLength() const { return 2.0 * M_PI; }
 
     /**
      * @brief Set the status manager for this boundary component

@@ -51,7 +51,7 @@ public:
 
     /**
      * @brief Evaluate the boundary at parameter t on specified component
-     * @param t Parameter value in [0, 2π]
+     * @param t Parameter value in [0, totalLength())
      * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex point on the boundary
      */
@@ -59,7 +59,7 @@ public:
 
     /**
      * @brief Evaluate the derivative at parameter t on specified component
-     * @param t Parameter value in [0, 2π]
+     * @param t Parameter value in [0, totalLength())
      * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex derivative
      */
@@ -79,6 +79,13 @@ public:
      * @return Parameter value t such that evaluate(t, componentIndex) ≈ z
      */
     double findParameterization(const Complex& z, size_t componentIndex = 0) const;
+
+    /**
+     * @brief Get the total parameter length for a boundary component
+     * @param componentIndex Index of the boundary component (default: 0)
+     * @return Total parameter length (delegates to component's totalLength())
+     */
+    double totalLength(size_t componentIndex = 0) const;
 
     /**
      * @brief Add a boundary component

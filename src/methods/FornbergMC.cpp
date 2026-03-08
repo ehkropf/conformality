@@ -434,6 +434,14 @@ void FornbergMC::initializeNewtonIteration()
     mp_cg_solver->setStatusManager(mp_status_manager);
     mp_matrix_builder->setStatusManager(mp_status_manager);
 
+    // Compute per-boundary total parameter lengths
+    const auto& boundaries = mp_user_domain->getBoundaries();
+    m_tl.resize(m_connectivity);
+    for (int nu = 0; nu < m_connectivity; ++nu)
+    {
+        m_tl(nu) = boundaries[nu]->totalLength();
+    }
+
     sampleBoundaries();
 
     initializeConformalModuli();
@@ -471,12 +479,12 @@ void FornbergMC::initializeNewtonIteration()
         mp_status_manager->reportDebug("FornbergMC", oss.str());
     }
 
-    // Initialize S to identity (uniform theta spacing)
+    // Initialize S to identity (uniform parameter spacing)
     for (int nu = 0; nu < m; ++nu)
     {
         for (int j = 0; j < N; ++j)
         {
-            m_S(j, nu) = 2.0 * M_PI * j / N;
+            m_S(j, nu) = m_tl(nu) * j / N;
         }
     }
 
@@ -507,6 +515,16 @@ void FornbergMC::formSystem()
         throw std::runtime_error(
             "FornbergMC::formSystem: Boundary count mismatch. Expected " + std::to_string(m) +
             " boundaries, got " + std::to_string(boundaries.size()) + ".");
+    }
+
+    // Ensure m_tl is initialized (for tests that call formSystem() directly)
+    if (m_tl.size() == 0)
+    {
+        m_tl.resize(m);
+        for (int nu = 0; nu < m; ++nu)
+        {
+            m_tl(nu) = boundaries[nu]->totalLength();
+        }
     }
 
     // Zero out system
@@ -675,16 +693,15 @@ void FornbergMC::formSystem()
             }
 
             // Compute S derivative: Sdiff = diff([S(:,nu); S(1,nu)+tl(nu)]) * N/(2*pi)
-            // The wrap-around adds tl (total parameter length = 2*pi for circles)
-            // to match MATLAB's diff([S(:,nu); S(1,nu)+tl(nu)])
-            constexpr double tl = 2.0 * M_PI;  // Total parameter length for circular boundaries
+            // The wrap-around adds tl (total parameter length) to match MATLAB
+            double tl_nu = m_tl(nu);
             Eigen::VectorXd S_diff(N);
             for (int j = 0; j < N - 1; ++j)
             {
                 S_diff(j) = (m_S(j + 1, nu) - m_S(j, nu)) * N / (2.0 * M_PI);
             }
             // Wrap-around (MATLAB): S(1) + tl - S(N)
-            S_diff(N - 1) = (m_S(0, nu) + tl - m_S(N - 1, nu)) * N / (2.0 * M_PI);
+            S_diff(N - 1) = (m_S(0, nu) + tl_nu - m_S(N - 1, nu)) * N / (2.0 * M_PI);
 
             // zeta = i * |eta| * eta * Sdiff / rho
             std::vector<Complex> zeta(N);
@@ -975,11 +992,12 @@ void FornbergMC::sampleBoundaries()
         m_boundary_samples[nu].resize(m_config.N);
         m_parameter_values[nu].resize(m_config.N);
 
+        double tl_nu = m_tl(nu);
         for (int j = 0; j < m_config.N; ++j)
         {
-            double theta = 2.0 * M_PI * j / m_config.N;
-            m_parameter_values[nu][j] = theta;
-            m_boundary_samples[nu][j] = boundaries[nu]->evaluate(theta, 0);
+            double param = tl_nu * j / m_config.N;
+            m_parameter_values[nu][j] = param;
+            m_boundary_samples[nu][j] = boundaries[nu]->evaluate(param, 0);
         }
     }
 }

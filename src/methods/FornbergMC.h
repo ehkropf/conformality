@@ -147,6 +147,7 @@ private:
     std::vector<double> m_residual_history; // Newton residual history
 
     // Auxiliary data for Newton updates
+    Eigen::VectorXd m_tl;                    // Per-boundary total parameter length
     Eigen::MatrixXd m_abs_eta;  // |eta| values (boundary derivative magnitudes), size: (N, m_connectivity) to match MATLAB
 
     // Boundary parameterization
