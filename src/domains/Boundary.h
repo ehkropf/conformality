@@ -51,7 +51,7 @@ public:
 
     /**
      * @brief Evaluate the boundary at parameter t on specified component
-     * @param t Parameter value in [0, 2π]
+     * @param t Parameter value in [0, totalLength())
      * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex point on the boundary
      */
@@ -59,7 +59,7 @@ public:
 
     /**
      * @brief Evaluate the derivative at parameter t on specified component
-     * @param t Parameter value in [0, 2π]
+     * @param t Parameter value in [0, totalLength())
      * @param componentIndex Index of the boundary component (default: 0)
      * @return Complex derivative
      */

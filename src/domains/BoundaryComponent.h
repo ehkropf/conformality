@@ -46,14 +46,14 @@ public:
 
     /**
      * @brief Evaluate the boundary at parameter t
-     * @param t Parameter value in [0, 2π)
+     * @param t Parameter value in [0, totalLength())
      * @return Complex point on the boundary
      */
     virtual Complex evaluate(double t) const = 0;
 
     /**
      * @brief Evaluate the derivative of the boundary at parameter t
-     * @param t Parameter value in [0, 2π)
+     * @param t Parameter value in [0, totalLength())
      * @return Complex derivative value
      */
     virtual Complex evaluateDerivative(double t) const = 0;

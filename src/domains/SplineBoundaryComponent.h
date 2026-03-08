@@ -39,7 +39,7 @@ public:
      * @param xpts X coordinates of control points (first == last for closure)
      * @param ypts Y coordinates of control points (first == last for closure)
      * @param refinement_N If > 0, upsample control points using interp_2 logic with
-     *        nn = floor(refinement_N / (npts-1)) extra knots per interval
+     *        nn = floor(refinement_N / num_segments) extra knots per interval
      */
     SplineBoundaryComponent(const std::vector<double>& xpts,
                             const std::vector<double>& ypts,

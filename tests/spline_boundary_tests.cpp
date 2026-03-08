@@ -74,6 +74,27 @@ TEST(SplineBoundaryComponent, ThrowsOnTooFewPoints)
     EXPECT_THROW(SplineBoundaryComponent({0, 0}, {1, 1}), std::invalid_argument);
 }
 
+TEST(SplineBoundaryComponent, ThrowsOnDuplicateConsecutivePoints)
+{
+    // Three identical points — zero-length chords
+    std::vector<double> x = {1.0, 1.0, 1.0};
+    std::vector<double> y = {2.0, 2.0, 2.0};
+    EXPECT_THROW(SplineBoundaryComponent(x, y), std::invalid_argument);
+}
+
+TEST(SplineBoundaryComponent, AutoClosesOpenControlPoints)
+{
+    // Open triangle (first != last) — should auto-close and produce periodic spline
+    std::vector<double> x = {1.0, -0.5, -0.5};
+    std::vector<double> y = {0.0, 0.866, -0.866};
+    SplineBoundaryComponent spline(x, y);
+
+    double tl = spline.totalLength();
+    Complex z0 = spline.evaluate(0.0);
+    Complex z_tl = spline.evaluate(tl);
+    EXPECT_NEAR(std::abs(z0 - z_tl), 0.0, 1e-10);
+}
+
 // --- totalLength ---
 
 TEST(SplineBoundaryComponent, Thesis1RawTotalLength)

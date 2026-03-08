@@ -213,6 +213,17 @@ SplineBoundaryComponent::computePeriodicSplineCoefficients(
         h[i] = std::sqrt(dx[i] * dx[i] + dy[i] * dy[i]);
     }
 
+    // Validate no zero-length segments (prevents division by zero in coefficient computation)
+    for (int i = 0; i < n; ++i)
+    {
+        if (h[i] < 1e-15)
+        {
+            throw std::invalid_argument(
+                "SplineBoundaryComponent: zero-length chord at segment " + std::to_string(i)
+                + " — duplicate consecutive control points detected");
+        }
+    }
+
     double tl = std::accumulate(h.begin(), h.end(), 0.0);
 
     // h(n1) = h(1) in MATLAB (0-indexed: h_ext[n] = h[0])
@@ -395,12 +406,24 @@ std::vector<double> SplineBoundaryComponent::solveTridiagonal(
     // Forward sweep
     for (int i = 1; i < n; ++i)
     {
+        if (std::abs(b[i - 1]) < 1e-15)
+        {
+            throw std::runtime_error(
+                "SplineBoundaryComponent: tridiagonal solver encountered zero pivot at index "
+                + std::to_string(i - 1));
+        }
         double m = a[i] / b[i - 1];
         b[i] -= m * c[i - 1];
         d[i] -= m * d[i - 1];
     }
     // Back substitution
     std::vector<double> x(n);
+    if (std::abs(b[n - 1]) < 1e-15)
+    {
+        throw std::runtime_error(
+            "SplineBoundaryComponent: tridiagonal solver encountered zero pivot at index "
+            + std::to_string(n - 1));
+    }
     x[n - 1] = d[n - 1] / b[n - 1];
     for (int i = n - 2; i >= 0; --i)
     {
@@ -459,7 +482,14 @@ std::vector<double> SplineBoundaryComponent::solvePeriodicTridiagonal(
         vTz += v[i] * z[i];
     }
 
-    double factor = vTy / (1.0 + vTz);
+    double denom = 1.0 + vTz;
+    if (std::abs(denom) < 1e-14)
+    {
+        throw std::runtime_error(
+            "SplineBoundaryComponent: periodic tridiagonal system is singular "
+            "(degenerate control point geometry)");
+    }
+    double factor = vTy / denom;
     std::vector<double> x(n);
     for (int i = 0; i < n; ++i)
     {
