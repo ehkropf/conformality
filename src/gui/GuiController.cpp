@@ -223,7 +223,7 @@ void GuiController::computeInBackground()
             method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
         }
 
-        // Downcast for FornbergMC-specific result extraction and StatusManager access
+        // Downcast for FornbergMC StatusManager access (live progress callback)
         auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
 
         // Wire StatusManager callback for live progress updates
@@ -259,15 +259,26 @@ void GuiController::computeInBackground()
         {
             m_lastMethodInfo = method->getMethodInfo();
         }
-        // Populate legacy fields from MethodInfo
+        // Populate legacy fields from MethodInfo (label strings must match
+        // those set in getMethodInfo() implementations; uses get_if to avoid
+        // std::bad_variant_access on the background thread)
         for (const auto& field : m_lastMethodInfo.results)
         {
             if (field.label == "Iterations")
-                m_lastIterationCount = std::get<int>(field.value);
+            {
+                if (auto* p = std::get_if<int>(&field.value))
+                    m_lastIterationCount = *p;
+            }
             else if (field.label == "Residual")
-                m_lastConvergenceError = std::get<double>(field.value);
+            {
+                if (auto* p = std::get_if<double>(&field.value))
+                    m_lastConvergenceError = *p;
+            }
             else if (field.label == "Converged")
-                m_hasConverged = std::get<bool>(field.value);
+            {
+                if (auto* p = std::get_if<bool>(&field.value))
+                    m_hasConverged = *p;
+            }
         }
 
         postStatusMessage("Computation completed successfully");

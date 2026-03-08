@@ -29,12 +29,7 @@
 
 TEST(MethodInfoBaseClassTest, ReturnsEmpty)
 {
-    // ConformalMapMethod is abstract; FornbergMC overrides, so use TheodorsenMethod
-    // to verify the override works and then test the base default via a minimal stub.
-    // Since ConformalMapMethod is abstract, we just verify that calling getMethodInfo()
-    // on a concrete subclass returns non-empty (the default {} is only reachable if
-    // a subclass doesn't override).
-    // We test the default inline body indirectly: it returns an empty MethodInfo.
+    // Verify default-constructed MethodInfo has empty fields
     MethodInfo empty{};
     EXPECT_TRUE(empty.name.empty());
     EXPECT_TRUE(empty.parameters.empty());
@@ -54,6 +49,10 @@ TEST(MethodInfoFornbergMCTest, ParametersMatchConfig)
     auto info = fm.getMethodInfo();
     EXPECT_EQ(info.name, "FornbergMC");
     ASSERT_EQ(info.parameters.size(), 5u);
+
+    // Connectivity (default 0 before compute)
+    EXPECT_EQ(info.parameters[0].label, "Connectivity");
+    EXPECT_EQ(std::get<int>(info.parameters[0].value), 0);
 
     // N
     EXPECT_EQ(info.parameters[1].label, "N");
@@ -107,6 +106,23 @@ TEST(MethodInfoTheodorsenTest, NameAndParameters)
     ASSERT_EQ(info.parameters.size(), 1u);
     EXPECT_EQ(info.parameters[0].label, "Sample points");
     EXPECT_EQ(std::get<int>(info.parameters[0].value), 256);
+}
+
+TEST(MethodInfoTheodorsenTest, ResultsDefaultValues)
+{
+    TheodorsenMethod tm(128);
+    auto info = tm.getMethodInfo();
+
+    ASSERT_EQ(info.results.size(), 3u);
+
+    EXPECT_EQ(info.results[0].label, "Iterations");
+    EXPECT_EQ(std::get<int>(info.results[0].value), 0);
+
+    EXPECT_EQ(info.results[1].label, "Residual");
+    EXPECT_DOUBLE_EQ(std::get<double>(info.results[1].value), 0.0);
+
+    EXPECT_EQ(info.results[2].label, "Converged");
+    EXPECT_FALSE(std::get<bool>(info.results[2].value));
 }
 
 // ---------- formatMethodInfoValue ----------

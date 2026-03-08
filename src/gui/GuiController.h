@@ -20,8 +20,8 @@ class VisualizationPanel;
  * and computation, and handles parameter updates and map generation.
  *
  * The controller starts in a blank state and accepts any ConformalMap via
- * the loadMap() method. After computation, it extracts method-specific
- * results (e.g. convergence info from FornbergMC) when available.
+ * the loadMap() method. After computation, it extracts results via the
+ * MethodInfo interface when available.
  *
  * Computation runs on a background thread to keep the GUI responsive.
  * Call update() each frame to process status messages and detect completion.
