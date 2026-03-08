@@ -29,6 +29,28 @@
 #include <cmath>
 #include <algorithm>
 
+MethodInfo FornbergMC::getMethodInfo() const
+{
+    MethodInfo info;
+    info.name = "FornbergMC";
+
+    info.parameters = {
+        {"Connectivity", m_connectivity},
+        {"N", m_config.N},
+        {"Newton tolerance", m_config.newton_tolerance},
+        {"Max Newton iterations", m_config.max_newton_iterations},
+        {"Annulus case", m_is_annulus},
+    };
+
+    info.results = {
+        {"Iterations", static_cast<int>(m_residual_history.size())},
+        {"Residual", m_current_residual},
+        {"Converged", m_is_converged},
+    };
+
+    return info;
+}
+
 FornbergMC::FornbergMC(const FornbergMCConfiguration& config)
     : ConformalMapMethod()
     , m_config{config}

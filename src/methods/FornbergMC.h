@@ -108,6 +108,10 @@ class FornbergMC : public ConformalMapMethod
     FRIEND_TEST(Thesis3DiagnosticTest, Iteration1MatchesOctaveState);
     FRIEND_TEST(Thesis3DiagnosticTest, Iteration2FormSystemProducesFiniteValues);
     FRIEND_TEST(Thesis3DiagnosticTest, FullNewtonConvergenceN256);
+
+    // MethodInfo tests (tests/method_info_tests.cpp)
+    FRIEND_TEST(MethodInfoFornbergMCTest, ResultsAfterStateSetup);
+    FRIEND_TEST(MethodInfoTypeSafetyTest, VariantHoldsExpectedTypes);
 #endif
 
 private:
@@ -182,6 +186,8 @@ public:
      * @return Complex Mapped point in the canonical domain (source)
      */
     Complex inverseMap(const Complex& w) const override;
+
+    MethodInfo getMethodInfo() const override;
 
     /**
      * @brief Get the current configuration

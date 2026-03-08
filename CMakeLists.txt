@@ -212,6 +212,7 @@ add_executable(test_exec
     tests/boundary_helpers_tests.cpp
     tests/thesis_examples_tests.cpp
     tests/spline_boundary_tests.cpp
+    tests/method_info_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main

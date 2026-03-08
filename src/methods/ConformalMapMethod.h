@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "../core/MethodInfo.h"
 #include "../core/Types.h"
 
 #include <functional>
@@ -116,6 +117,12 @@ public:
      * @param max Maximum number of iterations
      */
     void setMaxIterations(int max);
+
+    /**
+     * @brief Get a descriptor with method name, parameters, and results
+     * @return MethodInfo populated by the concrete method (empty by default)
+     */
+    virtual MethodInfo getMethodInfo() const { return {}; }
 
     /**
      * @brief Set a cancellation check callback for cooperative cancellation

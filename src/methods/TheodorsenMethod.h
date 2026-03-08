@@ -116,6 +116,8 @@ public:
      */
     Complex inverseMap(const Complex& w) const override;
 
+    MethodInfo getMethodInfo() const override;
+
     /**
      * @brief Get the number of sample points
      * @return Number of sample points
