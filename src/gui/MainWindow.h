@@ -15,6 +15,7 @@ private:
     std::unique_ptr<VisualizationPanel> mp_visualizationPanel;
     std::unique_ptr<GuiController> mp_controller;
     std::string m_statusMessage;
+    std::string m_computationPhase;
     Application* mp_application;
 
 public:
