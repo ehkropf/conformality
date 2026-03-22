@@ -195,6 +195,12 @@ public:
     bool hasConverged() const { return m_hasConverged; }
 
     /**
+     * @brief Check if last computation was cancelled by the user
+     * @return true if cancelled
+     */
+    bool wasCancelled() const { return m_cancelRequested.load(); }
+
+    /**
      * @brief Get method info from last computation
      * @return MethodInfo with parameters and results
      */

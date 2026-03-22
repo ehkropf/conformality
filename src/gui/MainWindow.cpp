@@ -310,7 +310,10 @@ void MainWindow::renderControlPanel()
             {
                 if (mp_controller)
                 {
-                    mp_controller->computeMapping();
+                    if (mp_controller->computeMapping())
+                    {
+                        m_computationPhase = "Computing...";
+                    }
                 }
             }
             if (!hasMap) ImGui::EndDisabled();
@@ -391,7 +394,16 @@ void MainWindow::onStatusUpdate(const std::string& message)
 
 void MainWindow::onComputationComplete()
 {
-    if (mp_controller->wasLastComputationSuccessful())
+    if (!mp_controller)
+    {
+        return;
+    }
+
+    if (mp_controller->wasCancelled())
+    {
+        m_computationPhase = "Cancelled";
+    }
+    else if (mp_controller->wasLastComputationSuccessful())
     {
         if (mp_controller->hasConverged())
         {
