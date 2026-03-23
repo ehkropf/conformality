@@ -536,14 +536,7 @@ void VisualizationPanel::renderSourceDomain()
         if (m_showGrid && !m_sourceGridLines.empty())
         {
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            for (const auto& line : m_sourceGridLines)
-            {
-                if (!line.x.empty())
-                {
-                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
-                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
-                }
-            }
+            plotGridLines(m_sourceGridLines);
             ImPlot::PopStyleColor();
         }
 
@@ -589,14 +582,7 @@ void VisualizationPanel::renderTargetDomain()
         if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
         {
             ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            for (const auto& line : m_targetGridLines)
-            {
-                if (!line.x.empty())
-                {
-                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
-                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
-                }
-            }
+            plotGridLines(m_targetGridLines);
             ImPlot::PopStyleColor();
         }
 
@@ -614,4 +600,46 @@ void VisualizationPanel::clearGridData()
 {
     m_sourceGridLines.clear();
     m_targetGridLines.clear();
+}
+
+void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
+{
+    // ImPlot's SkipNaN connects valid points across NaN gaps with a straight line,
+    // which draws grid lines through holes and outside domain boundaries (GH-110).
+    // Instead, split each grid line at NaN boundaries and plot each contiguous
+    // segment as a separate PlotLine call.
+    for (const auto& line : gridLines)
+    {
+        size_t n = line.x.size();
+        size_t segStart = 0;
+
+        while (segStart < n)
+        {
+            // Skip NaN points
+            while (segStart < n && (std::isnan(line.x[segStart]) || std::isnan(line.y[segStart])))
+            {
+                ++segStart;
+            }
+
+            if (segStart >= n)
+            {
+                break;
+            }
+
+            // Find end of contiguous valid segment
+            size_t segEnd = segStart;
+            while (segEnd < n && !std::isnan(line.x[segEnd]) && !std::isnan(line.y[segEnd]))
+            {
+                ++segEnd;
+            }
+
+            int count = static_cast<int>(segEnd - segStart);
+            if (count >= 2)
+            {
+                ImPlot::PlotLine("##grid", line.x.data() + segStart, line.y.data() + segStart, count);
+            }
+
+            segStart = segEnd;
+        }
+    }
 }
