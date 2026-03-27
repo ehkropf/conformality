@@ -341,11 +341,11 @@ void VisualizationPanel::generateSourceGrid()
     double yMax = bounds.yMax + marginY;
 
     int pointsPerLine = 100;
-    bool containsFailureLogged = false;
 
     // Horizontal lines
     for (int i = 0; i < m_gridDensity; ++i)
     {
+        bool containsFailureLogged = false;
         double y = yMin + (yMax - yMin) * (i + 0.5) / m_gridDensity;
         GridLine line;
         for (int j = 0; j <= pointsPerLine; ++j)
@@ -383,6 +383,7 @@ void VisualizationPanel::generateSourceGrid()
     // Vertical lines
     for (int i = 0; i < m_gridDensity; ++i)
     {
+        bool containsFailureLogged = false;
         double x = xMin + (xMax - xMin) * (i + 0.5) / m_gridDensity;
         GridLine line;
         for (int j = 0; j <= pointsPerLine; ++j)
@@ -615,8 +616,8 @@ void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
 
         while (segStart < n)
         {
-            // Skip NaN points
-            while (segStart < n && (std::isnan(line.x[segStart]) || std::isnan(line.y[segStart])))
+            // Skip non-finite points (NaN from domain clipping, Inf from singular maps)
+            while (segStart < n && !(std::isfinite(line.x[segStart]) && std::isfinite(line.y[segStart])))
             {
                 ++segStart;
             }
@@ -628,11 +629,12 @@ void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
 
             // Find end of contiguous valid segment
             size_t segEnd = segStart;
-            while (segEnd < n && !std::isnan(line.x[segEnd]) && !std::isnan(line.y[segEnd]))
+            while (segEnd < n && std::isfinite(line.x[segEnd]) && std::isfinite(line.y[segEnd]))
             {
                 ++segEnd;
             }
 
+            // Need at least 2 points to draw a line segment
             int count = static_cast<int>(segEnd - segStart);
             if (count >= 2)
             {
