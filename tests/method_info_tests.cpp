@@ -23,6 +23,7 @@
 #include "../src/methods/FornbergMCConfiguration.h"
 #include "../src/methods/PMatrixBuilder.h"
 #include "../src/numerics/CGSolver.h"
+
 // ---------- Base class default ----------
 
 TEST(MethodInfoBaseClassTest, ReturnsEmpty)
