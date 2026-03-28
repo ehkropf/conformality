@@ -319,23 +319,6 @@ TEST_F(FornbergMCTest, FornbergCanonicalDomain)
     EXPECT_THROW(FornbergCanonicalDomain bad_domain(bad_centers, bad_radii, 64), std::invalid_argument);
 }
 
-// Integration test placeholder
-TEST_F(FornbergMCTest, DISABLED_BasicComputeIntegration)
-{
-    // This test is disabled until we have proper multiply connected domains set up
-    // TODO: Implement when domain creation utilities are available
-
-    FornbergMC method(config);
-
-    // Create source and target domains
-    // auto source_domain = createCanonicalDomain();
-    // auto target_domain = createTestMultiplyConnectedDomain();
-    //
-    // ConformalMap map(source_domain, target_domain);
-    //
-    // EXPECT_NO_THROW(method.compute(map));
-}
-
 // Convergence history test
 TEST_F(FornbergMCTest, ConvergenceTracking)
 {

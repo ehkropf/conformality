@@ -408,7 +408,7 @@ TEST_F(PMatrixBuilderTest, FrequencyIndicesFFTWOrder)
     }
 
     // Critical test: Nyquist frequency at index N/2 should be -N/2, not N/2
-    // This is the bug from issue #34
+    // This was the bug from issue #34
     EXPECT_EQ(freq_indices[config.N / 2], -config.N / 2)
         << "Nyquist frequency at index N/2=" << config.N / 2
         << " should be -N/2=" << -config.N / 2 << ", not N/2";
