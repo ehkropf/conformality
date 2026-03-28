@@ -572,7 +572,7 @@ TEST_F(CGSolverTest, BreakdownOnNegativeDefiniteSystem)
     const auto& info = solver.getLastConvergenceInfo();
     EXPECT_EQ(info.iterations, 0);
     // Best iterate should be r (residual = b for x0=0), not the zero initial guess.
-    // This verifies the MATLAB cgm.m line 19 fix: x_ = r.
+    // This verifies the MATLAB cgm.m best-iterate initialization fix: x_ = r.
     EXPECT_TRUE(info.used_best_iterate);
     EXPECT_GT(result.norm(), 0.0) << "Breakdown should return residual (r), not zero vector";
     EXPECT_NEAR(result.norm(), b.norm(), 1e-14) << "Best iterate should be b (since x0=0, r=b)";
