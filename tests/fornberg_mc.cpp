@@ -1516,16 +1516,20 @@ TEST_F(FornbergMCStatusManagerTest, SetterGetterWorkCorrectly)
 
     FornbergMC method(config);
 
-    // Initially no status manager
-    EXPECT_EQ(method.getStatusManager(), nullptr);
+    // Initially has StrictNullStatusManager (never null)
+    EXPECT_NE(method.getStatusManager(), nullptr);
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(method.getStatusManager()), nullptr)
+        << "Default should not be a real StatusManager";
 
     // Set and verify
     method.setStatusManager(statusManager);
     EXPECT_EQ(method.getStatusManager(), statusManager);
 
-    // Can clear by setting nullptr
+    // Setting nullptr resets to StrictNullStatusManager (not null)
     method.setStatusManager(nullptr);
-    EXPECT_EQ(method.getStatusManager(), nullptr);
+    EXPECT_NE(method.getStatusManager(), nullptr);
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(method.getStatusManager()), nullptr)
+        << "After clearing, should revert to StrictNullStatusManager";
 }
 
 TEST_F(FornbergMCStatusManagerTest, LogsMessagesOnFormSystem)
@@ -1611,12 +1615,15 @@ TEST_F(FornbergMCStatusManagerTest, PropagatesStatusManagerToSubComponents)
     );
     method.initializeNewtonIteration();
 
-    // Sub-components exist with no StatusManager because FornbergMC had none
-    // when initializeNewtonIteration() was called
+    // Sub-components exist with StrictNullStatusManager default (same as FornbergMC's default)
     ASSERT_NE(method.mp_matrix_builder, nullptr);
     ASSERT_NE(method.mp_cg_solver, nullptr);
-    EXPECT_EQ(method.mp_matrix_builder->getStatusManager(), nullptr);
-    EXPECT_EQ(method.mp_cg_solver->getStatusManager(), nullptr);
+    // Verify sub-components have a StatusManager (never null with StrictNull default)
+    EXPECT_NE(method.mp_matrix_builder->getStatusManager(), nullptr);
+    EXPECT_NE(method.mp_cg_solver->getStatusManager(), nullptr);
+    // But it's not a real StatusManager yet -- it's the StrictNullStatusManager default
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(method.mp_matrix_builder->getStatusManager()), nullptr);
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(method.mp_cg_solver->getStatusManager()), nullptr);
 
     // Set StatusManager after sub-components exist -- should propagate
     method.setStatusManager(statusManager);

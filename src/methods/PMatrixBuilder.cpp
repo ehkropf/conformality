@@ -147,11 +147,8 @@ void PMatrixBuilder::setConnectivity(int new_connectivity)
     initializeFrequencyIndices();
     setupNormalizationConditions();
 
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("PMatrixBuilder",
-            "Connectivity updated to " + std::to_string(m_connectivity));
-    }
+    mp_status_manager->reportDebug("PMatrixBuilder",
+        "Connectivity updated to " + std::to_string(m_connectivity));
 }
 
 void PMatrixBuilder::setAnnulusMode(bool use_annulus)
@@ -160,28 +157,18 @@ void PMatrixBuilder::setAnnulusMode(bool use_annulus)
     {
         std::string msg = "Cannot enable annulus mode with connectivity != 2 (connectivity="
                           + std::to_string(m_connectivity) + ")";
-        if (mp_status_manager)
-        {
-            mp_status_manager->reportWarning("PMatrixBuilder", msg);
-        }
-        else
-        {
-            throw std::invalid_argument("PMatrixBuilder: " + msg);
-        }
+        mp_status_manager->reportWarning("PMatrixBuilder", msg);
         return;
     }
-    
+
     m_is_annulus = use_annulus;
-    
+
     // Reinitialize frequency indices for new mode
     initializeFrequencyIndices();
     setupNormalizationConditions();
 
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("PMatrixBuilder",
-            "Annulus mode set to " + std::string(m_is_annulus ? "true" : "false"));
-    }
+    mp_status_manager->reportDebug("PMatrixBuilder",
+        "Annulus mode set to " + std::string(m_is_annulus ? "true" : "false"));
 }
 
 void PMatrixBuilder::initializeFrequencyIndices()
@@ -584,11 +571,8 @@ void PMatrixBuilder::setupNormalizationConditions()
         }
     }
 
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("PMatrixBuilder",
-            "Set up " + std::to_string(m_normalization_conditions.size()) + " normalization conditions");
-    }
+    mp_status_manager->reportDebug("PMatrixBuilder",
+        "Set up " + std::to_string(m_normalization_conditions.size()) + " normalization conditions");
 }
 
 void PMatrixBuilder::validateParameters() const

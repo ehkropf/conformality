@@ -24,7 +24,6 @@
 
 CGSolver::CGSolver(const FornbergMCConfiguration& config)
     : m_config{config}
-    , mp_statusManager{nullptr}
     , m_best_residual{std::numeric_limits<double>::max()}
     , m_best_iteration{-1}
     , m_restart_count{0}
@@ -53,26 +52,23 @@ Eigen::VectorXd CGSolver::solve(const MatrixVectorProduct& A_function,
     m_last_convergence_info = info;
 
     // Log final convergence status
-    if (mp_statusManager)
+    std::ostringstream oss;
+    oss << std::scientific << std::setprecision(6);
+    if (info.converged)
     {
-        std::ostringstream oss;
-        oss << std::scientific << std::setprecision(6);
-        if (info.converged)
+        oss << "Converged in " << info.iterations << " iterations, "
+            << "relative residual = " << info.relative_residual;
+        mp_statusManager->reportInfo("CGSolver", oss.str());
+    }
+    else
+    {
+        oss << "Did not converge after " << info.iterations << " iterations, "
+            << "relative residual = " << info.relative_residual;
+        if (info.used_best_iterate)
         {
-            oss << "Converged in " << info.iterations << " iterations, "
-                << "relative residual = " << info.relative_residual;
-            mp_statusManager->reportInfo("CGSolver", oss.str());
+            oss << " (using best iterate from iteration " << info.best_iterate_index << ")";
         }
-        else
-        {
-            oss << "Did not converge after " << info.iterations << " iterations, "
-                << "relative residual = " << info.relative_residual;
-            if (info.used_best_iterate)
-            {
-                oss << " (using best iterate from iteration " << info.best_iterate_index << ")";
-            }
-            mp_statusManager->reportWarning("CGSolver", oss.str());
-        }
+        mp_statusManager->reportWarning("CGSolver", oss.str());
     }
 
     return solution;
@@ -96,10 +92,7 @@ Eigen::VectorXd CGSolver::solveComplexSystem(
 
 bool CGSolver::runSelfTest(int size) const
 {
-    if (mp_statusManager)
-    {
-        mp_statusManager->reportDebug("CGSolver", "Running self-test with system size " + std::to_string(size));
-    }
+    mp_statusManager->reportDebug("CGSolver", "Running self-test with system size " + std::to_string(size));
 
     try
     {
@@ -121,29 +114,23 @@ bool CGSolver::runSelfTest(int size) const
         double error = (x_computed - x_true).norm();
         bool passed = error < 1e-10;
 
-        if (mp_statusManager)
+        std::ostringstream oss;
+        oss << std::scientific << std::setprecision(6);
+        oss << "Self-test " << (passed ? "passed" : "failed") << ", error = " << error;
+        if (passed)
         {
-            std::ostringstream oss;
-            oss << std::scientific << std::setprecision(6);
-            oss << "Self-test " << (passed ? "passed" : "failed") << ", error = " << error;
-            if (passed)
-            {
-                mp_statusManager->reportInfo("CGSolver", oss.str());
-            }
-            else
-            {
-                mp_statusManager->reportWarning("CGSolver", oss.str());
-            }
+            mp_statusManager->reportInfo("CGSolver", oss.str());
+        }
+        else
+        {
+            mp_statusManager->reportWarning("CGSolver", oss.str());
         }
 
         return passed;
     }
     catch (const std::exception& e)
     {
-        if (mp_statusManager)
-        {
-            mp_statusManager->reportError("CGSolver", "Self-test failed with exception", e.what());
-        }
+        mp_statusManager->reportError("CGSolver", "Self-test failed with exception", e.what());
         return false;
     }
 }
@@ -171,14 +158,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     if (!std::isfinite(b_norm))
     {
         std::string msg = "Non-finite RHS norm detected (" + std::to_string(b_norm) + "). Aborting CG.";
-        if (mp_statusManager)
-        {
-            mp_statusManager->reportWarning("CGSolver", msg);
-        }
-        else
-        {
-            throw std::runtime_error("CGSolver: " + msg);
-        }
+        mp_statusManager->reportWarning("CGSolver", msg);
         info.converged = false;
         info.iterations = 0;
         info.final_residual = b_norm;
@@ -200,14 +180,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         std::ostringstream oss;
         oss << std::scientific << std::setprecision(6);
         oss << "Non-finite initial residual (" << initial_residual << "). Aborting CG.";
-        if (mp_statusManager)
-        {
-            mp_statusManager->reportWarning("CGSolver", oss.str());
-        }
-        else
-        {
-            throw std::runtime_error("CGSolver: " + oss.str());
-        }
+        mp_statusManager->reportWarning("CGSolver", oss.str());
         info.converged = false;
         info.iterations = 0;
         info.final_residual = initial_residual;
@@ -226,7 +199,6 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     }
 
     // Log initial state
-    if (mp_statusManager)
     {
         std::ostringstream oss;
         oss << std::scientific << std::setprecision(6);
@@ -252,14 +224,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             oss << std::scientific << std::setprecision(6);
             oss << "CG breakdown at iteration " << iter << ": p'Ap = " << pAp
                 << " (expected positive for SPD system)";
-            if (mp_statusManager)
-            {
-                mp_statusManager->reportWarning("CGSolver", oss.str());
-            }
-            else
-            {
-                throw std::runtime_error("CGSolver: " + oss.str());
-            }
+            mp_statusManager->reportWarning("CGSolver", oss.str());
             info.converged = false;
             info.iterations = iter;
             info.final_residual = std::sqrt(rsold);
@@ -289,14 +254,7 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
             std::ostringstream oss;
             oss << std::scientific << std::setprecision(6);
             oss << "Non-finite residual at iteration " << iter << ": " << current_residual;
-            if (mp_statusManager)
-            {
-                mp_statusManager->reportWarning("CGSolver", oss.str());
-            }
-            else
-            {
-                throw std::runtime_error("CGSolver: " + oss.str());
-            }
+            mp_statusManager->reportWarning("CGSolver", oss.str());
             info.converged = false;
             info.iterations = iter + 1;
             info.final_residual = current_residual;
@@ -332,7 +290,6 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Check for restart condition
         if (shouldRestart(info.residual_history, iter + 1))
         {
-            if (mp_statusManager)
             {
                 std::ostringstream oss;
                 oss << std::scientific << std::setprecision(6);
@@ -411,14 +368,7 @@ Eigen::VectorXd CGSolver::performRestart(const MatrixVectorProduct& A_function,
     if (m_restart_count >= m_config.max_cgm_restarts)
     {
         std::string msg = "Maximum restart count (" + std::to_string(m_config.max_cgm_restarts) + ") reached";
-        if (mp_statusManager)
-        {
-            mp_statusManager->reportWarning("CGSolver", msg);
-        }
-        else
-        {
-            throw std::runtime_error("CGSolver: " + msg);
-        }
+        mp_statusManager->reportWarning("CGSolver", msg);
         return current_x;
     }
     m_restart_count++;
@@ -454,7 +404,7 @@ void CGSolver::updateBestIterate(const Eigen::VectorXd& x, double residual, int 
         m_best_iteration = iteration;
 
         // Log significant improvements in best iterate (when enabled and significant)
-        if (mp_statusManager && (iteration == 0 || improvement > 0.1))
+        if (iteration == 0 || improvement > 0.1)
         {
             std::ostringstream oss;
             oss << std::scientific << std::setprecision(6);

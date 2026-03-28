@@ -22,6 +22,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -330,5 +331,69 @@ private:
      */
     void addMessage(const StatusMessage& msg);
 };
+
+/**
+ * @brief Null object StatusManager that enforces the "don't silently swallow" rule
+ *
+ * This is the default StatusManager for all components. It:
+ * - Discards DUMP, DEBUG, and INFO messages (no logging configured yet)
+ * - Throws std::runtime_error on WARNING and ERROR messages
+ *
+ * When a real StatusManager is wired via setStatusManager(), it replaces this default.
+ * This eliminates all `if (mp_statusManager)` null guards throughout the codebase
+ * while preserving the rule that WARNING/ERROR conditions must not be silently swallowed.
+ */
+class StrictNullStatusManager : public IStatusManager
+{
+public:
+    void reportDump(const std::string& /*component*/, const std::string& /*message*/,
+                    const std::string& /*details*/ = "") override
+    {
+        // Discard
+    }
+
+    void reportDebug(const std::string& /*component*/, const std::string& /*message*/,
+                     const std::string& /*details*/ = "") override
+    {
+        // Discard
+    }
+
+    void reportInfo(const std::string& /*component*/, const std::string& /*message*/,
+                    const std::string& /*details*/ = "") override
+    {
+        // Discard
+    }
+
+    void reportWarning(const std::string& component, const std::string& message,
+                       const std::string& /*details*/ = "") override
+    {
+        throw std::runtime_error(component + ": " + message);
+    }
+
+    void reportError(const std::string& component, const std::string& message,
+                     const std::string& /*details*/ = "") override
+    {
+        throw std::runtime_error(component + ": " + message);
+    }
+
+    std::vector<StatusMessage> getMessages() const override { return {}; }
+    std::vector<StatusMessage> getMessages(StatusLevel /*level*/) const override { return {}; }
+    std::vector<StatusMessage> getMessagesAtOrAbove(StatusLevel /*minLevel*/) const override { return {}; }
+    void clearMessages() override {}
+    bool hasWarnings() const override { return false; }
+    bool hasErrors() const override { return false; }
+};
+
+/**
+ * @brief Get a shared singleton StrictNullStatusManager instance
+ *
+ * Returns a shared_ptr to a single global StrictNullStatusManager.
+ * Used as the default for all component StatusManager pointers.
+ */
+inline std::shared_ptr<IStatusManager> makeStrictNullStatusManager()
+{
+    static auto instance = std::make_shared<StrictNullStatusManager>();
+    return instance;
+}
 
 #endif // STATUS_MANAGER_H

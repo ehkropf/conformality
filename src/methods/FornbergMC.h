@@ -121,7 +121,7 @@ private:
     std::shared_ptr<FornbergCanonicalDomain> mp_canonical_domain{nullptr};   // Source domain (unit disk + holes)
 
     // Logging
-    std::shared_ptr<IStatusManager> mp_status_manager{nullptr};  // Optional status manager for logging
+    std::shared_ptr<IStatusManager> mp_status_manager{makeStrictNullStatusManager()};
 
     // Matrix construction components
     std::unique_ptr<PMatrixBuilder> mp_matrix_builder{nullptr};
@@ -215,7 +215,7 @@ public:
 
     /**
      * @brief Get the current status manager
-     * @return Shared pointer to the status manager (may be null)
+     * @return Shared pointer to the status manager (never null)
      */
     std::shared_ptr<IStatusManager> getStatusManager() const
     {
