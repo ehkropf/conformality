@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 class VisualizationPanel;
 class GuiController;
@@ -14,7 +15,8 @@ private:
     bool m_showAboutDialog;
     std::unique_ptr<VisualizationPanel> mp_visualizationPanel;
     std::unique_ptr<GuiController> mp_controller;
-    std::string m_statusMessage;
+    std::vector<std::string> m_statusLog;
+    bool m_statusLogScrollToBottom{false};
     std::string m_computationPhase;
     Application* mp_application;
 
