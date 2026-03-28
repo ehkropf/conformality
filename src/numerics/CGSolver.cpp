@@ -199,13 +199,11 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
     }
 
     // Log initial state
-    {
-        std::ostringstream oss;
-        oss << std::scientific << std::setprecision(6);
-        oss << "Starting CG: n=" << n << ", initial residual=" << initial_residual
-            << ", b_norm=" << b_norm;
-        mp_statusManager->reportDebug("CGSolver", oss.str());
-    }
+    std::ostringstream start_oss;
+    start_oss << std::scientific << std::setprecision(6);
+    start_oss << "Starting CG: n=" << n << ", initial residual=" << initial_residual
+        << ", b_norm=" << b_norm;
+    mp_statusManager->reportDebug("CGSolver", start_oss.str());
 
     // CG iteration loop
     for (int iter = 0; iter < max_iterations; ++iter)
@@ -290,13 +288,11 @@ Eigen::VectorXd CGSolver::cgIteration(const MatrixVectorProduct& A_function,
         // Check for restart condition
         if (shouldRestart(info.residual_history, iter + 1))
         {
-            {
-                std::ostringstream oss;
-                oss << std::scientific << std::setprecision(6);
-                oss << "CG restart triggered at iteration " << (iter + 1)
-                    << ", residual=" << current_residual;
-                mp_statusManager->reportDebug("CGSolver", oss.str());
-            }
+            std::ostringstream restart_oss;
+            restart_oss << std::scientific << std::setprecision(6);
+            restart_oss << "CG restart triggered at iteration " << (iter + 1)
+                << ", residual=" << current_residual;
+            mp_statusManager->reportDebug("CGSolver", restart_oss.str());
             info.iterations = iter + 1;
             return performRestart(A_function, b, x, max_iterations - (iter + 1), info);
         }
