@@ -28,22 +28,6 @@ diagrams:
         - '  ArrowColor Black'
         - '}'
 
-  theodorsen_method:
-    type: class
-    title: Theodorsen's Method Classes
-    generate_method_arguments: abbreviated
-    glob:
-      - src/**/*.h
-      - src/**/*.cpp
-    include:
-      context:
-        - match:
-            radius: 4
-            pattern: TheodorsenMethod
-    exclude:
-      namespaces:
-        - std
-
   fornberg_mc:
     type: class
     title: Fornberg MC Method
