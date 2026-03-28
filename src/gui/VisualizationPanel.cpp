@@ -330,8 +330,99 @@ void VisualizationPanel::generateSourceGrid()
         return;
     }
 
-    // For non-starlike domains (including MC), fall back to Cartesian grid.
-    // Points outside the domain are set to NaN so ImPlot's SkipNaN draws only the interior.
+    // For FornbergCanonicalDomain (unit disk with circular holes), use a polar grid
+    // following the MATLAB reference (bdd_plot2.m): radial lines + concentric circles.
+    // Polar grids naturally reach the circular outer boundary and conform better to the
+    // circular geometry than Cartesian grids, which stop short at curved boundaries.
+    auto canonicalDomain = std::dynamic_pointer_cast<FornbergCanonicalDomain>(sourceDomain);
+    if (canonicalDomain)
+    {
+        int pointsPerLine = 200;
+        int numRadials = 2 * m_gridDensity;
+        int numCircles = m_gridDensity;
+        const auto& holeCenters = canonicalDomain->getHoleCenters();
+        const auto& holeRadii = canonicalDomain->getHoleRadii();
+
+        // Radial lines from origin to unit circle
+        for (int i = 0; i < numRadials; ++i)
+        {
+            double angle = 2.0 * M_PI * i / numRadials;
+            double cosA = std::cos(angle);
+            double sinA = std::sin(angle);
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double r = static_cast<double>(j) / pointsPerLine;
+                double x = r * cosA;
+                double y = r * sinA;
+
+                // Check if point is inside any hole
+                bool inHole = false;
+                for (size_t h = 0; h < holeCenters.size(); ++h)
+                {
+                    double dx = x - holeCenters[h].real();
+                    double dy = y - holeCenters[h].imag();
+                    if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
+                    {
+                        inHole = true;
+                        break;
+                    }
+                }
+
+                if (inHole)
+                {
+                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+                }
+                else
+                {
+                    line.x.push_back(x);
+                    line.y.push_back(y);
+                }
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+
+        // Concentric circles at evenly spaced radii
+        for (int i = 1; i <= numCircles; ++i)
+        {
+            double radius = static_cast<double>(i) / (numCircles + 1);
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double angle = 2.0 * M_PI * j / pointsPerLine;
+                double x = radius * std::cos(angle);
+                double y = radius * std::sin(angle);
+
+                bool inHole = false;
+                for (size_t h = 0; h < holeCenters.size(); ++h)
+                {
+                    double dx = x - holeCenters[h].real();
+                    double dy = y - holeCenters[h].imag();
+                    if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
+                    {
+                        inHole = true;
+                        break;
+                    }
+                }
+
+                if (inHole)
+                {
+                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+                }
+                else
+                {
+                    line.x.push_back(x);
+                    line.y.push_back(y);
+                }
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+        return;
+    }
+
+    // For other MC domains, fall back to Cartesian grid with containment testing.
     BoundingBox bounds = computeBounds(m_sourceBoundaries);
     double marginX = (bounds.xMax - bounds.xMin) * 0.05;
     double marginY = (bounds.yMax - bounds.yMin) * 0.05;
@@ -522,7 +613,15 @@ void VisualizationPanel::renderSourceDomain()
                                 bounds.yMin - margin, bounds.yMax + margin,
                                 ImGuiCond_FirstUseEver);
 
-        // Plot boundary curves
+        // Plot grid lines first so boundaries render on top
+        if (m_showGrid && !m_sourceGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            plotGridLines(m_sourceGridLines);
+            ImPlot::PopStyleColor();
+        }
+
+        // Plot boundary curves (on top of grid)
         for (const auto& curve : m_sourceBoundaries)
         {
             if (!curve.x.empty())
@@ -531,14 +630,6 @@ void VisualizationPanel::renderSourceDomain()
                                  curve.x.data(), curve.y.data(),
                                  static_cast<int>(curve.x.size()));
             }
-        }
-
-        // Plot grid lines (hidden from legend)
-        if (m_showGrid && !m_sourceGridLines.empty())
-        {
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            plotGridLines(m_sourceGridLines);
-            ImPlot::PopStyleColor();
         }
 
         ImPlot::EndPlot();
@@ -568,7 +659,15 @@ void VisualizationPanel::renderTargetDomain()
                                 bounds.yMin - margin, bounds.yMax + margin,
                                 ImGuiCond_FirstUseEver);
 
-        // Plot boundary curves
+        // Plot mapped grid lines first so boundaries render on top
+        if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            plotGridLines(m_targetGridLines);
+            ImPlot::PopStyleColor();
+        }
+
+        // Plot boundary curves (on top of grid)
         for (const auto& curve : m_targetBoundaries)
         {
             if (!curve.x.empty())
@@ -577,14 +676,6 @@ void VisualizationPanel::renderTargetDomain()
                                  curve.x.data(), curve.y.data(),
                                  static_cast<int>(curve.x.size()));
             }
-        }
-
-        // Plot mapped grid lines (hidden from legend)
-        if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
-        {
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            plotGridLines(m_targetGridLines);
-            ImPlot::PopStyleColor();
         }
 
         // Show message if no map is loaded
