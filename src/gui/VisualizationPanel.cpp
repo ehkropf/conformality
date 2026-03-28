@@ -331,9 +331,9 @@ void VisualizationPanel::generateSourceGrid()
     }
 
     // For FornbergCanonicalDomain (unit disk with circular holes), use a polar grid
-    // following the MATLAB reference (bdd_plot2.m): radial lines + concentric circles.
-    // Polar grids naturally reach the circular outer boundary and conform better to the
-    // circular geometry than Cartesian grids, which stop short at curved boundaries.
+    // with the same geometry as the MATLAB reference (bdd_plot2.m): radial lines +
+    // concentric circles. Hole clipping (NaN insertion) is added here since C++ generates
+    // the grid directly rather than inverting from the slit domain.
     auto canonicalDomain = std::dynamic_pointer_cast<FornbergCanonicalDomain>(sourceDomain);
     if (canonicalDomain)
     {
@@ -342,6 +342,24 @@ void VisualizationPanel::generateSourceGrid()
         int numCircles = m_gridDensity;
         const auto& holeCenters = canonicalDomain->getHoleCenters();
         const auto& holeRadii = canonicalDomain->getHoleRadii();
+
+        // Append point to grid line, replacing with NaN if inside any hole
+        auto appendPoint = [&holeCenters, &holeRadii](GridLine& line, double x, double y)
+        {
+            for (size_t h = 0; h < holeCenters.size(); ++h)
+            {
+                double dx = x - holeCenters[h].real();
+                double dy = y - holeCenters[h].imag();
+                if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
+                {
+                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+                    return;
+                }
+            }
+            line.x.push_back(x);
+            line.y.push_back(y);
+        };
 
         // Radial lines from origin to unit circle
         for (int i = 0; i < numRadials; ++i)
@@ -353,32 +371,7 @@ void VisualizationPanel::generateSourceGrid()
             for (int j = 0; j <= pointsPerLine; ++j)
             {
                 double r = static_cast<double>(j) / pointsPerLine;
-                double x = r * cosA;
-                double y = r * sinA;
-
-                // Check if point is inside any hole
-                bool inHole = false;
-                for (size_t h = 0; h < holeCenters.size(); ++h)
-                {
-                    double dx = x - holeCenters[h].real();
-                    double dy = y - holeCenters[h].imag();
-                    if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
-                    {
-                        inHole = true;
-                        break;
-                    }
-                }
-
-                if (inHole)
-                {
-                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
-                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
-                }
-                else
-                {
-                    line.x.push_back(x);
-                    line.y.push_back(y);
-                }
+                appendPoint(line, r * cosA, r * sinA);
             }
             m_sourceGridLines.push_back(std::move(line));
         }
@@ -391,38 +384,14 @@ void VisualizationPanel::generateSourceGrid()
             for (int j = 0; j <= pointsPerLine; ++j)
             {
                 double angle = 2.0 * M_PI * j / pointsPerLine;
-                double x = radius * std::cos(angle);
-                double y = radius * std::sin(angle);
-
-                bool inHole = false;
-                for (size_t h = 0; h < holeCenters.size(); ++h)
-                {
-                    double dx = x - holeCenters[h].real();
-                    double dy = y - holeCenters[h].imag();
-                    if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
-                    {
-                        inHole = true;
-                        break;
-                    }
-                }
-
-                if (inHole)
-                {
-                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
-                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
-                }
-                else
-                {
-                    line.x.push_back(x);
-                    line.y.push_back(y);
-                }
+                appendPoint(line, radius * std::cos(angle), radius * std::sin(angle));
             }
             m_sourceGridLines.push_back(std::move(line));
         }
         return;
     }
 
-    // For other MC domains, fall back to Cartesian grid with containment testing.
+    // For domains not handled above, fall back to Cartesian grid with containment testing.
     BoundingBox bounds = computeBounds(m_sourceBoundaries);
     double marginX = (bounds.xMax - bounds.xMin) * 0.05;
     double marginY = (bounds.yMax - bounds.yMin) * 0.05;
@@ -696,8 +665,8 @@ void VisualizationPanel::clearGridData()
 
 void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
 {
-    // ImPlot's SkipNaN connects valid points across NaN gaps with a straight line,
-    // which draws grid lines through holes and outside domain boundaries (GH-110).
+    // ImPlot's SkipNaN connected valid points across NaN gaps with a straight line,
+    // which drew grid lines through holes and outside domain boundaries (GH-110).
     // Instead, split each grid line at NaN boundaries and plot each contiguous
     // segment as a separate PlotLine call.
     for (const auto& line : gridLines)
