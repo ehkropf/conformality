@@ -144,17 +144,9 @@ double SplineBoundaryComponent::findParameterization(const Complex& z) const
     }
     catch (const RootFinder::ConvergenceError&)
     {
-        if (p_statusManager)
-        {
-            p_statusManager->reportWarning("SplineBoundaryComponent",
-                "Ternary search failed to converge in findParameterization",
-                "Falling back to coarse grid search");
-        }
-        else
-        {
-            throw std::runtime_error(
-                "SplineBoundaryComponent::findParameterization: ternary search failed to converge");
-        }
+        p_statusManager->reportWarning("SplineBoundaryComponent",
+            "Ternary search failed to converge in findParameterization",
+            "Falling back to coarse grid search");
 
         // Fallback: coarse grid search
         int n_search = 1000;

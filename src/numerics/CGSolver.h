@@ -66,7 +66,7 @@ public:
 
 private:
     const FornbergMCConfiguration& m_config;
-    std::shared_ptr<IStatusManager> mp_statusManager;
+    std::shared_ptr<IStatusManager> mp_statusManager{makeStrictNullStatusManager()};
 
     // Solver state
     mutable ConvergenceInfo m_last_convergence_info;
@@ -157,16 +157,16 @@ public:
 
     /**
      * @brief Set the status manager for logging
-     * @param manager Shared pointer to status manager (nullptr to disable logging)
+     * @param manager Shared pointer to status manager (nullptr resets to StrictNullStatusManager)
      */
     void setStatusManager(std::shared_ptr<IStatusManager> manager)
     {
-        mp_statusManager = manager;
+        mp_statusManager = manager ? manager : makeStrictNullStatusManager();
     }
 
     /**
      * @brief Get the current status manager
-     * @return Shared pointer to the status manager (may be null)
+     * @return Shared pointer to the status manager (never null)
      */
     std::shared_ptr<IStatusManager> getStatusManager() const
     {

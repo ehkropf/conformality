@@ -71,13 +71,10 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
     double effective_tolerance = std::min(target_accuracy, m_config.newton_tolerance);
 
     // Log computation start with domain connectivity and target accuracy
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Starting computation with target_accuracy=" << target_accuracy
-            << ", effective_tolerance=" << effective_tolerance;
-        mp_status_manager->reportInfo("FornbergMC", oss.str());
-    }
+    std::ostringstream oss;
+    oss << "Starting computation with target_accuracy=" << target_accuracy
+        << ", effective_tolerance=" << effective_tolerance;
+    mp_status_manager->reportInfo("FornbergMC", oss.str());
 
     // Validate domains
     validateDomains(map_instance);
@@ -101,11 +98,8 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
 
     if (mp_canonical_domain)
     {
-        if (mp_status_manager)
-        {
-            mp_status_manager->reportInfo("FornbergMC",
-                "Using source domain as canonical domain (manual initial guesses)");
-        }
+        mp_status_manager->reportInfo("FornbergMC",
+            "Using source domain as canonical domain (manual initial guesses)");
     }
     else
     {
@@ -138,10 +132,7 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
     m_is_annulus = detectAnnulusCase();
     if (m_is_annulus)
     {
-        if (mp_status_manager)
-        {
-            mp_status_manager->reportInfo("FornbergMC", "Detected annulus case (m=2) - using optimized algorithm");
-        }
+        mp_status_manager->reportInfo("FornbergMC", "Detected annulus case (m=2) - using optimized algorithm");
     }
 
     // Initialize Newton iteration framework
@@ -155,10 +146,7 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
     {
         if (m_cancellationCheck && m_cancellationCheck())
         {
-            if (mp_status_manager)
-            {
-                mp_status_manager->reportInfo("FornbergMC", "Computation cancelled by user");
-            }
+            mp_status_manager->reportInfo("FornbergMC", "Computation cancelled by user");
             throw std::runtime_error("Computation cancelled");
         }
 
@@ -177,10 +165,7 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
             std::string msg = "Newton iteration " + std::to_string(iter + 1) +
                 ": CG solver produced non-finite solution (||U||_inf = " +
                 std::to_string(u_inf_norm) + "). Aborting.";
-            if (mp_status_manager)
-            {
-                mp_status_manager->reportError("FornbergMC", msg);
-            }
+            mp_status_manager->reportError("FornbergMC", msg);
             throw std::runtime_error("FornbergMC: " + msg);
         }
 
@@ -190,39 +175,30 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
         // Store residual for history
         m_residual_history.push_back(m_current_residual);
 
-        if (mp_status_manager)
-        {
-            std::ostringstream msg;
-            msg << "Newton iteration " << (iter + 1) << ": residual=" << m_current_residual;
-            std::ostringstream det;
-            det << (iter + 1) << " " << m_current_residual;
-            mp_status_manager->reportInfo("FornbergMC", msg.str(), det.str());
-        }
+        std::ostringstream iter_msg;
+        iter_msg << "Newton iteration " << (iter + 1) << ": residual=" << m_current_residual;
+        std::ostringstream iter_det;
+        iter_det << (iter + 1) << " " << m_current_residual;
+        mp_status_manager->reportInfo("FornbergMC", iter_msg.str(), iter_det.str());
 
         // Boundary redistribution if needed
         if (iter % m_config.redistribution_frequency == 0 && m_config.enable_redistribution)
         {
             if (redistributeBoundaryParameters())
             {
-                if (mp_status_manager)
-                {
-                    std::ostringstream oss;
-                    oss << "Redistributed boundary parameters at iteration " << iter;
-                    mp_status_manager->reportDebug("FornbergMC", oss.str());
-                }
+                std::ostringstream oss;
+                oss << "Redistributed boundary parameters at iteration " << iter;
+                mp_status_manager->reportDebug("FornbergMC", oss.str());
             }
         }
     }
 
     if (!m_is_converged)
     {
-        if (mp_status_manager)
-        {
-            std::ostringstream oss;
-            oss << "Newton iteration failed to converge after " << m_config.max_newton_iterations
-                << " iterations, final residual=" << m_current_residual;
-            mp_status_manager->reportWarning("FornbergMC", oss.str());
-        }
+        std::ostringstream oss;
+        oss << "Newton iteration failed to converge after " << m_config.max_newton_iterations
+            << " iterations, final residual=" << m_current_residual;
+        mp_status_manager->reportInfo("FornbergMC", oss.str());
         if (!m_config.enable_fallback_methods)
         {
             throw std::runtime_error("FornbergMC: Newton iteration failed to converge");
@@ -230,13 +206,10 @@ void FornbergMC::compute(ConformalMap& map_instance, double target_accuracy)
     }
     else
     {
-        if (mp_status_manager)
-        {
-            std::ostringstream oss;
-            oss << "Newton iteration converged in " << m_residual_history.size()
-                << " iterations, residual=" << m_current_residual;
-            mp_status_manager->reportInfo("FornbergMC", oss.str());
-        }
+        std::ostringstream oss;
+        oss << "Newton iteration converged in " << m_residual_history.size()
+            << " iterations, residual=" << m_current_residual;
+        mp_status_manager->reportInfo("FornbergMC", oss.str());
     }
 
     computeFourierCoefficients();
@@ -340,26 +313,23 @@ void FornbergMC::setConfiguration(const FornbergMCConfiguration& config)
     config.validate();
     m_config = config;
     m_is_converged = false;
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Configuration updated: N=" << config.N
-            << ", newton_tolerance=" << config.newton_tolerance
-            << ", max_newton_iterations=" << config.max_newton_iterations;
-        mp_status_manager->reportDebug("FornbergMC", oss.str());
-    }
+    std::ostringstream oss;
+    oss << "Configuration updated: N=" << config.N
+        << ", newton_tolerance=" << config.newton_tolerance
+        << ", max_newton_iterations=" << config.max_newton_iterations;
+    mp_status_manager->reportDebug("FornbergMC", oss.str());
 }
 
 void FornbergMC::setStatusManager(std::shared_ptr<IStatusManager> statusManager)
 {
-    mp_status_manager = statusManager;
+    mp_status_manager = statusManager ? statusManager : makeStrictNullStatusManager();
     if (mp_cg_solver)
     {
-        mp_cg_solver->setStatusManager(statusManager);
+        mp_cg_solver->setStatusManager(mp_status_manager);
     }
     if (mp_matrix_builder)
     {
-        mp_matrix_builder->setStatusManager(statusManager);
+        mp_matrix_builder->setStatusManager(mp_status_manager);
     }
 }
 
@@ -421,13 +391,10 @@ void FornbergMC::validateTargetDomain(std::shared_ptr<Domain> domain) const
 
 void FornbergMC::initializeNewtonIteration()
 {
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Initializing Newton iteration with N=" << m_config.N
-            << ", connectivity=" << m_connectivity;
-        mp_status_manager->reportDebug("FornbergMC", oss.str());
-    }
+    std::ostringstream init_oss;
+    init_oss << "Initializing Newton iteration with N=" << m_config.N
+        << ", connectivity=" << m_connectivity;
+    mp_status_manager->reportDebug("FornbergMC", init_oss.str());
 
     mp_matrix_builder = std::make_unique<PMatrixBuilder>(m_config, m_connectivity, m_is_annulus);
     mp_cg_solver = std::make_unique<CGSolver>(m_config);
@@ -471,13 +438,10 @@ void FornbergMC::initializeNewtonIteration()
     m_abs_eta.resize(N, m);  // (N, m) layout to match MATLAB
     m_a.resize(N, m);
 
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Initialized system matrices: D(" << num_rows << "x" << num_cols
-            << "), coefficients a(" << N << "x" << m << ")";
-        mp_status_manager->reportDebug("FornbergMC", oss.str());
-    }
+    std::ostringstream size_oss;
+    size_oss << "Initialized system matrices: D(" << num_rows << "x" << num_cols
+        << "), coefficients a(" << N << "x" << m << ")";
+    mp_status_manager->reportDebug("FornbergMC", size_oss.str());
 
     // Initialize S to identity (uniform parameter spacing)
     for (int nu = 0; nu < m; ++nu)
@@ -558,13 +522,10 @@ void FornbergMC::formSystem()
             }
             else
             {
-                if (mp_status_manager)
-                {
-                    std::ostringstream oss;
-                    oss << "Degenerate tangent detected at boundary " << nu
-                        << ", point " << j << " (S=" << S_j << "). Using fallback unit tangent.";
-                    mp_status_manager->reportWarning("FornbergMC", oss.str());
-                }
+                std::ostringstream oss;
+                oss << "Degenerate tangent detected at boundary " << nu
+                    << ", point " << j << " (S=" << S_j << "). Using fallback unit tangent.";
+                mp_status_manager->reportWarning("FornbergMC", oss.str());
                 eta(j, nu) = Complex(1.0, 0.0);
             }
         }
@@ -786,27 +747,21 @@ void FornbergMC::solveSystem()
 
     if (!info.converged)
     {
-        if (mp_status_manager)
+        std::ostringstream oss;
+        oss << "CG solver did not converge after " << info.iterations
+            << " iterations. Residual: " << info.final_residual;
+        if (info.used_best_iterate)
         {
-            std::ostringstream oss;
-            oss << "CG solver did not converge after " << info.iterations
-                << " iterations. Residual: " << info.final_residual;
-            if (info.used_best_iterate)
-            {
-                oss << " (using best iterate from iteration " << info.best_iterate_index << ")";
-            }
-            mp_status_manager->reportWarning("FornbergMC", oss.str());
+            oss << " (using best iterate from iteration " << info.best_iterate_index << ")";
         }
+        mp_status_manager->reportWarning("FornbergMC", oss.str());
     }
     else if (m_config.verbose)
     {
-        if (mp_status_manager)
-        {
-            std::ostringstream oss;
-            oss << "CG converged in " << info.iterations
-                << " iterations, residual: " << info.final_residual;
-            mp_status_manager->reportDebug("FornbergMC", oss.str());
-        }
+        std::ostringstream oss;
+        oss << "CG converged in " << info.iterations
+            << " iterations, residual: " << info.final_residual;
+        mp_status_manager->reportDebug("FornbergMC", oss.str());
     }
 }
 
@@ -836,14 +791,7 @@ void FornbergMC::newtonUpdate()
                 oss << "Degenerate abs_eta detected at boundary " << nu
                     << ", point " << j << " (abs_eta=" << abs_eta_val
                     << "). Skipping scaling for this point.";
-                if (mp_status_manager)
-                {
-                    mp_status_manager->reportWarning("FornbergMC", oss.str());
-                }
-                else
-                {
-                    throw std::runtime_error("FornbergMC: " + oss.str());
-                }
+                mp_status_manager->reportWarning("FornbergMC", oss.str());
             }
         }
     }
@@ -915,17 +863,10 @@ void FornbergMC::newtonUpdate()
         {
             // Only catch runtime errors - validation errors (std::invalid_argument)
             // should propagate as they indicate programming bugs
-            if (mp_status_manager)
-            {
-                std::ostringstream oss;
-                oss << "Failed to update canonical domain - " << e.what()
-                    << ". Keeping current parameters.";
-                mp_status_manager->reportWarning("FornbergMC", oss.str());
-            }
-            else
-            {
-                throw;
-            }
+            std::ostringstream oss;
+            oss << "Failed to update canonical domain - " << e.what()
+                << ". Keeping current parameters.";
+            mp_status_manager->reportWarning("FornbergMC", oss.str());
         }
     }
 }
@@ -936,13 +877,10 @@ bool FornbergMC::checkConvergence(double tolerance)
     bool newton_converged = m_current_residual < tolerance;
     if (m_config.verbose && newton_converged)
     {
-        if (mp_status_manager)
-        {
-            std::ostringstream oss;
-            oss << "Newton iteration converged: residual=" << m_current_residual
-                << " < tolerance=" << tolerance;
-            mp_status_manager->reportDebug("FornbergMC", oss.str());
-        }
+        std::ostringstream oss;
+        oss << "Newton iteration converged: residual=" << m_current_residual
+            << " < tolerance=" << tolerance;
+        mp_status_manager->reportDebug("FornbergMC", oss.str());
     }
     return newton_converged;
 }
@@ -968,13 +906,10 @@ void FornbergMC::initializeConformalModuli()
 
 void FornbergMC::sampleBoundaries()
 {
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Sampling " << m_connectivity << " boundary components with N="
-            << m_config.N << " points each";
-        mp_status_manager->reportDebug("FornbergMC", oss.str());
-    }
+    std::ostringstream oss;
+    oss << "Sampling " << m_connectivity << " boundary components with N="
+        << m_config.N << " points each";
+    mp_status_manager->reportDebug("FornbergMC", oss.str());
 
     if (!mp_user_domain)
     {
@@ -1005,10 +940,7 @@ void FornbergMC::sampleBoundaries()
 bool FornbergMC::redistributeBoundaryParameters()
 {
     // Stub implementation for boundary parameter redistribution
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("FornbergMC", "Checking boundary parameter distribution quality");
-    }
+    mp_status_manager->reportDebug("FornbergMC", "Checking boundary parameter distribution quality");
 
     // TODO: Implement redistribution logic
     // This involves:
@@ -1021,10 +953,7 @@ bool FornbergMC::redistributeBoundaryParameters()
 
 void FornbergMC::computeFourierCoefficients()
 {
-    if (mp_status_manager)
-    {
-        mp_status_manager->reportDebug("FornbergMC", "Computing Fourier coefficients via FFT");
-    }
+    mp_status_manager->reportDebug("FornbergMC", "Computing Fourier coefficients via FFT");
 
     // Get FFT instance and normalization factor
     FFTWWrapper& fftw = FFTWWrapper::get_instance();
@@ -1067,12 +996,9 @@ bool FornbergMC::isPowerOfTwo(int N) const
 
 void FornbergMC::printIterationDiagnostics(size_t iteration) const
 {
-    if (mp_status_manager)
-    {
-        std::ostringstream oss;
-        oss << "Iteration " << iteration << ": residual=" << m_current_residual;
-        mp_status_manager->reportDebug("FornbergMC", oss.str());
-    }
+    std::ostringstream oss;
+    oss << "Iteration " << iteration << ": residual=" << m_current_residual;
+    mp_status_manager->reportDebug("FornbergMC", oss.str());
 
     if (m_config.eigenvalue_analysis)
     {

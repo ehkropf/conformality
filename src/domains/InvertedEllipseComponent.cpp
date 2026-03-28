@@ -95,11 +95,8 @@ double InvertedEllipseComponent::findParameterization(const Complex& z) const
     }
     catch (const RootFinder::ConvergenceError&)
     {
-        if (p_statusManager)
-        {
-            p_statusManager->reportWarning("InvertedEllipseComponent",
-                                           "Root finding failed to converge in findParameterization");
-        }
+        p_statusManager->reportWarning("InvertedEllipseComponent",
+                                       "Root finding failed to converge in findParameterization");
         throw;
     }
 }

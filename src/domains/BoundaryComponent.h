@@ -39,7 +39,7 @@ enum class InterpolationMethod {
 class BoundaryComponent
 {
 protected:
-    std::shared_ptr<IStatusManager> p_statusManager;
+    std::shared_ptr<IStatusManager> p_statusManager{makeStrictNullStatusManager()};
 
 public:
     virtual ~BoundaryComponent() = default;
@@ -84,7 +84,7 @@ public:
      */
     void setStatusManager(std::shared_ptr<IStatusManager> manager)
     {
-        p_statusManager = manager;
+        p_statusManager = manager ? manager : makeStrictNullStatusManager();
     }
 };
 

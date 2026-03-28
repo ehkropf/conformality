@@ -793,16 +793,20 @@ TEST_F(PMatrixBuilderStatusManagerTest, SetterGetterWorkCorrectly)
 
     PMatrixBuilder builder(config, 3, false);
 
-    // Initially null
-    EXPECT_EQ(builder.getStatusManager(), nullptr);
+    // Initially has StrictNullStatusManager (never null)
+    EXPECT_NE(builder.getStatusManager(), nullptr);
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(builder.getStatusManager()), nullptr)
+        << "Default should not be a real StatusManager";
 
     // Set status manager
     builder.setStatusManager(statusManager);
     EXPECT_EQ(builder.getStatusManager(), statusManager);
 
-    // Can clear by setting nullptr
+    // Setting nullptr resets to StrictNullStatusManager (not null)
     builder.setStatusManager(nullptr);
-    EXPECT_EQ(builder.getStatusManager(), nullptr);
+    EXPECT_NE(builder.getStatusManager(), nullptr);
+    EXPECT_EQ(std::dynamic_pointer_cast<StatusManager>(builder.getStatusManager()), nullptr)
+        << "After clearing, should revert to StrictNullStatusManager";
 }
 
 TEST_F(PMatrixBuilderStatusManagerTest, LogsMessagesOnStateChange)
@@ -836,6 +840,6 @@ TEST_F(PMatrixBuilderStatusManagerTest, NoExceptionWithoutStatusManager)
     EXPECT_NO_THROW(builder.setConnectivity(4));
     EXPECT_NO_THROW(builder.setAnnulusMode(false));
 
-    // setAnnulusMode with rejected case (connectivity != 2) -- must throw without StatusManager
-    EXPECT_THROW(builder.setAnnulusMode(true), std::invalid_argument);
+    // setAnnulusMode with rejected case (connectivity != 2) -- StrictNullStatusManager throws on WARNING
+    EXPECT_THROW(builder.setAnnulusMode(true), std::runtime_error);
 }

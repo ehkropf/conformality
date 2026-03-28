@@ -32,7 +32,10 @@ AnalyticBoundaryComponent::AnalyticBoundaryComponent(
     : parameterization(paramFunc)
     , derivative(derivFunc)
 {
-    p_statusManager = statusMgr;
+    if (statusMgr)
+    {
+        p_statusManager = statusMgr;
+    }
 }
 
 std::vector<Complex> AnalyticBoundaryComponent::sample(size_t numPoints) const
@@ -71,12 +74,9 @@ double AnalyticBoundaryComponent::findParameterization(const Complex& z) const
     }
     catch (const RootFinder::ConvergenceError&)
     {
-        if (p_statusManager)
-        {
-            p_statusManager->reportWarning("AnalyticBoundaryComponent",
-                                         "Root finding failed to converge in findParameterization",
-                                         "Falling back to atan2 approximation for circular-like boundaries");
-        }
+        p_statusManager->reportWarning("AnalyticBoundaryComponent",
+                                     "Root finding failed to converge in findParameterization",
+                                     "Falling back to atan2 approximation for circular-like boundaries");
 
         // Fallback: use atan2 for circular-like boundaries
         double angle = std::atan2(std::imag(z), std::real(z));
@@ -91,7 +91,10 @@ DiscreteBoundaryComponent::DiscreteBoundaryComponent(
         std::shared_ptr<IStatusManager> statusMgr)
     : points(pts), method(method)
 {
-    p_statusManager = statusMgr;
+    if (statusMgr)
+    {
+        p_statusManager = statusMgr;
+    }
 }
 
 Complex DiscreteBoundaryComponent::evaluate(double t) const

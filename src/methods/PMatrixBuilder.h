@@ -44,7 +44,7 @@ private:
     int m_connectivity;                    // Number of boundary components (m)
     int m_N;                              // Boundary points per component
     bool m_is_annulus;                    // Whether using annulus optimization
-    std::shared_ptr<IStatusManager> mp_status_manager{nullptr};
+    std::shared_ptr<IStatusManager> mp_status_manager{makeStrictNullStatusManager()};
     
     // Cached matrices for efficiency
     std::vector<Eigen::MatrixXcd> m_P_matrices;  // P_ν matrices for each component
@@ -138,16 +138,16 @@ public:
 
     /**
      * @brief Set the status manager for logging
-     * @param manager Shared pointer to status manager (nullptr to disable logging)
+     * @param manager Shared pointer to status manager (nullptr resets to StrictNullStatusManager)
      */
     void setStatusManager(std::shared_ptr<IStatusManager> manager)
     {
-        mp_status_manager = manager;
+        mp_status_manager = manager ? manager : makeStrictNullStatusManager();
     }
 
     /**
      * @brief Get the current status manager
-     * @return Shared pointer to the status manager (may be null)
+     * @return Shared pointer to the status manager (never null)
      */
     std::shared_ptr<IStatusManager> getStatusManager() const
     {

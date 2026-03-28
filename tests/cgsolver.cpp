@@ -341,6 +341,7 @@ TEST_F(CGSolverTest, RestartRespectsIterationBudget)
     config.max_cgm_restarts = 10;
     config.cgm_restart_threshold = 0.99; // Force restarts by requiring near-perfect improvement
     CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
 
     int n = 20;
     // Ill-conditioned diagonal: eigenvalues span [0.01, 1.0]
@@ -439,6 +440,7 @@ TEST_F(CGSolverTest, SolverTerminatesWithStagnatingSystem)
     config.max_cgm_restarts = 3;
     config.cgm_restart_threshold = 0.99;
     CGSolver solver(config);
+    solver.setStatusManager(std::make_shared<StatusManager>());
 
     int n = 20;
     auto ill_conditioned = [n](const Eigen::VectorXd& x) -> Eigen::VectorXd {

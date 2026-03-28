@@ -623,3 +623,68 @@ TEST_F(StatusManagerTest, Callback_ExceptionDoesNotCrashCaller)
     EXPECT_EQ(messages.size(), 1u);
     EXPECT_EQ(messages[0].message, "Should not crash");
 }
+
+// --- StrictNullStatusManager tests ---
+
+TEST(StrictNullStatusManagerTest, DiscardsDebugSilently)
+{
+    auto strict = makeStrictNullStatusManager();
+    EXPECT_NO_THROW(strict->reportDump("Test", "dump message"));
+    EXPECT_NO_THROW(strict->reportDebug("Test", "debug message"));
+    EXPECT_NO_THROW(strict->reportInfo("Test", "info message"));
+}
+
+TEST(StrictNullStatusManagerTest, ThrowsOnWarning)
+{
+    auto strict = makeStrictNullStatusManager();
+    EXPECT_THROW(strict->reportWarning("Comp", "something bad"), std::runtime_error);
+
+    // Verify the exception message includes component and message
+    try
+    {
+        strict->reportWarning("MyComponent", "warning text");
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::string what = e.what();
+        EXPECT_NE(what.find("MyComponent"), std::string::npos);
+        EXPECT_NE(what.find("warning text"), std::string::npos);
+    }
+}
+
+TEST(StrictNullStatusManagerTest, ThrowsOnError)
+{
+    auto strict = makeStrictNullStatusManager();
+    EXPECT_THROW(strict->reportError("Comp", "error occurred"), std::runtime_error);
+
+    // Verify the exception message includes component and message
+    try
+    {
+        strict->reportError("MyComponent", "error text");
+        FAIL() << "Expected std::runtime_error";
+    }
+    catch (const std::runtime_error& e)
+    {
+        std::string what = e.what();
+        EXPECT_NE(what.find("MyComponent"), std::string::npos);
+        EXPECT_NE(what.find("error text"), std::string::npos);
+    }
+}
+
+TEST(StrictNullStatusManagerTest, ReturnsEmptyCollections)
+{
+    auto strict = makeStrictNullStatusManager();
+    EXPECT_TRUE(strict->getMessages().empty());
+    EXPECT_TRUE(strict->getMessages(StatusLevel::ERROR).empty());
+    EXPECT_TRUE(strict->getMessagesAtOrAbove(StatusLevel::DEBUG).empty());
+    EXPECT_FALSE(strict->hasWarnings());
+    EXPECT_FALSE(strict->hasErrors());
+}
+
+TEST(StrictNullStatusManagerTest, MakeStrictNullReturnsSingleton)
+{
+    auto a = makeStrictNullStatusManager();
+    auto b = makeStrictNullStatusManager();
+    EXPECT_EQ(a.get(), b.get());
+}
