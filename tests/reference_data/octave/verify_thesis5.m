@@ -45,7 +45,7 @@ end
 N = 2^8;  % 256, same as thesis
 m = 3;
 
-% Boundary parameters: each row is [center, semi_maj, semi_min, rotation]
+% Boundary parameters (per-boundary: center, semi_maj, semi_min, rotation)
 bdry_centers  = [0; -0.8; 0.7-0.1i];
 bdry_semi_maj = [2; 3/16; 3/8];
 bdry_semi_min = [3/2; 3/8; 3/16];
