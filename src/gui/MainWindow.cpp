@@ -11,7 +11,7 @@ MainWindow::MainWindow()
     , m_showAboutDialog{false}
     , mp_visualizationPanel{nullptr}
     , mp_controller{nullptr}
-    , m_statusMessage{"Ready"}
+    , m_statusLog{"Ready"}
     , mp_application{nullptr}
     , m_showGrid{true}
     , m_gridDensity{8}
@@ -220,7 +220,7 @@ void MainWindow::renderMainLayout()
 void MainWindow::renderControlPanel()
 {
     float control_width = 300.0f;
-    float status_height = 100.0f;
+    float status_height = 150.0f;
 
     if (ImGui::BeginChild("ControlPanel", ImVec2(control_width, -status_height), true))
     {
@@ -324,7 +324,7 @@ void MainWindow::renderControlPanel()
 
 void MainWindow::renderVisualizationPanel()
 {
-    float status_height = 100.0f;
+    float status_height = 150.0f;
 
     if (ImGui::BeginChild("VisualizationPanel", ImVec2(0, -status_height), true))
     {
@@ -346,49 +346,86 @@ void MainWindow::renderStatusPanel()
 {
     if (ImGui::BeginChild("StatusPanel", ImVec2(0, 0), true))
     {
-        ImGui::Text("Status: %s", m_statusMessage.c_str());
-
+        // Info bar: live progress, errors, results, performance
         if (mp_controller)
         {
             if (mp_controller->isComputing())
             {
                 if (m_cachedLiveIter > 0)
                 {
-                    ImGui::SameLine();
-                    ImGui::Text("| Iter: %d | Residual: %.2e", m_cachedLiveIter, m_cachedLiveResidual);
+                    ImGui::Text("Iter: %d | Residual: %.2e", m_cachedLiveIter, m_cachedLiveResidual);
+                }
+                else
+                {
+                    ImGui::Text("Computing...");
                 }
             }
             else
             {
                 if (!mp_controller->getLastErrorMessage().empty())
                 {
-                    ImGui::SameLine();
-                    ImGui::Text("| Error: %s", mp_controller->getLastErrorMessage().c_str());
+                    ImGui::Text("Error: %s", mp_controller->getLastErrorMessage().c_str());
                 }
-
-                const auto& info = mp_controller->getLastMethodInfo();
-                if (!info.results.empty())
+                else
                 {
-                    for (const auto& field : info.results)
+                    const auto& info = mp_controller->getLastMethodInfo();
+                    if (!info.results.empty())
                     {
+                        bool first = true;
+                        for (const auto& field : info.results)
+                        {
+                            if (!first) ImGui::SameLine();
+                            first = false;
+                            auto display = formatMethodInfoValue(field.value);
+                            ImGui::Text("%s: %s", field.label.c_str(), display.c_str());
+                            ImGui::SameLine();
+                            ImGui::Text("|");
+                        }
                         ImGui::SameLine();
-                        auto display = formatMethodInfoValue(field.value);
-                        ImGui::Text("| %s: %s", field.label.c_str(), display.c_str());
                     }
+                    ImGui::Text("Performance: %.3f ms/frame (%.1f FPS)",
+                               1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
                 }
             }
         }
+        else
+        {
+            ImGui::Text("Performance: %.3f ms/frame (%.1f FPS)",
+                       1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        }
 
-        ImGui::SameLine();
-        ImGui::Text("| Performance: %.3f ms/frame (%.1f FPS)",
-                   1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Separator();
+
+        // Scrolling status log
+        if (ImGui::BeginChild("StatusLog", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar))
+        {
+            for (const auto& entry : m_statusLog)
+            {
+                ImGui::TextUnformatted(entry.c_str());
+            }
+
+            if (m_statusLogScrollToBottom)
+            {
+                ImGui::SetScrollHereY(1.0f);
+                m_statusLogScrollToBottom = false;
+            }
+        }
+        ImGui::EndChild();
     }
     ImGui::EndChild();
 }
 
 void MainWindow::onStatusUpdate(const std::string& message)
 {
-    m_statusMessage = message;
+    // Cap log size to avoid unbounded growth
+    static constexpr size_t kMaxLogEntries = 1000;
+    if (m_statusLog.size() >= kMaxLogEntries)
+    {
+        m_statusLog.erase(m_statusLog.begin(), m_statusLog.begin() + static_cast<long>(m_statusLog.size() / 2));
+    }
+
+    m_statusLog.push_back(message);
+    m_statusLogScrollToBottom = true;
     m_computationPhase = message;
 }
 
