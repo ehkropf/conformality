@@ -1733,3 +1733,97 @@ TEST_F(FornbergMCCancellationTest, CancelsAtNextNewtonIteration)
             << "Expected 'cancelled' in error message, got: " << e.what();
     }
 }
+
+// --- Progress callback tests ---
+
+class FornbergMCProgressCallbackTest : public FornbergMCStatusManagerTest
+{
+};
+
+TEST_F(FornbergMCProgressCallbackTest, FiresTypedProgressOnEachIteration)
+{
+    auto domain = createAnnulusDomain();
+
+    auto source_domain = FornbergCanonicalDomain::createFromUserDomain(
+        domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    config.max_newton_iterations = 5;
+    auto fm = std::make_shared<FornbergMC>(config);
+    auto status_manager = std::make_shared<StatusManager>();
+    fm->setStatusManager(status_manager);
+
+    std::vector<ProgressUpdate> received;
+    fm->setProgressCallback([&received](const ProgressUpdate& update) {
+        received.push_back(update);
+    });
+
+    auto map = std::make_shared<ConformalMap>(source_domain, domain, fm);
+    map->compute();
+
+    // Should have received one update per Newton iteration
+    EXPECT_FALSE(received.empty());
+    EXPECT_LE(received.size(), static_cast<size_t>(config.max_newton_iterations));
+
+    // Iterations should be 1-based and sequential
+    for (size_t i = 0; i < received.size(); ++i)
+    {
+        EXPECT_EQ(received[i].iteration, static_cast<int>(i + 1));
+        EXPECT_GT(received[i].residual, 0.0);
+        EXPECT_TRUE(std::isfinite(received[i].residual));
+    }
+}
+
+TEST_F(FornbergMCProgressCallbackTest, NullCallbackDoesNotCrash)
+{
+    auto domain = createAnnulusDomain();
+
+    auto source_domain = FornbergCanonicalDomain::createFromUserDomain(
+        domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    config.max_newton_iterations = 3;
+    auto fm = std::make_shared<FornbergMC>(config);
+    auto status_manager = std::make_shared<StatusManager>();
+    fm->setStatusManager(status_manager);
+
+    // No progress callback set — should not crash
+    auto map = std::make_shared<ConformalMap>(source_domain, domain, fm);
+    EXPECT_NO_THROW(map->compute());
+}
+
+TEST_F(FornbergMCProgressCallbackTest, ClearingCallbackStopsUpdates)
+{
+    auto domain = createAnnulusDomain();
+
+    auto source_domain = FornbergCanonicalDomain::createFromUserDomain(
+        domain,
+        FornbergCanonicalDomain::InitialGuessStrategy::GEOMETRIC_CENTROIDS,
+        config.N
+    );
+
+    config.max_newton_iterations = 5;
+    auto fm = std::make_shared<FornbergMC>(config);
+    auto status_manager = std::make_shared<StatusManager>();
+    fm->setStatusManager(status_manager);
+
+    int call_count = 0;
+    fm->setProgressCallback([&call_count, &fm](const ProgressUpdate& update) {
+        call_count++;
+        // Clear callback after first update
+        if (update.iteration == 1)
+        {
+            fm->setProgressCallback(nullptr);
+        }
+    });
+
+    auto map = std::make_shared<ConformalMap>(source_domain, domain, fm);
+    map->compute();
+
+    // Only one call should have been made before callback was cleared
+    EXPECT_EQ(call_count, 1);
+}

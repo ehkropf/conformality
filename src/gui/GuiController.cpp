@@ -7,7 +7,6 @@
 #include "../methods/FornbergMC.h"
 #include "../methods/PMatrixBuilder.h"
 #include "../numerics/CGSolver.h"
-#include <sstream>
 
 GuiController::GuiController()
     : mp_currentMap{nullptr}
@@ -216,38 +215,28 @@ void GuiController::computeInBackground()
 {
     try
     {
-        // Wire cancellation check into the method
         auto method = mp_currentMap->getMethod();
         if (method)
         {
+            // Wire cancellation check into the method
             method->setCancellationCheck([this]() { return m_cancelRequested.load(); });
+
+            // Wire typed progress callback for live iteration/residual updates.
+            // This replaces the stringly-typed StatusMessage::details parsing (GH-100).
+            method->setProgressCallback([this](const ProgressUpdate& progress) {
+                std::lock_guard<std::mutex> lock(m_progressMutex);
+                m_liveProgress.currentIteration = progress.iteration;
+                m_liveProgress.currentResidual = progress.residual;
+            });
         }
 
-        // Downcast for FornbergMC StatusManager access (live progress callback)
+        // Wire StatusManager callback for human-readable log messages only
         auto fm = std::dynamic_pointer_cast<FornbergMC>(method);
-
-        // Wire StatusManager callback for live progress updates
         auto status_manager = fm ? std::dynamic_pointer_cast<StatusManager>(fm->getStatusManager()) : nullptr;
         if (status_manager)
         {
             status_manager->setStatusCallback([this](const StatusMessage& msg) {
                 postStatusMessage("[" + msg.component + "] " + msg.message);
-
-                // Parse structured progress data from FornbergMC Newton iteration reports
-                // Details format: "<iteration> <residual>" (machine-readable, set in FornbergMC::compute)
-                if (msg.component == "FornbergMC" && msg.level == StatusLevel::INFO
-                    && !msg.details.empty())
-                {
-                    std::istringstream iss(msg.details);
-                    int iter;
-                    double residual;
-                    if (iss >> iter >> residual)
-                    {
-                        std::lock_guard<std::mutex> lock(m_progressMutex);
-                        m_liveProgress.currentIteration = iter;
-                        m_liveProgress.currentResidual = residual;
-                    }
-                }
             });
         }
 
@@ -296,11 +285,12 @@ void GuiController::computeInBackground()
         postStatusMessage("Computation failed: " + m_lastErrorMessage);
     }
 
-    // Clear cancellation check and StatusManager callback to avoid dangling references
+    // Clear callbacks to avoid dangling references
     auto method_cleanup = mp_currentMap->getMethod();
     if (method_cleanup)
     {
         method_cleanup->setCancellationCheck(nullptr);
+        method_cleanup->setProgressCallback(nullptr);
     }
     auto fm_cleanup = std::dynamic_pointer_cast<FornbergMC>(method_cleanup);
     if (fm_cleanup)
