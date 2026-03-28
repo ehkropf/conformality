@@ -97,7 +97,6 @@ set_property(TARGET imobjects
 add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/core/ConformalMap.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/ConformalMapMethod.cpp
-    ${CMAKE_SOURCE_DIR}/src/methods/TheodorsenMethod.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/FornbergMC.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/FornbergMCConfiguration.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
@@ -194,7 +193,6 @@ add_executable(test_exec
     tests/fftw_wrapper.cpp
     $<TARGET_OBJECTS:fftw_wrapper>
     tests/conformal_map_tests.cpp
-    tests/theodorsen_method_tests.cpp
     tests/fornberg_mc.cpp
     tests/pmatrixbuilder.cpp
     tests/cgsolver.cpp

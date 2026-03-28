@@ -23,8 +23,6 @@
 #include "../src/methods/FornbergMCConfiguration.h"
 #include "../src/methods/PMatrixBuilder.h"
 #include "../src/numerics/CGSolver.h"
-#include "../src/methods/TheodorsenMethod.h"
-
 // ---------- Base class default ----------
 
 TEST(MethodInfoBaseClassTest, ReturnsEmpty)
@@ -93,36 +91,6 @@ TEST(MethodInfoFornbergMCTest, ResultsAfterStateSetup)
 
     EXPECT_EQ(info.results[2].label, "Converged");
     EXPECT_TRUE(std::get<bool>(info.results[2].value));
-}
-
-// ---------- TheodorsenMethod info ----------
-
-TEST(MethodInfoTheodorsenTest, NameAndParameters)
-{
-    TheodorsenMethod tm(256);
-    auto info = tm.getMethodInfo();
-
-    EXPECT_EQ(info.name, "Theodorsen");
-    ASSERT_EQ(info.parameters.size(), 1u);
-    EXPECT_EQ(info.parameters[0].label, "Sample points");
-    EXPECT_EQ(std::get<int>(info.parameters[0].value), 256);
-}
-
-TEST(MethodInfoTheodorsenTest, ResultsDefaultValues)
-{
-    TheodorsenMethod tm(128);
-    auto info = tm.getMethodInfo();
-
-    ASSERT_EQ(info.results.size(), 3u);
-
-    EXPECT_EQ(info.results[0].label, "Iterations");
-    EXPECT_EQ(std::get<int>(info.results[0].value), 0);
-
-    EXPECT_EQ(info.results[1].label, "Residual");
-    EXPECT_DOUBLE_EQ(std::get<double>(info.results[1].value), 0.0);
-
-    EXPECT_EQ(info.results[2].label, "Converged");
-    EXPECT_FALSE(std::get<bool>(info.results[2].value));
 }
 
 // ---------- formatMethodInfoValue ----------

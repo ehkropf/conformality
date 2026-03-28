@@ -28,8 +28,7 @@ struct BoundingBox
  * @brief Panel for visualizing conformal mappings with dual-domain display
  *
  * Provides side-by-side visualization of source and target domains with
- * conformal grid overlays. Supports both simply-connected (Theodorsen) and
- * multiply-connected (FornbergMC) domains. Uses ImPlot for rendering.
+ * conformal grid overlays. Uses ImPlot for rendering.
  */
 class VisualizationPanel
 {
