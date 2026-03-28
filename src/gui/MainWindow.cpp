@@ -369,18 +369,10 @@ void MainWindow::renderStatusPanel()
                 else
                 {
                     const auto& info = mp_controller->getLastMethodInfo();
-                    if (!info.results.empty())
+                    for (const auto& field : info.results)
                     {
-                        bool first = true;
-                        for (const auto& field : info.results)
-                        {
-                            if (!first) ImGui::SameLine();
-                            first = false;
-                            auto display = formatMethodInfoValue(field.value);
-                            ImGui::Text("%s: %s", field.label.c_str(), display.c_str());
-                            ImGui::SameLine();
-                            ImGui::Text("|");
-                        }
+                        auto display = formatMethodInfoValue(field.value);
+                        ImGui::Text("%s: %s  |", field.label.c_str(), display.c_str());
                         ImGui::SameLine();
                     }
                     ImGui::Text("Performance: %.3f ms/frame (%.1f FPS)",
