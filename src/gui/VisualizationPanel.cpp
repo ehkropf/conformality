@@ -330,8 +330,68 @@ void VisualizationPanel::generateSourceGrid()
         return;
     }
 
-    // For non-starlike domains (including MC), fall back to Cartesian grid.
-    // Points outside the domain are set to NaN so ImPlot's SkipNaN draws only the interior.
+    // For FornbergCanonicalDomain (unit disk with circular holes), use a polar grid
+    // with the same geometry as the MATLAB reference (bdd_plot2.m): radial lines +
+    // concentric circles. Hole clipping (NaN insertion) is added here since C++ generates
+    // the grid directly rather than inverting from the slit domain.
+    auto canonicalDomain = std::dynamic_pointer_cast<FornbergCanonicalDomain>(sourceDomain);
+    if (canonicalDomain)
+    {
+        int pointsPerLine = 200;
+        int numRadials = 2 * m_gridDensity;
+        int numCircles = m_gridDensity;
+        const auto& holeCenters = canonicalDomain->getHoleCenters();
+        const auto& holeRadii = canonicalDomain->getHoleRadii();
+
+        // Append point to grid line, replacing with NaN if inside any hole
+        auto appendPoint = [&holeCenters, &holeRadii](GridLine& line, double x, double y)
+        {
+            for (size_t h = 0; h < holeCenters.size(); ++h)
+            {
+                double dx = x - holeCenters[h].real();
+                double dy = y - holeCenters[h].imag();
+                if (dx * dx + dy * dy < holeRadii[h] * holeRadii[h])
+                {
+                    line.x.push_back(std::numeric_limits<double>::quiet_NaN());
+                    line.y.push_back(std::numeric_limits<double>::quiet_NaN());
+                    return;
+                }
+            }
+            line.x.push_back(x);
+            line.y.push_back(y);
+        };
+
+        // Radial lines from origin to unit circle
+        for (int i = 0; i < numRadials; ++i)
+        {
+            double angle = 2.0 * M_PI * i / numRadials;
+            double cosA = std::cos(angle);
+            double sinA = std::sin(angle);
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double r = static_cast<double>(j) / pointsPerLine;
+                appendPoint(line, r * cosA, r * sinA);
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+
+        // Concentric circles at evenly spaced radii
+        for (int i = 1; i <= numCircles; ++i)
+        {
+            double radius = static_cast<double>(i) / (numCircles + 1);
+            GridLine line;
+            for (int j = 0; j <= pointsPerLine; ++j)
+            {
+                double angle = 2.0 * M_PI * j / pointsPerLine;
+                appendPoint(line, radius * std::cos(angle), radius * std::sin(angle));
+            }
+            m_sourceGridLines.push_back(std::move(line));
+        }
+        return;
+    }
+
+    // For domains not handled above, fall back to Cartesian grid with containment testing.
     BoundingBox bounds = computeBounds(m_sourceBoundaries);
     double marginX = (bounds.xMax - bounds.xMin) * 0.05;
     double marginY = (bounds.yMax - bounds.yMin) * 0.05;
@@ -341,11 +401,11 @@ void VisualizationPanel::generateSourceGrid()
     double yMax = bounds.yMax + marginY;
 
     int pointsPerLine = 100;
-    bool containsFailureLogged = false;
 
     // Horizontal lines
     for (int i = 0; i < m_gridDensity; ++i)
     {
+        bool containsFailureLogged = false;
         double y = yMin + (yMax - yMin) * (i + 0.5) / m_gridDensity;
         GridLine line;
         for (int j = 0; j <= pointsPerLine; ++j)
@@ -383,6 +443,7 @@ void VisualizationPanel::generateSourceGrid()
     // Vertical lines
     for (int i = 0; i < m_gridDensity; ++i)
     {
+        bool containsFailureLogged = false;
         double x = xMin + (xMax - xMin) * (i + 0.5) / m_gridDensity;
         GridLine line;
         for (int j = 0; j <= pointsPerLine; ++j)
@@ -521,7 +582,15 @@ void VisualizationPanel::renderSourceDomain()
                                 bounds.yMin - margin, bounds.yMax + margin,
                                 ImGuiCond_FirstUseEver);
 
-        // Plot boundary curves
+        // Plot grid lines first so boundaries render on top
+        if (m_showGrid && !m_sourceGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            plotGridLines(m_sourceGridLines);
+            ImPlot::PopStyleColor();
+        }
+
+        // Plot boundary curves (on top of grid)
         for (const auto& curve : m_sourceBoundaries)
         {
             if (!curve.x.empty())
@@ -530,21 +599,6 @@ void VisualizationPanel::renderSourceDomain()
                                  curve.x.data(), curve.y.data(),
                                  static_cast<int>(curve.x.size()));
             }
-        }
-
-        // Plot grid lines (hidden from legend)
-        if (m_showGrid && !m_sourceGridLines.empty())
-        {
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            for (const auto& line : m_sourceGridLines)
-            {
-                if (!line.x.empty())
-                {
-                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
-                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
-                }
-            }
-            ImPlot::PopStyleColor();
         }
 
         ImPlot::EndPlot();
@@ -574,7 +628,15 @@ void VisualizationPanel::renderTargetDomain()
                                 bounds.yMin - margin, bounds.yMax + margin,
                                 ImGuiCond_FirstUseEver);
 
-        // Plot boundary curves
+        // Plot mapped grid lines first so boundaries render on top
+        if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
+        {
+            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
+            plotGridLines(m_targetGridLines);
+            ImPlot::PopStyleColor();
+        }
+
+        // Plot boundary curves (on top of grid)
         for (const auto& curve : m_targetBoundaries)
         {
             if (!curve.x.empty())
@@ -583,21 +645,6 @@ void VisualizationPanel::renderTargetDomain()
                                  curve.x.data(), curve.y.data(),
                                  static_cast<int>(curve.x.size()));
             }
-        }
-
-        // Plot mapped grid lines (hidden from legend)
-        if (m_showGrid && mp_currentMap && !m_targetGridLines.empty())
-        {
-            ImPlot::PushStyleColor(ImPlotCol_Line, ImVec4(0.7f, 0.7f, 0.7f, 0.8f));
-            for (const auto& line : m_targetGridLines)
-            {
-                if (!line.x.empty())
-                {
-                    ImPlot::PlotLine("##grid", line.x.data(), line.y.data(),
-                                     static_cast<int>(line.x.size()), ImPlotLineFlags_SkipNaN);
-                }
-            }
-            ImPlot::PopStyleColor();
         }
 
         // Show message if no map is loaded
@@ -614,4 +661,47 @@ void VisualizationPanel::clearGridData()
 {
     m_sourceGridLines.clear();
     m_targetGridLines.clear();
+}
+
+void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
+{
+    // ImPlot's SkipNaN connected valid points across NaN gaps with a straight line,
+    // which drew grid lines through holes and outside domain boundaries (GH-110).
+    // Instead, split each grid line at NaN boundaries and plot each contiguous
+    // segment as a separate PlotLine call.
+    for (const auto& line : gridLines)
+    {
+        size_t n = line.x.size();
+        size_t segStart = 0;
+
+        while (segStart < n)
+        {
+            // Skip non-finite points (NaN from domain clipping, Inf from singular maps)
+            while (segStart < n && !(std::isfinite(line.x[segStart]) && std::isfinite(line.y[segStart])))
+            {
+                ++segStart;
+            }
+
+            if (segStart >= n)
+            {
+                break;
+            }
+
+            // Find end of contiguous valid segment
+            size_t segEnd = segStart;
+            while (segEnd < n && std::isfinite(line.x[segEnd]) && std::isfinite(line.y[segEnd]))
+            {
+                ++segEnd;
+            }
+
+            // Need at least 2 points to draw a line segment
+            int count = static_cast<int>(segEnd - segStart);
+            if (count >= 2)
+            {
+                ImPlot::PlotLine("##grid", line.x.data() + segStart, line.y.data() + segStart, count);
+            }
+
+            segStart = segEnd;
+        }
+    }
 }

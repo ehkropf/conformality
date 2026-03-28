@@ -91,4 +91,5 @@ private:
     std::string determinePlotTitle(std::shared_ptr<Domain> domain, bool isSource) const;
 
     void clearGridData();
+    void plotGridLines(const std::vector<GridLine>& gridLines);
 };
