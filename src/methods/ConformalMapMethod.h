@@ -29,6 +29,18 @@ class ConformalMap;
 class Domain;
 
 /**
+ * @brief Typed progress data from iterative methods
+ *
+ * Provides machine-readable progress information separate from human-readable
+ * StatusMessage logging. GUI components consume this directly without parsing strings.
+ */
+struct ProgressUpdate
+{
+    int iteration{0};       ///< 1-based iteration number
+    double residual{0.0};   ///< Current residual/error metric
+};
+
+/**
  * @brief Abstract base class for conformal mapping methods
  *
  * This class defines the interface for methods that compute conformal mappings
@@ -44,11 +56,14 @@ public:
         Target
     };
 
+    using ProgressCallback = std::function<void(const ProgressUpdate&)>;
+
 protected:
     double m_achieved_accuracy;
     int m_max_iterations;
     int m_iteration_count;
     std::function<bool()> m_cancellationCheck;  ///< Returns true if computation should be cancelled
+    ProgressCallback m_progressCallback;        ///< Optional typed progress reporting callback
 
 public:
     /**
@@ -134,6 +149,19 @@ public:
     }
 
     /**
+     * @brief Set a typed progress callback for live iteration reporting
+     *
+     * Unlike StatusMessage logging (human-readable text), this provides typed
+     * fields for GUI consumption without string parsing.
+     *
+     * @param callback Function to invoke with each progress update, or nullptr to clear
+     */
+    void setProgressCallback(ProgressCallback callback)
+    {
+        m_progressCallback = std::move(callback);
+    }
+
+    /**
      * @brief Validate a domain for use with this method
      *
      * Performs both compatibility and geometry validation.
@@ -188,4 +216,3 @@ protected:
      */
     virtual void validateTargetDomain(std::shared_ptr<Domain> domain) const = 0;
 };
-
