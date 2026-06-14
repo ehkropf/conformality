@@ -62,10 +62,7 @@ void GuiController::loadMap(std::shared_ptr<ConformalMap> map, const std::string
     mp_currentMap = map;
     m_mapDescription = description;
     m_lastComputationSuccessful = false;
-    m_lastConvergenceError = 0.0;
     m_lastErrorMessage.clear();
-    m_lastIterationCount = 0;
-    m_hasConverged = false;
     m_lastMethodInfo = {};
 
     updateVisualization();
@@ -83,10 +80,7 @@ void GuiController::clear()
     mp_currentMap.reset();
     m_mapDescription.clear();
     m_lastComputationSuccessful = false;
-    m_lastConvergenceError = 0.0;
     m_lastErrorMessage.clear();
-    m_lastIterationCount = 0;
-    m_hasConverged = false;
     m_lastMethodInfo = {};
 
     if (m_onStatusUpdate)
@@ -180,10 +174,7 @@ bool GuiController::computeMapping()
 
     // Reset result state before launching
     m_lastComputationSuccessful = false;
-    m_lastConvergenceError = 0.0;
     m_lastErrorMessage.clear();
-    m_lastIterationCount = 0;
-    m_hasConverged = false;
     m_cancelRequested.store(false);
     {
         std::lock_guard<std::mutex> lock(m_progressMutex);
@@ -247,27 +238,6 @@ void GuiController::computeInBackground()
         if (method)
         {
             m_lastMethodInfo = method->getMethodInfo();
-        }
-        // Populate legacy fields from MethodInfo (label strings must match
-        // those set in getMethodInfo() implementations; uses get_if to avoid
-        // std::bad_variant_access on the background thread)
-        for (const auto& field : m_lastMethodInfo.results)
-        {
-            if (field.label == "Iterations")
-            {
-                if (auto* p = std::get_if<int>(&field.value))
-                    m_lastIterationCount = *p;
-            }
-            else if (field.label == "Residual")
-            {
-                if (auto* p = std::get_if<double>(&field.value))
-                    m_lastConvergenceError = *p;
-            }
-            else if (field.label == "Converged")
-            {
-                if (auto* p = std::get_if<bool>(&field.value))
-                    m_hasConverged = *p;
-            }
         }
 
         postStatusMessage("Computation completed successfully");
