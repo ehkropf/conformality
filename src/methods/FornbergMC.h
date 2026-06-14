@@ -133,6 +133,8 @@ private:
 
     // Linear system components
     Eigen::MatrixXcd m_D;                   // System matrix
+    Eigen::MatrixXd m_DR;                   // Cached real part of m_D (updated in formSystem())
+    Eigen::MatrixXd m_DI;                   // Cached imaginary part of m_D (updated in formSystem())
     Eigen::VectorXcd m_g;                   // RHS vector
     Eigen::VectorXcd m_U;                   // Solution vector (complex to match D*U=g)
 
