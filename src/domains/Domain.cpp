@@ -18,6 +18,7 @@
 
 #include "Domain.h"
 #include "../core/Types.h"
+#include "../core/Tolerances.h"
 #include <limits>
 #include <algorithm>
 #include <cmath>
@@ -57,7 +58,7 @@ int Domain::calculateWindingNumber(const Complex& z, const std::vector<Complex>&
             (imag(p2) <= imag(z) && imag(p1) > imag(z)))
         {
             // Avoid division by zero
-            if (std::abs(imag(p2) - imag(p1)) < 1e-15)
+            if (std::abs(imag(p2) - imag(p1)) < PIVOT_EPS)
             {
                 continue;
             }
@@ -91,7 +92,7 @@ double Domain::distanceToLineSegment(const Complex& point, const Complex& segmen
 
     // If segment has zero length, return distance to start point
     double segmentLengthSq = std::norm(v);
-    if (segmentLengthSq < 1e-15)
+    if (segmentLengthSq < PIVOT_EPS)
     {
         return std::abs(point - segmentStart);
     }
@@ -209,7 +210,7 @@ std::shared_ptr<Boundary> StarlikeDomain::createBoundary(
         double r = radiusFunc(t);
 
         // Approximate r'(θ) with finite difference
-        const double h = 1e-6;
+        const double h = FINITE_DIFFERENCE_STEP;
         double rPrime = (radiusFunc(t + h) - radiusFunc(t - h)) / (2.0 * h);
 
         Complex tangent = Complex(rPrime * std::cos(t), rPrime * std::sin(t)) +

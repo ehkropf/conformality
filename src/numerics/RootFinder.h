@@ -23,6 +23,8 @@
 #include <stdexcept>
 #include <complex>
 
+#include "../core/Tolerances.h"
+
 /**
  * @brief Utility class for root finding and optimization algorithms
  */
@@ -96,7 +98,7 @@ T RootFinder::newton(std::function<T(T)> function,
             return x;
         }
 
-        if (std::abs(dfx) < 1e-15)
+        if (std::abs(dfx) < PIVOT_EPS)
         {
             throw ConvergenceError("Newton's method: derivative too small");
         }

@@ -18,6 +18,7 @@
 
 #include "SplineBoundaryComponent.h"
 #include "../numerics/RootFinder.h"
+#include "../core/Tolerances.h"
 
 #include <algorithm>
 #include <cmath>
@@ -45,8 +46,8 @@ SplineBoundaryComponent::SplineBoundaryComponent(
     {
         int npts = static_cast<int>(px.size());
         // Ensure closure before counting segments
-        bool is_closed = (std::abs(px.front() - px.back()) <= 100.0 * std::numeric_limits<double>::epsilon()
-                       && std::abs(py.front() - py.back()) <= 100.0 * std::numeric_limits<double>::epsilon());
+        bool is_closed = (std::abs(px.front() - px.back()) <= SPLINE_CLOSURE_EPS
+                       && std::abs(py.front() - py.back()) <= SPLINE_CLOSURE_EPS);
         int num_segments = is_closed ? npts - 1 : npts;
         int nn = refinement_N / num_segments;
         if (nn > 0)
@@ -186,8 +187,8 @@ SplineBoundaryComponent::computePeriodicSplineCoefficients(
     std::vector<double> y = y_in;
 
     // Ensure closure
-    if (std::abs(x.front() - x.back()) > 100.0 * std::numeric_limits<double>::epsilon()
-        || std::abs(y.front() - y.back()) > 100.0 * std::numeric_limits<double>::epsilon())
+    if (std::abs(x.front() - x.back()) > SPLINE_CLOSURE_EPS
+        || std::abs(y.front() - y.back()) > SPLINE_CLOSURE_EPS)
     {
         x.push_back(x.front());
         y.push_back(y.front());
@@ -208,7 +209,7 @@ SplineBoundaryComponent::computePeriodicSplineCoefficients(
     // Validate no zero-length segments (prevents division by zero in coefficient computation)
     for (int i = 0; i < n; ++i)
     {
-        if (h[i] < 1e-15)
+        if (h[i] < PIVOT_EPS)
         {
             throw std::invalid_argument(
                 "SplineBoundaryComponent: zero-length chord at segment " + std::to_string(i)
@@ -320,8 +321,8 @@ SplineBoundaryComponent::upsampleControlPoints(
     std::vector<double> y = y_in;
 
     // Ensure closure
-    if (std::abs(x.front() - x.back()) > 100.0 * std::numeric_limits<double>::epsilon()
-        || std::abs(y.front() - y.back()) > 100.0 * std::numeric_limits<double>::epsilon())
+    if (std::abs(x.front() - x.back()) > SPLINE_CLOSURE_EPS
+        || std::abs(y.front() - y.back()) > SPLINE_CLOSURE_EPS)
     {
         x.push_back(x.front());
         y.push_back(y.front());
@@ -398,7 +399,7 @@ std::vector<double> SplineBoundaryComponent::solveTridiagonal(
     // Forward sweep
     for (int i = 1; i < n; ++i)
     {
-        if (std::abs(b[i - 1]) < 1e-15)
+        if (std::abs(b[i - 1]) < PIVOT_EPS)
         {
             throw std::runtime_error(
                 "SplineBoundaryComponent: tridiagonal solver encountered zero pivot at index "
@@ -410,7 +411,7 @@ std::vector<double> SplineBoundaryComponent::solveTridiagonal(
     }
     // Back substitution
     std::vector<double> x(n);
-    if (std::abs(b[n - 1]) < 1e-15)
+    if (std::abs(b[n - 1]) < PIVOT_EPS)
     {
         throw std::runtime_error(
             "SplineBoundaryComponent: tridiagonal solver encountered zero pivot at index "
@@ -475,7 +476,7 @@ std::vector<double> SplineBoundaryComponent::solvePeriodicTridiagonal(
     }
 
     double denom = 1.0 + vTz;
-    if (std::abs(denom) < 1e-14)
+    if (std::abs(denom) < GEOMETRIC_COINCIDENCE_EPS)
     {
         throw std::runtime_error(
             "SplineBoundaryComponent: periodic tridiagonal system is singular "

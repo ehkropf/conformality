@@ -18,6 +18,7 @@
 
 #include "BoundaryComponent.h"
 #include "../numerics/RootFinder.h"
+#include "../core/Tolerances.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -127,7 +128,7 @@ Complex DiscreteBoundaryComponent::evaluateDerivative(double t) const
 {
     // TODO: Check if we need anything more complicated than simple finite difference.
     // Simple finite difference approximation
-    const double h = 1e-6;
+    const double h = FINITE_DIFFERENCE_STEP;
     Complex fwd = evaluate(t + h);
     Complex bwd = evaluate(t - h);
     Complex diff = fwd - bwd;
