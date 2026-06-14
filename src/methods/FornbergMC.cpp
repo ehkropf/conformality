@@ -23,6 +23,7 @@
 #include "../numerics/FFTWWrapper.h"
 #include "../domains/FornbergCanonicalDomain.h"
 #include "../core/ConformalMap.h"
+#include "../core/Tolerances.h"
 #include "../domains/Domain.h"
 #include <sstream>
 #include <stdexcept>
@@ -275,7 +276,7 @@ Complex FornbergMC::map(const Complex& z) const
             const Complex z_minus_c = z - c_nu;
 
             // Check for singularity at hole center
-            if (std::abs(z_minus_c) < 1e-14)
+            if (std::abs(z_minus_c) < GEOMETRIC_COINCIDENCE_EPS)
             {
                 throw std::runtime_error("FornbergMC: Evaluation point too close to hole center");
             }
@@ -520,7 +521,7 @@ void FornbergMC::formSystem()
             Complex tangent = boundaries[nu]->evaluateDerivative(S_j);
             double abs_t = std::abs(tangent);
             m_abs_eta(j, nu) = abs_t;
-            if (abs_t > 1e-14)
+            if (abs_t > GEOMETRIC_COINCIDENCE_EPS)
             {
                 eta(j, nu) = tangent / abs_t;
             }
@@ -574,7 +575,7 @@ void FornbergMC::formSystem()
 
             // Validate that inner boundary center is not at normalization point
             Complex denom = z_0 - c_val;
-            if (std::abs(denom) < 1e-14)
+            if (std::abs(denom) < GEOMETRIC_COINCIDENCE_EPS)
             {
                 throw std::invalid_argument(
                     "FornbergMC::formSystem: Inner boundary center c(" + std::to_string(nu_idx) +
@@ -779,13 +780,12 @@ void FornbergMC::newtonUpdate()
     const int N = m_config.N;
 
     // Step 1: Scale boundary updates by 1/abs_eta (matches MATLAB: U(1:m*N)./abs_eta(:))
-    constexpr double kEpsilon = 1e-14;
     for (int nu = 0; nu < m; ++nu)
     {
         for (int j = 0; j < N; ++j)
         {
             double abs_eta_val = m_abs_eta(j, nu);
-            if (abs_eta_val > kEpsilon)
+            if (abs_eta_val > NEWTON_UPDATE_SCALE_EPS)
             {
                 m_U(nu * N + j) /= abs_eta_val;
             }

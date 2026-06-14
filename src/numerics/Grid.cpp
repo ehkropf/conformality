@@ -17,6 +17,7 @@
  */
 
 #include "Grid.h"
+#include "../core/Tolerances.h"
 #include <cmath>
 #include <stdexcept>
 #include <algorithm>
@@ -152,7 +153,7 @@ void Grid::generatePolarGrid()
                 {
                     continue;
                 }
-                r = std::min(r, 1e-10); // Avoid exact zero to prevent degenerate point
+                r = std::min(r, GRID_GEOMETRY_EPS); // Avoid exact zero to prevent degenerate point
             }
 
             Complex point = std::polar(r, angle);
@@ -179,7 +180,7 @@ void Grid::generatePolarGrid()
         for (int i = 0; i <= numRadialLines; ++i)
         {
             double angle = angleMin + i * (angleMax - angleMin) / numRadialLines;
-            if (i == numRadialLines && std::abs(angleMax - angleMin - 2.0 * M_PI) < 1e-10)
+            if (i == numRadialLines && std::abs(angleMax - angleMin - 2.0 * M_PI) < GRID_GEOMETRY_EPS)
             {
                 // Skip the last point if it overlaps with the first for a full circle
                 break;
@@ -195,7 +196,7 @@ void Grid::generatePolarGrid()
             // Check if this point already exists in the grid
             auto it = std::find_if(points.begin(), points.end(), [&point](const Complex& p)
             {
-                return std::abs(point - p) < 1e-10;
+                return std::abs(point - p) < GRID_GEOMETRY_EPS;
             });
 
             if (it != points.end())

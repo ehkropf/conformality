@@ -611,7 +611,8 @@ TEST_F(PMatrixBuilderTest, CoincidentCircleErrorMessageIncludesDiagnostics)
     {
         std::string msg = e.what();
         EXPECT_NE(msg.find("distance"), std::string::npos) << "Error message should include 'distance'";
-        EXPECT_NE(msg.find("1e-14"), std::string::npos) << "Error message should include threshold '1e-14'";
+        EXPECT_NE(msg.find("coincidence tolerance"), std::string::npos)
+            << "Error message should reference the coincidence tolerance";
         EXPECT_NE(msg.find("Ensure circle centers are distinct"), std::string::npos)
             << "Error message should include actionable guidance";
     }
