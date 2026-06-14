@@ -598,6 +598,23 @@ void FornbergMC::formSystem()
     // General: m*M+1 rows (P_nu extended with p1/pnu; applyNormalization adds the final row to reach m*M+2)
     const int num_constraint_rows = m_is_annulus ? (m * M) : (m * M + 1);
 
+    // Build DFT matrix W once: W[j,k] = exp(-2*pi*i*j*k/N)
+    // FFT of unit impulse e_k scaled by eta equals eta * W.col(k), so
+    // P_nu * FFT(diag(eta_nu)) = P_nu * W * diag(eta_nu) — one matrix product per boundary
+    // instead of N individual FFT calls (O(N^2) -> O(N^2) flops but avoids N*O(N log N) FFT overhead).
+    Eigen::MatrixXcd W(N, N);
+    {
+        const double two_pi_over_N = 2.0 * M_PI / N;
+        for (int j = 0; j < N; ++j)
+        {
+            for (int k = 0; k < N; ++k)
+            {
+                double angle = -two_pi_over_N * j * k;
+                W(j, k) = Complex(std::cos(angle), std::sin(angle));
+            }
+        }
+    }
+
     for (int nu = 0; nu < m; ++nu)
     {
         // Get base P_nu from builder (m*M × N)
@@ -626,16 +643,12 @@ void FornbergMC::formSystem()
 
         int col_offset = nu * N;
 
-        // Build D block: P_nu * FFT(diag(eta_nu))
-        // Each column k is P_nu * FFT(e_k * eta(k,nu))
-        for (int k = 0; k < N; ++k)
-        {
-            std::vector<Complex> col_k(N, Complex(0.0, 0.0));
-            col_k[k] = eta(k, nu);
-            std::vector<Complex> fft_col = fftw.forward_fft(col_k);
-            Eigen::VectorXcd fft_vec = Eigen::Map<Eigen::VectorXcd>(fft_col.data(), N);
-            m_D.block(0, col_offset + k, num_constraint_rows, 1) = P_nu * fft_vec;
-        }
+        // Build D block: P_nu * W * diag(eta_nu)
+        // FFT of e_k * eta(k,nu) equals eta(k,nu) * W.col(k), so
+        // the N-column block [P_nu*FFT(e_0*eta_0), ..., P_nu*FFT(e_{N-1}*eta_{N-1})]
+        // = P_nu * W * diag(eta_col). Single matrix product replaces N individual FFTs.
+        Eigen::VectorXcd eta_col = eta.col(nu);
+        m_D.block(0, col_offset, num_constraint_rows, N) = P_nu * W * eta_col.asDiagonal();
 
         // RHS contribution: g -= P_nu * FFT(xi_nu)
         std::vector<Complex> xi_col(N);
