@@ -51,9 +51,10 @@
 /// hole-center coincidence, Sherman-Morrison singularity).
 constexpr double GEOMETRIC_COINCIDENCE_EPS = 1e-14;
 
-/// Guards the relative-update scaling in the Fornberg radius (Newton) update.
-/// Distinct in meaning from GEOMETRIC_COINCIDENCE_EPS even though equal today:
-/// it scales an update, it does not test coincidence.
+/// Guards the per-point tangent-magnitude divisor in the Fornberg radius
+/// (Newton) update. Distinct in meaning from GEOMETRIC_COINCIDENCE_EPS even
+/// though equal today: it guards a different physical quantity (the update
+/// scaling), and the two should be tuned independently.
 constexpr double NEWTON_UPDATE_SCALE_EPS = 1e-14;
 
 /// Pivot / segment-length / derivative guards that protect a division
