@@ -135,9 +135,9 @@ public:
 
     /**
      * @brief Get a descriptor with method name, parameters, and results
-     * @return MethodInfo populated by the concrete method (empty by default)
+     * @return conformality::MethodInfo populated by the concrete method (empty by default)
      */
-    virtual MethodInfo getMethodInfo() const { return {}; }
+    virtual conformality::MethodInfo getMethodInfo() const { return {}; }
 
     /**
      * @brief Set a cancellation check callback for cooperative cancellation

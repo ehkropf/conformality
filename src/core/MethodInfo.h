@@ -24,6 +24,9 @@
 #include <variant>
 #include <vector>
 
+namespace conformality
+{
+
 using MethodInfoValue = std::variant<int, double, bool, std::string>;
 
 struct MethodInfoField
@@ -39,15 +42,22 @@ struct MethodInfo
     std::vector<MethodInfoField> results;
 };
 
+namespace detail
+{
+
 template <class... Ts>
 struct overloaded : Ts... { using Ts::operator()...; };
 
+} // namespace detail
+
 inline std::string formatMethodInfoValue(const MethodInfoValue& value)
 {
-    return std::visit(overloaded{
+    return std::visit(detail::overloaded{
         [](int v) { return std::to_string(v); },
         [](double v) { std::ostringstream s; s << std::scientific << std::setprecision(2) << v; return s.str(); },
         [](bool v) -> std::string { return v ? "Yes" : "No"; },
         [](const std::string& v) { return v; }
     }, value);
 }
+
+} // namespace conformality
