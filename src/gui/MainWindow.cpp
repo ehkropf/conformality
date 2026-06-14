@@ -436,14 +436,30 @@ void MainWindow::onComputationComplete()
     }
     else if (mp_controller->wasLastComputationSuccessful())
     {
-        if (mp_controller->hasConverged())
+        const auto& info = mp_controller->getLastMethodInfo();
+        bool converged = false;
+        int iterations = 0;
+        for (const auto& field : info.results)
         {
-            m_computationPhase = "Converged (" + std::to_string(mp_controller->getLastIterationCount()) + " iterations)";
+            if (field.label == "Converged")
+            {
+                if (auto* p = std::get_if<bool>(&field.value))
+                    converged = *p;
+            }
+            else if (field.label == "Iterations")
+            {
+                if (auto* p = std::get_if<int>(&field.value))
+                    iterations = *p;
+            }
+        }
+
+        if (converged)
+        {
+            m_computationPhase = "Converged (" + std::to_string(iterations) + " iterations)";
         }
         else
         {
-            m_computationPhase =
-                "Completed (" + std::to_string(mp_controller->getLastIterationCount()) + " iterations, not converged)";
+            m_computationPhase = "Completed (" + std::to_string(iterations) + " iterations, not converged)";
         }
     }
     else

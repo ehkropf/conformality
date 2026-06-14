@@ -58,10 +58,7 @@ private:
 
     // Computation results (written by worker thread before m_isComputing goes false)
     bool m_lastComputationSuccessful{false};
-    double m_lastConvergenceError{0.0};
     std::string m_lastErrorMessage;
-    int m_lastIterationCount{0};
-    bool m_hasConverged{false};
     conformality::MethodInfo m_lastMethodInfo;
 
     // Callbacks for GUI updates (only called from main/GUI thread)
@@ -171,28 +168,10 @@ public:
     bool wasLastComputationSuccessful() const { return m_lastComputationSuccessful; }
 
     /**
-     * @brief Get last convergence error
-     * @return Convergence error value
-     */
-    double getLastConvergenceError() const { return m_lastConvergenceError; }
-
-    /**
      * @brief Get last error message
      * @return Error message string
      */
     const std::string& getLastErrorMessage() const { return m_lastErrorMessage; }
-
-    /**
-     * @brief Get iteration count from last computation
-     * @return Number of iterations (0 if not yet computed)
-     */
-    int getLastIterationCount() const { return m_lastIterationCount; }
-
-    /**
-     * @brief Check if last computation converged
-     * @return true if converged within tolerance
-     */
-    bool hasConverged() const { return m_hasConverged; }
 
     /**
      * @brief Check if last computation was cancelled by the user
