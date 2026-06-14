@@ -719,6 +719,11 @@ void FornbergMC::formSystem()
         constexpr double norm_value = 0.0;  // norm_cond(3) = 0
         mp_matrix_builder->applyNormalizationConditions(m_D, m_g, norm_value);
     }
+
+    // Cache real/imaginary parts of m_D for use in solveSystem().
+    // Avoids repeated full-matrix copies on every Newton iteration.
+    m_DR = m_D.real();
+    m_DI = m_D.imag();
 }
 
 void FornbergMC::solveSystem()
@@ -747,10 +752,9 @@ void FornbergMC::solveSystem()
     Eigen::VectorXd b = (2.0 / N) * (m_D.adjoint() * m_g).real();
 
     // Matrix-vector product: A*x = 2*(DR'*(DR*x) + DI'*(DI*x))/N
-    Eigen::MatrixXd DR = m_D.real();
-    Eigen::MatrixXd DI = m_D.imag();
-    auto A_function = [&DR, &DI, N](const Eigen::VectorXd& x) -> Eigen::VectorXd {
-        return (2.0 / N) * (DR.transpose() * (DR * x) + DI.transpose() * (DI * x));
+    // m_DR and m_DI are cached in formSystem() and reused across Newton iterations.
+    auto A_function = [this, N](const Eigen::VectorXd& x) -> Eigen::VectorXd {
+        return (2.0 / N) * (m_DR.transpose() * (m_DR * x) + m_DI.transpose() * (m_DI * x));
     };
 
     // Solve the real system directly
