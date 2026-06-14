@@ -29,9 +29,9 @@
 #include <cmath>
 #include <algorithm>
 
-MethodInfo FornbergMC::getMethodInfo() const
+conformality::MethodInfo FornbergMC::getMethodInfo() const
 {
-    MethodInfo info;
+    conformality::MethodInfo info;
     info.name = "FornbergMC";
 
     info.parameters = {

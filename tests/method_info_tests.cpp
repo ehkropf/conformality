@@ -24,6 +24,10 @@
 #include "../src/methods/PMatrixBuilder.h"
 #include "../src/numerics/CGSolver.h"
 
+using conformality::formatMethodInfoValue;
+using conformality::MethodInfo;
+using conformality::MethodInfoValue;
+
 // ---------- Base class default ----------
 
 TEST(MethodInfoBaseClassTest, ReturnsEmpty)

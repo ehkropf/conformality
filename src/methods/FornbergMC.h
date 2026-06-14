@@ -187,7 +187,7 @@ public:
      */
     Complex inverseMap(const Complex& w) const override;
 
-    MethodInfo getMethodInfo() const override;
+    conformality::MethodInfo getMethodInfo() const override;
 
     /**
      * @brief Get the current configuration

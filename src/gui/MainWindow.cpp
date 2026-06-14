@@ -6,6 +6,8 @@
 #include "imgui.h"
 #include "implot.h"
 
+using conformality::formatMethodInfoValue;
+
 MainWindow::MainWindow()
     : m_showDemoWindow{false}
     , m_showAboutDialog{false}
