@@ -60,18 +60,6 @@ else()
 endif()
 
 find_library(GLFW_LIB glfw.3 HINTS /opt/local/lib /usr/local/lib REQUIRED)
-if(GLFW_LIB)
-    get_filename_component(GLFW_LIB_DIR "${GLFW_LIB}" DIRECTORY)
-    get_filename_component(GLFW_INSTALL_PREFIX "${GLFW_LIB_DIR}" DIRECTORY)
-    find_path(GLFW_INCLUDE_DIR
-        NAMES GLFW/glfw3.h
-        PATHS "${GLFW_INSTALL_PREFIX}/include"
-        NO_DEFAULT_PATH
-    )
-    if(GLFW_INCLUDE_DIR)
-        list(APPEND IM_INCLUDE_DIRS "${GLFW_INCLUDE_DIR}")
-    endif()
-endif()
 find_library(METAL_LIB Metal REQUIRED)
 find_library(METALKIT_LIB MetalKit REQUIRED)
 find_library(COCOA_LIB Cocoa REQUIRED)
