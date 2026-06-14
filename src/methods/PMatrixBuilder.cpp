@@ -26,7 +26,7 @@ PMatrixBuilder::PMatrixBuilder(const FornbergMCConfiguration& config, int connec
     , m_is_annulus{is_annulus}
 {
     validateParameters();
-    
+
     // Initialize frequency indices and normalization conditions
     initializeFrequencyIndices();
     setupNormalizationConditions();
@@ -86,7 +86,7 @@ const Eigen::VectorXi& PMatrixBuilder::getFrequencyIndices(int nu) const
     {
         throw std::invalid_argument("PMatrixBuilder: Invalid component index " + std::to_string(nu));
     }
-    
+
     return m_frequency_indices[nu];
 }
 
@@ -120,7 +120,7 @@ int PMatrixBuilder::getSystemSize() const
     // For m boundary components with N points each, the system size is approximately:
     // - General case: sum of analyticity constraints for each component
     // - Annulus case: optimized size due to specialized structure
-    
+
     if (m_is_annulus)
     {
         // Annulus case has specialized structure
@@ -139,10 +139,10 @@ void PMatrixBuilder::setConnectivity(int new_connectivity)
     {
         throw std::invalid_argument("PMatrixBuilder: Connectivity must be at least 2");
     }
-    
+
     m_connectivity = new_connectivity;
     m_is_annulus = (new_connectivity == 2) && m_config.auto_detect_annulus;
-    
+
     // Reinitialize with new connectivity
     initializeFrequencyIndices();
     setupNormalizationConditions();
@@ -175,12 +175,12 @@ void PMatrixBuilder::initializeFrequencyIndices()
 {
     m_frequency_indices.clear();
     m_frequency_indices.resize(m_connectivity);
-    
+
     for (int nu = 0; nu < m_connectivity; ++nu)
     {
         // Initialize frequency indices based on FFT structure
         // FFTW output order: [0, 1, 2, ..., N/2-1, -N/2, -N/2+1, ..., -1]
-        
+
         m_frequency_indices[nu].resize(m_N);
         for (int j = 0; j < m_N; ++j)
         {
@@ -194,7 +194,7 @@ void PMatrixBuilder::initializeFrequencyIndices()
             }
         }
     }
-    
+
 }
 
 void PMatrixBuilder::doTri(Eigen::MatrixXcd& P_, double rho) const
@@ -251,9 +251,11 @@ Eigen::MatrixXcd PMatrixBuilder::buildGeneralPMatrix(int nu, const ConformalModu
 
             // MATLAB: P_(:,1) = c(L).^(0:M-1)
             std::complex<double> c_L = moduli.c(L);
+            std::complex<double> c_power = 1.0;
             for (int i = 0; i < M; ++i)
             {
-                P_(i, 0) = std::pow(c_L, i);
+                P_(i, 0) = c_power;
+                c_power *= c_L;
             }
 
             // MATLAB: P_ = do_tri(P_, rho(L))
@@ -274,9 +276,11 @@ Eigen::MatrixXcd PMatrixBuilder::buildGeneralPMatrix(int nu, const ConformalModu
         // MATLAB: P_(:,1) = rho(nu-1) * c(nu-1).^(0:M-1)
         std::complex<double> c_nu = moduli.c(nu - 1);
         double rho_nu = moduli.rho(nu - 1);
+        std::complex<double> c_power = 1.0;
         for (int i = 0; i < M; ++i)
         {
-            P_(i, 0) = rho_nu * std::pow(c_nu, i);
+            P_(i, 0) = rho_nu * c_power;
+            c_power *= c_nu;
         }
 
         // MATLAB: P_ = do_tri(P_, rho(nu-1))
@@ -325,10 +329,14 @@ Eigen::MatrixXcd PMatrixBuilder::buildGeneralPMatrix(int nu, const ConformalModu
 
             // First row: P_(1,:) = (1/(c_nu - c_L)) * (rho_nu^(1:M) / (c_L - c_nu)^(0:M-1))
             std::complex<double> neg_c_diff = c_L - c_nu;
+            std::complex<double> rho_power = rho_nu;
+            std::complex<double> neg_c_power = 1.0;
             for (int j = 0; j < M; ++j)
             {
                 // MATLAB: rho(nu-1)^(j+1) / (c(L)-c(nu-1))^j  where j is 0-based
-                P_int(0, j) = (1.0 / c_diff) * std::pow(rho_nu, j + 1) / std::pow(neg_c_diff, j);
+                P_int(0, j) = (1.0 / c_diff) * rho_power / neg_c_power;
+                rho_power *= rho_nu;
+                neg_c_power *= neg_c_diff;
             }
 
             // Second row: P_(2,:) = pl_cvl * (1:M) .* P_(1,:)
@@ -379,9 +387,11 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
         // Second block-row: ANNULUS OPTIMIZATION
         // MATLAB: Pnu(M+1:2*M, 1:M) = diag(rho(1).^(0:M-1))
         double rho_1 = moduli.rho(0);
+        double rho_power = 1.0;
         for (int k = 0; k < M; ++k)
         {
-            P_nu(M + k, k) = std::pow(rho_1, k);
+            P_nu(M + k, k) = rho_power;
+            rho_power *= rho_1;
         }
 
         // Rest of block-rows (for conn > 2, same as general)
@@ -392,9 +402,11 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
 
             // MATLAB: P_(:,1) = c(L).^(0:M-1)
             std::complex<double> c_L = moduli.c(L);
+            std::complex<double> c_power = 1.0;
             for (int i = 0; i < M; ++i)
             {
-                P_(i, 0) = std::pow(c_L, i);
+                P_(i, 0) = c_power;
+                c_power *= c_L;
             }
 
             // MATLAB: P_ = do_tri(P_, rho(L))
@@ -412,11 +424,13 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
         // MATLAB: P_ = diag(rho(1).^(M:-1:1))
         // MATLAB: Pnu(1:M, M+1:N) = -P_
         double rho_1 = moduli.rho(0);
+        double rho_power = std::pow(rho_1, M);
         for (int k = 0; k < M; ++k)
         {
             // MATLAB: rho(1)^(M:-1:1) puts rho^M at position 1, rho^1 at position M
             // C++ (0-based): row k gets -rho^(M-k)
-            P_nu(k, M + k) = -std::pow(rho_1, M - k);
+            P_nu(k, M + k) = -rho_power;
+            rho_power /= rho_1;
         }
 
         // Identity block (same as general)
@@ -454,9 +468,13 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
             Eigen::MatrixXcd P_int = Eigen::MatrixXcd::Zero(M, M);
 
             std::complex<double> neg_c_diff = c_L - c_nu;
+            std::complex<double> rho_power_h = rho_nu;
+            std::complex<double> neg_c_power_h = 1.0;
             for (int j = 0; j < M; ++j)
             {
-                P_int(0, j) = (1.0 / c_diff) * std::pow(rho_nu, j + 1) / std::pow(neg_c_diff, j);
+                P_int(0, j) = (1.0 / c_diff) * rho_power_h / neg_c_power_h;
+                rho_power_h *= rho_nu;
+                neg_c_power_h *= neg_c_diff;
             }
 
             for (int j = 0; j < M; ++j)
@@ -485,9 +503,11 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
         std::complex<double> c_nu = moduli.c(nu - 1);
         double rho_nu = moduli.rho(nu - 1);
 
+        std::complex<double> c_power = 1.0;
         for (int i = 0; i < M; ++i)
         {
-            P_(i, 0) = rho_nu * std::pow(c_nu, i);
+            P_(i, 0) = rho_nu * c_power;
+            c_power *= c_nu;
         }
         doTri(P_, rho_nu);
 
@@ -524,9 +544,13 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
             Eigen::MatrixXcd P_int = Eigen::MatrixXcd::Zero(M, M);
 
             std::complex<double> neg_c_diff = c_L - c_nu;
+            std::complex<double> rho_power_h = rho_nu;
+            std::complex<double> neg_c_power_h = 1.0;
             for (int j = 0; j < M; ++j)
             {
-                P_int(0, j) = (1.0 / c_diff) * std::pow(rho_nu, j + 1) / std::pow(neg_c_diff, j);
+                P_int(0, j) = (1.0 / c_diff) * rho_power_h / neg_c_power_h;
+                rho_power_h *= rho_nu;
+                neg_c_power_h *= neg_c_diff;
             }
 
             for (int j = 0; j < M; ++j)
@@ -552,10 +576,10 @@ Eigen::MatrixXcd PMatrixBuilder::buildAnnulusPMatrix(int nu, const ConformalModu
 void PMatrixBuilder::setupNormalizationConditions()
 {
     m_normalization_conditions.clear();
-    
+
     // Set up 3 normalization conditions per Newton step to fix degrees of freedom
     // Standard choices: fix one coefficient per boundary component
-    
+
     for (int nu = 0; nu < m_connectivity; ++nu)
     {
         if (nu == 0)
@@ -581,12 +605,12 @@ void PMatrixBuilder::validateParameters() const
     {
         throw std::invalid_argument("PMatrixBuilder: Connectivity must be at least 2");
     }
-    
+
     if (m_N <= 0 || (m_N & (m_N - 1)) != 0)
     {
         throw std::invalid_argument("PMatrixBuilder: N must be a positive power of 2");
     }
-    
+
     if (m_is_annulus && m_connectivity != 2)
     {
         throw std::invalid_argument("PMatrixBuilder: Annulus mode requires exactly 2 boundary components");
