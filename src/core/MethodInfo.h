@@ -29,6 +29,16 @@ namespace conformality
 
 using MethodInfoValue = std::variant<int, double, bool, std::string>;
 
+// GUARD: MethodInfoValue construction footgun mitigation
+// const char* literals prefer bool (via implicit conversion) over std::string.
+// int and bool can be ambiguous. If this assertion fails after reordering the
+// variant, check all construction sites to ensure correctness.
+static_assert(std::variant_size_v<MethodInfoValue> == 4, "MethodInfoValue size changed");
+static_assert(std::is_same_v<std::variant_alternative_t<0, MethodInfoValue>, int>,
+              "int must be variant[0]");
+static_assert(std::is_same_v<std::variant_alternative_t<3, MethodInfoValue>, std::string>,
+              "std::string must be variant[3]");
+
 struct MethodInfoField
 {
     std::string label;
