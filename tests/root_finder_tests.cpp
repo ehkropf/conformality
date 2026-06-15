@@ -230,6 +230,10 @@ TEST(RootFinderTest, NewtonRejectsNonFiniteDerivative)
         return std::numeric_limits<double>::infinity();
     };
 
+    // Distinct failure mode from the NaN case: an infinite derivative made fx/dfx
+    // collapse to 0, so without the guard newton silently returned the initial guess
+    // as a "root" rather than spinning to maxIterations. A plain EXPECT_THROW catches
+    // this regression directly.
     EXPECT_THROW(RootFinder::newton<double>(function, derivative, 1.0),
                  RootFinder::ConvergenceError);
 }

@@ -66,10 +66,11 @@ private:
     int numULines, numVLines;          // Parametric grid line counts
 
     /**
-     * @brief Validate a grid line count, rejecting degenerate single-line grids
+     * @brief Validate a grid line count, rejecting degenerate (< 2) line counts
      *
-     * Grid spacing is computed as (max - min) / (count - 1), so a count of 1 divides
-     * by zero (producing NaN), and a count below 2 is degenerate for visualization.
+     * Most grid spacings are computed as (max - min) / (count - 1), so a count of 1
+     * divides by zero (producing NaN); counts of 0 or fewer are likewise degenerate.
+     * Requiring at least 2 lines keeps every divided axis well-defined.
      *
      * @param name Parameter name, used in the error message
      * @param value Requested line count
@@ -219,6 +220,7 @@ public:
      * @param name Parameter name
      * @param value Parameter value
      * @return bool True if parameter was set, false if name was not recognized
+     * @throws std::invalid_argument if a line-count parameter is set below 2
      */
     bool setParameter(const std::string& name, double value);
 

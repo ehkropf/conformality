@@ -402,4 +402,10 @@ TEST(GridTest, SetParameterRejectsSingleLineCount)
     Grid cartesian = Grid::createCartesianGrid(5, 5);
     EXPECT_THROW(cartesian.setParameter("numHorizontalLines", 1.0), std::invalid_argument);
     EXPECT_THROW(cartesian.setParameter("numVerticalLines", 1.0), std::invalid_argument);
+
+    // Each else-if is an independent call site, so the parametric keys are covered too.
+    auto identity = [](double u, double v) -> Complex { return Complex(u, v); };
+    Grid parametric = Grid::createParametricGrid(identity, 4, 4);
+    EXPECT_THROW(parametric.setParameter("numULines", 1.0), std::invalid_argument);
+    EXPECT_THROW(parametric.setParameter("numVLines", 1.0), std::invalid_argument);
 }
