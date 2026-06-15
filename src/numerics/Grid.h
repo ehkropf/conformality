@@ -66,6 +66,18 @@ private:
     int numULines, numVLines;          // Parametric grid line counts
 
     /**
+     * @brief Validate a grid line count, rejecting degenerate single-line grids
+     *
+     * Grid spacing is computed as (max - min) / (count - 1), so a count of 1 divides
+     * by zero (producing NaN), and a count below 2 is degenerate for visualization.
+     *
+     * @param name Parameter name, used in the error message
+     * @param value Requested line count
+     * @throws std::invalid_argument if value < 2
+     */
+    static void validateLineCount(const char* name, int value);
+
+    /**
      * @brief Generate a polar grid
      */
     void generatePolarGrid();

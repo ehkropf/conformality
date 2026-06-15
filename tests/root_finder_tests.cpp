@@ -19,6 +19,8 @@
 #include <gtest/gtest.h>
 #include <cmath>
 #include <complex>
+#include <limits>
+#include <string>
 #include "../src/numerics/RootFinder.h"
 
 TEST(RootFinderTest, TernarySearchQuadratic)
@@ -196,4 +198,65 @@ TEST(RootFinderTest, NewtonMethodConvergenceToZero)
 
     double result = RootFinder::newton<double>(function, derivative, 1.5);
     EXPECT_NEAR(1.0, result, 1e-3); // Slower convergence for multiple roots
+}
+
+// Regression tests for GH-144: newton and ternarySearch had no finiteness guards, so a
+// NaN/inf evaluation silently spun Newton to maxIterations or made ternary search return
+// a meaningless midpoint. They now throw ConvergenceError on the first non-finite value.
+TEST(RootFinderTest, NewtonRejectsNonFiniteFunction)
+{
+    auto function = [](double) -> double { return std::nan(""); };
+    auto derivative = [](double) -> double { return 1.0; };
+
+    // Without the guard a NaN function value still throws ConvergenceError, but only
+    // after spinning to maxIterations; assert the fast-fail message so this test
+    // verifies the guard rather than the max-iteration fallback.
+    try
+    {
+        RootFinder::newton<double>(function, derivative, 1.0);
+        FAIL() << "expected ConvergenceError for non-finite function value";
+    }
+    catch (const RootFinder::ConvergenceError& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("non-finite"), std::string::npos);
+    }
+}
+
+TEST(RootFinderTest, NewtonRejectsNonFiniteDerivative)
+{
+    auto function = [](double x) -> double { return x; };
+    auto derivative = [](double) -> double
+    {
+        return std::numeric_limits<double>::infinity();
+    };
+
+    EXPECT_THROW(RootFinder::newton<double>(function, derivative, 1.0),
+                 RootFinder::ConvergenceError);
+}
+
+TEST(RootFinderTest, NewtonRejectsNonFiniteComplexValue)
+{
+    // std::abs of a std::complex yields a real magnitude, so the guard fires for the
+    // complex instantiation too.
+    using Cplx = std::complex<double>;
+    auto function = [](Cplx) -> Cplx { return Cplx(std::nan(""), 0.0); };
+    auto derivative = [](Cplx) -> Cplx { return Cplx(1.0, 0.0); };
+
+    try
+    {
+        RootFinder::newton<Cplx>(function, derivative, Cplx(1.0, 1.0));
+        FAIL() << "expected ConvergenceError for non-finite complex value";
+    }
+    catch (const RootFinder::ConvergenceError& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("non-finite"), std::string::npos);
+    }
+}
+
+TEST(RootFinderTest, TernarySearchRejectsNonFiniteObjective)
+{
+    auto objective = [](double) -> double { return std::nan(""); };
+
+    EXPECT_THROW(RootFinder::ternarySearch(objective, 0.0, 4.0),
+                 RootFinder::ConvergenceError);
 }

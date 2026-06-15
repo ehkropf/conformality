@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 #include "../src/numerics/Grid.h"
 #include <cmath>
+#include <stdexcept>
 
 // Helper function to compare complex points
 bool pointsEqual(const Complex& a, const Complex& b, double tolerance = 1e-10)
@@ -361,4 +362,44 @@ TEST(GridTest, Regeneration)
     // Number of lines should be 12 radial + (6-1) angular = 17 total
     // (One angular line is skipped because it would be degenerate at r=0)
     EXPECT_EQ(17, grid.getLineCount());
+}
+
+// Regression tests for GH-144: grid spacing is computed as (max - min) / (count - 1),
+// so a line count of 1 divided 0.0/0.0 -> NaN and silently poisoned the grid before the
+// guard. Each factory now rejects counts below 2 on every divided axis.
+TEST(GridTest, PolarGridRejectsSingleLine)
+{
+    EXPECT_THROW(Grid::createPolarGrid(1, 4), std::invalid_argument);
+    EXPECT_THROW(Grid::createPolarGrid(8, 1), std::invalid_argument);
+    // The minimum valid count (2) on each axis is accepted.
+    EXPECT_NO_THROW(Grid::createPolarGrid(2, 2));
+}
+
+TEST(GridTest, CartesianGridRejectsSingleLine)
+{
+    EXPECT_THROW(Grid::createCartesianGrid(1, 5), std::invalid_argument);
+    EXPECT_THROW(Grid::createCartesianGrid(5, 1), std::invalid_argument);
+    EXPECT_NO_THROW(Grid::createCartesianGrid(2, 2));
+}
+
+TEST(GridTest, ParametricGridRejectsSingleLine)
+{
+    auto identity = [](double u, double v) -> Complex { return Complex(u, v); };
+    EXPECT_THROW(Grid::createParametricGrid(identity, 1, 4), std::invalid_argument);
+    EXPECT_THROW(Grid::createParametricGrid(identity, 4, 1), std::invalid_argument);
+    EXPECT_NO_THROW(Grid::createParametricGrid(identity, 2, 2));
+}
+
+TEST(GridTest, SetParameterRejectsSingleLineCount)
+{
+    // setParameter + regenerate reached the same division as the factories, so the
+    // count keys are guarded here too.
+    Grid grid = Grid::createPolarGrid(8, 4);
+    EXPECT_THROW(grid.setParameter("numAngularLines", 1.0), std::invalid_argument);
+    EXPECT_THROW(grid.setParameter("numRadialLines", 1.0), std::invalid_argument);
+    EXPECT_NO_THROW(grid.setParameter("numAngularLines", 2.0));
+
+    Grid cartesian = Grid::createCartesianGrid(5, 5);
+    EXPECT_THROW(cartesian.setParameter("numHorizontalLines", 1.0), std::invalid_argument);
+    EXPECT_THROW(cartesian.setParameter("numVerticalLines", 1.0), std::invalid_argument);
 }
