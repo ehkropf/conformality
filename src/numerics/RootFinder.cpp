@@ -46,6 +46,11 @@ double RootFinder::ternarySearch(std::function<double(double)> objective,
         double f1 = objective(mid1);
         double f2 = objective(mid2);
 
+        if (!std::isfinite(f1) || !std::isfinite(f2))
+        {
+            throw ConvergenceError("Ternary search: non-finite objective value");
+        }
+
         if (f1 > f2)
         {
             low = mid1;

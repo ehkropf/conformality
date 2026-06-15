@@ -53,6 +53,16 @@ Grid::Grid(GridType gridType)
     regenerate();
 }
 
+void Grid::validateLineCount(const char* name, int value)
+{
+    if (value < 2)
+    {
+        throw std::invalid_argument(std::string("Grid line count '") + name +
+                                    "' must be at least 2 (got " + std::to_string(value) +
+                                    "); single-line grids are degenerate and divide by zero.");
+    }
+}
+
 Grid Grid::createPolarGrid(
     int numRadial,
     int numAngular,
@@ -62,6 +72,9 @@ Grid Grid::createPolarGrid(
     double aMaximum,
     bool includeOriginPoint)
 {
+    validateLineCount("numRadial", numRadial);
+    validateLineCount("numAngular", numAngular);
+
     Grid grid(GridType::POLAR);
 
     grid.numRadialLines = numRadial;
@@ -84,6 +97,9 @@ Grid Grid::createCartesianGrid(
     double yMinimum,
     double yMaximum)
 {
+    validateLineCount("numHorizontal", numHorizontal);
+    validateLineCount("numVertical", numVertical);
+
     Grid grid(GridType::CARTESIAN);
 
     grid.numHorizontalLines = numHorizontal;
@@ -106,6 +122,9 @@ Grid Grid::createParametricGrid(
     double vMinimum,
     double vMaximum)
 {
+    validateLineCount("numUlines", numUlines);
+    validateLineCount("numVlines", numVlines);
+
     Grid grid(GridType::PARAMETRIC);
 
     grid.parameterization = paramFunc;
@@ -447,8 +466,8 @@ bool Grid::setParameter(const std::string& name, double value)
             else if (name == "rMax") { rMax = value; return true; }
             else if (name == "angleMin") { angleMin = value; return true; }
             else if (name == "angleMax") { angleMax = value; return true; }
-            else if (name == "numRadialLines") { numRadialLines = static_cast<int>(value); return true; }
-            else if (name == "numAngularLines") { numAngularLines = static_cast<int>(value); return true; }
+            else if (name == "numRadialLines") { validateLineCount("numRadialLines", static_cast<int>(value)); numRadialLines = static_cast<int>(value); return true; }
+            else if (name == "numAngularLines") { validateLineCount("numAngularLines", static_cast<int>(value)); numAngularLines = static_cast<int>(value); return true; }
             else if (name == "includeOrigin") { includeOrigin = value != 0.0; return true; }
             break;
 
@@ -457,8 +476,8 @@ bool Grid::setParameter(const std::string& name, double value)
             else if (name == "xMax") { xMax = value; return true; }
             else if (name == "yMin") { yMin = value; return true; }
             else if (name == "yMax") { yMax = value; return true; }
-            else if (name == "numHorizontalLines") { numHorizontalLines = static_cast<int>(value); return true; }
-            else if (name == "numVerticalLines") { numVerticalLines = static_cast<int>(value); return true; }
+            else if (name == "numHorizontalLines") { validateLineCount("numHorizontalLines", static_cast<int>(value)); numHorizontalLines = static_cast<int>(value); return true; }
+            else if (name == "numVerticalLines") { validateLineCount("numVerticalLines", static_cast<int>(value)); numVerticalLines = static_cast<int>(value); return true; }
             break;
 
         case GridType::PARAMETRIC:
@@ -466,8 +485,8 @@ bool Grid::setParameter(const std::string& name, double value)
             else if (name == "uMax") { uMax = value; return true; }
             else if (name == "vMin") { vMin = value; return true; }
             else if (name == "vMax") { vMax = value; return true; }
-            else if (name == "numULines") { numULines = static_cast<int>(value); return true; }
-            else if (name == "numVLines") { numVLines = static_cast<int>(value); return true; }
+            else if (name == "numULines") { validateLineCount("numULines", static_cast<int>(value)); numULines = static_cast<int>(value); return true; }
+            else if (name == "numVLines") { validateLineCount("numVLines", static_cast<int>(value)); numVLines = static_cast<int>(value); return true; }
             break;
     }
 

@@ -93,6 +93,13 @@ T RootFinder::newton(std::function<T(T)> function,
         T fx = function(x);
         T dfx = derivative(x);
 
+        // std::abs of a std::complex yields a real magnitude, so this guard works for
+        // both the real and complex template instantiations.
+        if (!std::isfinite(std::abs(fx)) || !std::isfinite(std::abs(dfx)))
+        {
+            throw ConvergenceError("Newton's method: non-finite function or derivative value");
+        }
+
         if (std::abs(fx) < tolerance)
         {
             return x;
