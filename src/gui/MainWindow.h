@@ -42,6 +42,10 @@ private:
     bool m_showGrid;
     int m_gridDensity;
 
+    // Height of the resizable status/log panel, shared with sibling panels so they can
+    // reserve the correct remaining space; updated each frame from the panel's actual size.
+    float m_statusPanelHeight{150.0f};
+
     // Cached per-frame live progress (read once in renderMainLayout)
     int m_cachedLiveIter{0};
     double m_cachedLiveResidual{0.0};

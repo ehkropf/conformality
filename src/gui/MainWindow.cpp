@@ -222,9 +222,8 @@ void MainWindow::renderMainLayout()
 void MainWindow::renderControlPanel()
 {
     float control_width = 300.0f;
-    float status_height = 150.0f;
 
-    if (ImGui::BeginChild("ControlPanel", ImVec2(control_width, -status_height), true))
+    if (ImGui::BeginChild("ControlPanel", ImVec2(control_width, -m_statusPanelHeight), true))
     {
         ImGui::Text("Control Panel");
         ImGui::Separator();
@@ -326,9 +325,7 @@ void MainWindow::renderControlPanel()
 
 void MainWindow::renderVisualizationPanel()
 {
-    float status_height = 150.0f;
-
-    if (ImGui::BeginChild("VisualizationPanel", ImVec2(0, -status_height), true))
+    if (ImGui::BeginChild("VisualizationPanel", ImVec2(0, -m_statusPanelHeight), true))
     {
         if (mp_visualizationPanel)
         {
@@ -346,7 +343,12 @@ void MainWindow::renderVisualizationPanel()
 
 void MainWindow::renderStatusPanel()
 {
-    if (ImGui::BeginChild("StatusPanel", ImVec2(0, 0), true))
+    // ImGuiChildFlags_ResizeY lets the user drag the panel's top border to resize it. BeginChild
+    // manages the size internally once resized, so the requested height below only matters on the
+    // first frame; the actual current height is read back via GetWindowSize() after EndChild so
+    // sibling panels (ControlPanel, VisualizationPanel) can reserve the correct remaining space.
+    if (ImGui::BeginChild("StatusPanel", ImVec2(0, m_statusPanelHeight),
+                           ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY))
     {
         // Info bar: live progress, errors, results, performance
         if (mp_controller)
@@ -405,6 +407,9 @@ void MainWindow::renderStatusPanel()
             }
         }
         ImGui::EndChild();
+
+        // Persist the current (possibly user-resized) height for next frame's sibling layout.
+        m_statusPanelHeight = ImGui::GetWindowSize().y;
     }
     ImGui::EndChild();
 }
