@@ -6,6 +6,8 @@
 #include "imgui.h"
 #include "implot.h"
 
+#include <algorithm>
+
 using conformality::formatMethodInfoValue;
 
 MainWindow::MainWindow()
@@ -343,12 +345,23 @@ void MainWindow::renderVisualizationPanel()
 
 void MainWindow::renderStatusPanel()
 {
-    // ImGuiChildFlags_ResizeY lets the user drag the panel's top border to resize it. BeginChild
+    // ImGuiChildFlags_ResizeY lets the user drag the panel's bottom border to resize it. BeginChild
     // manages the size internally once resized, so the requested height below only matters on the
-    // first frame; the actual current height is read back via GetWindowSize() after EndChild so
-    // sibling panels (ControlPanel, VisualizationPanel) can reserve the correct remaining space.
-    if (ImGui::BeginChild("StatusPanel", ImVec2(0, m_statusPanelHeight),
-                           ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY))
+    // first frame; the actual current height is read back via GetWindowSize() after the inner log
+    // child, while StatusPanel is still the current window, so sibling panels (ControlPanel,
+    // VisualizationPanel) can reserve the correct remaining space.
+    // NoSavedSettings mirrors the parent "MainLayout" window: ResizeY alone would otherwise opt
+    // this child into .ini persistence, which m_statusPanelHeight has no load/save wiring for.
+    //
+    // Captured before BeginChild("StatusPanel", ...): the remaining vertical space in the parent
+    // "MainLayout" window, used below as a dynamic upper bound so a runaway resize drag can't
+    // shrink the sibling panels' reserved space (-m_statusPanelHeight) to nothing or negative.
+    float parent_avail_height = ImGui::GetContentRegionAvail().y;
+
+    bool status_visible = ImGui::BeginChild("StatusPanel", ImVec2(0, m_statusPanelHeight),
+                           ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY,
+                           ImGuiWindowFlags_NoSavedSettings);
+    if (status_visible)
     {
         // Info bar: live progress, errors, results, performance
         if (mp_controller)
@@ -407,10 +420,16 @@ void MainWindow::renderStatusPanel()
             }
         }
         ImGui::EndChild();
-
-        // Persist the current (possibly user-resized) height for next frame's sibling layout.
-        m_statusPanelHeight = ImGui::GetWindowSize().y;
     }
+
+    // Persist the current (possibly user-resized) height for next frame's sibling layout. Read
+    // unconditionally (BeginChild can return false when collapsed/clipped while still requiring
+    // EndChild), and while StatusPanel is still the current window -- GetWindowSize() is only
+    // valid before the matching EndChild below. Clamp so a runaway drag can't invert the layout:
+    // ControlPanel/VisualizationPanel reserve space via -m_statusPanelHeight, so an unbounded
+    // value here would starve them of height.
+    float max_height = std::max(50.0f, parent_avail_height);
+    m_statusPanelHeight = std::clamp(ImGui::GetWindowSize().y, 50.0f, max_height);
     ImGui::EndChild();
 }
 
