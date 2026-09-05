@@ -355,8 +355,8 @@ void MainWindow::renderStatusPanelSplitter(float layout_avail_height)
     // only supports resizing from a child's bottom border, which is useless here since StatusPanel is
     // already the bottom-most element in the layout (see #154); dragging this handle up/down instead
     // adjusts m_statusPanelHeight directly, which renderControlPanel()/renderVisualizationPanel() use to
-    // reserve their own remaining space. The hit target (8px) is taller than the visible bar (4px) so it's
-    // easier to grab, styled like a separator so it reads as draggable rather than as a stray button.
+    // reserve their own remaining space. Sized a bit taller than a typical separator so it's easier to
+    // grab, and styled like one so it reads as draggable rather than as a stray button.
     constexpr float splitter_hit_height = 8.0f;
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
