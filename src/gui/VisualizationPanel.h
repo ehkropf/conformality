@@ -45,6 +45,7 @@ private:
     std::vector<GridLine> m_targetGridLines;
 
     std::shared_ptr<ConformalMap> mp_currentMap;
+    bool m_mapComputed;
 
 public:
     VisualizationPanel();
@@ -57,8 +58,12 @@ public:
     /**
      * @brief Update the visualization with a new conformal map
      * @param map Conformal map to visualize
+     * @param isComputed Whether the map has been successfully computed. When false,
+     *                    target-domain point mapping is skipped (source/target boundary
+     *                    geometry is still shown, but no image grid is evaluated) since
+     *                    ConformalMap::map() would throw for an uncomputed map.
      */
-    void updateMap(std::shared_ptr<ConformalMap> map);
+    void updateMap(std::shared_ptr<ConformalMap> map, bool isComputed = false);
 
     /**
      * @brief Set grid visibility

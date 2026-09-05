@@ -14,6 +14,7 @@ VisualizationPanel::VisualizationPanel()
     , m_showTargetDomain{true}
     , m_gridDensity{8}
     , mp_currentMap{nullptr}
+    , m_mapComputed{false}
 {
 }
 
@@ -63,9 +64,10 @@ void VisualizationPanel::shutdown()
     mp_currentMap.reset();
 }
 
-void VisualizationPanel::updateMap(std::shared_ptr<ConformalMap> map)
+void VisualizationPanel::updateMap(std::shared_ptr<ConformalMap> map, bool isComputed)
 {
     mp_currentMap = map;
+    m_mapComputed = isComputed;
 
     if (!mp_currentMap)
     {
@@ -483,7 +485,7 @@ void VisualizationPanel::generateTargetGrid()
 {
     m_targetGridLines.clear();
 
-    if (!mp_currentMap)
+    if (!mp_currentMap || !m_mapComputed)
     {
         return;
     }
