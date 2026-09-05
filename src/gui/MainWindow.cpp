@@ -206,6 +206,9 @@ void MainWindow::renderMainLayout()
         }
 
         // Three-panel layout: Control | Visualization | Status
+        // Captured before any panel consumes space, so the splitter has a stable upper bound
+        // for m_statusPanelHeight independent of the value it's adjusting (see #154 review).
+        float layout_avail_height = ImGui::GetContentRegionAvail().y;
 
         // Control Panel (left column)
         renderControlPanel();
@@ -216,7 +219,7 @@ void MainWindow::renderMainLayout()
         renderVisualizationPanel();
 
         // Draggable splitter between the visualization row and the status/log panel below it
-        renderStatusPanelSplitter();
+        renderStatusPanelSplitter(layout_avail_height);
 
         // Status Panel (bottom)
         renderStatusPanel();
@@ -346,17 +349,22 @@ void MainWindow::renderVisualizationPanel()
     ImGui::EndChild();
 }
 
-void MainWindow::renderStatusPanelSplitter()
+void MainWindow::renderStatusPanelSplitter(float layout_avail_height)
 {
-    // A thin invisible drag handle between the visualization row and the status/log panel below.
-    // ImGuiChildFlags_ResizeY only supports resizing from a child's bottom border, which is
-    // useless here since StatusPanel is already the bottom-most element in the layout (see #154);
-    // dragging this handle up/down instead adjusts m_statusPanelHeight directly, which
-    // renderControlPanel()/renderVisualizationPanel() use to reserve their own remaining space.
-    constexpr float splitter_thickness = 4.0f;
+    // A drag handle between the visualization row and the status/log panel below. ImGuiChildFlags_ResizeY
+    // only supports resizing from a child's bottom border, which is useless here since StatusPanel is
+    // already the bottom-most element in the layout (see #154); dragging this handle up/down instead
+    // adjusts m_statusPanelHeight directly, which renderControlPanel()/renderVisualizationPanel() use to
+    // reserve their own remaining space. The hit target (8px) is taller than the visible bar (4px) so it's
+    // easier to grab, styled like a separator so it reads as draggable rather than as a stray button.
+    constexpr float splitter_hit_height = 8.0f;
 
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
-    ImGui::Button("##StatusPanelSplitter", ImVec2(-1, splitter_thickness));
+    ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_Separator));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorHovered));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImGui::GetStyleColorVec4(ImGuiCol_SeparatorActive));
+    ImGui::Button("##StatusPanelSplitter", ImVec2(-1, splitter_hit_height));
+    ImGui::PopStyleColor(3);
     ImGui::PopStyleVar();
 
     if (ImGui::IsItemHovered())
@@ -369,8 +377,11 @@ void MainWindow::renderStatusPanelSplitter()
         // Dragging up (negative delta.y) should grow the status panel, hence the negation.
         m_statusPanelHeight -= ImGui::GetIO().MouseDelta.y;
 
-        float parent_avail_height = ImGui::GetContentRegionAvail().y;
-        float max_height = std::max(kMinStatusPanelHeight, parent_avail_height);
+        // The upper bound must be independent of m_statusPanelHeight itself -- using the current
+        // frame's remaining space (which shrinks as m_statusPanelHeight grows) would clamp every
+        // upward drag straight back down, making the panel shrink instead of grow. Reserve a
+        // floor for the panels above so the status panel can't consume the entire layout.
+        float max_height = std::max(kMinStatusPanelHeight, layout_avail_height - kMinStatusPanelHeight);
         m_statusPanelHeight = std::clamp(m_statusPanelHeight, kMinStatusPanelHeight, max_height);
     }
 }

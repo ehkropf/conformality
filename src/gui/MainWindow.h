@@ -35,7 +35,7 @@ private:
     void renderMainLayout();
     void renderControlPanel();
     void renderVisualizationPanel();
-    void renderStatusPanelSplitter();
+    void renderStatusPanelSplitter(float layout_avail_height);
     void renderStatusPanel();
     void renderAboutDialog();
 
