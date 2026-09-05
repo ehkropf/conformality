@@ -215,6 +215,9 @@ void MainWindow::renderMainLayout()
         // Visualization Panel (center)
         renderVisualizationPanel();
 
+        // Draggable splitter between the visualization row and the status/log panel below it
+        renderStatusPanelSplitter();
+
         // Status Panel (bottom)
         renderStatusPanel();
     }
@@ -343,25 +346,38 @@ void MainWindow::renderVisualizationPanel()
     ImGui::EndChild();
 }
 
+void MainWindow::renderStatusPanelSplitter()
+{
+    // A thin invisible drag handle between the visualization row and the status/log panel below.
+    // ImGuiChildFlags_ResizeY only supports resizing from a child's bottom border, which is
+    // useless here since StatusPanel is already the bottom-most element in the layout (see #154);
+    // dragging this handle up/down instead adjusts m_statusPanelHeight directly, which
+    // renderControlPanel()/renderVisualizationPanel() use to reserve their own remaining space.
+    constexpr float splitter_thickness = 4.0f;
+
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
+    ImGui::Button("##StatusPanelSplitter", ImVec2(-1, splitter_thickness));
+    ImGui::PopStyleVar();
+
+    if (ImGui::IsItemHovered())
+    {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+    }
+
+    if (ImGui::IsItemActive())
+    {
+        // Dragging up (negative delta.y) should grow the status panel, hence the negation.
+        m_statusPanelHeight -= ImGui::GetIO().MouseDelta.y;
+
+        float parent_avail_height = ImGui::GetContentRegionAvail().y;
+        float max_height = std::max(kMinStatusPanelHeight, parent_avail_height);
+        m_statusPanelHeight = std::clamp(m_statusPanelHeight, kMinStatusPanelHeight, max_height);
+    }
+}
+
 void MainWindow::renderStatusPanel()
 {
-    // ImGuiChildFlags_ResizeY lets the user drag the panel's bottom border to resize it. BeginChild
-    // manages the size internally once resized, so the requested height below only matters on the
-    // first frame; the actual current height is read back via GetWindowSize() after the inner log
-    // child, while StatusPanel is still the current window, so sibling panels (ControlPanel,
-    // VisualizationPanel) can reserve the correct remaining space.
-    // NoSavedSettings mirrors the parent "MainLayout" window: ResizeY alone would otherwise opt
-    // this child into .ini persistence, which m_statusPanelHeight has no load/save wiring for.
-    //
-    // Captured before BeginChild("StatusPanel", ...): the remaining vertical space in the parent
-    // "MainLayout" window, used below as a dynamic upper bound so a runaway resize drag can't
-    // shrink the sibling panels' reserved space (-m_statusPanelHeight) to nothing or negative.
-    float parent_avail_height = ImGui::GetContentRegionAvail().y;
-
-    bool status_visible = ImGui::BeginChild("StatusPanel", ImVec2(0, m_statusPanelHeight),
-                           ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY,
-                           ImGuiWindowFlags_NoSavedSettings);
-    if (status_visible)
+    if (ImGui::BeginChild("StatusPanel", ImVec2(0, m_statusPanelHeight), true))
     {
         // Info bar: live progress, errors, results, performance
         if (mp_controller)
@@ -421,15 +437,6 @@ void MainWindow::renderStatusPanel()
         }
         ImGui::EndChild();
     }
-
-    // Persist the current (possibly user-resized) height for next frame's sibling layout. Read
-    // unconditionally (BeginChild can return false when collapsed/clipped while still requiring
-    // EndChild), and while StatusPanel is still the current window -- GetWindowSize() is only
-    // valid before the matching EndChild below. Clamp so a runaway drag can't invert the layout:
-    // ControlPanel/VisualizationPanel reserve space via -m_statusPanelHeight, so an unbounded
-    // value here would starve them of height.
-    float max_height = std::max(50.0f, parent_avail_height);
-    m_statusPanelHeight = std::clamp(ImGui::GetWindowSize().y, 50.0f, max_height);
     ImGui::EndChild();
 }
 
