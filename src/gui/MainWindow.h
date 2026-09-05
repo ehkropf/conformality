@@ -35,6 +35,7 @@ private:
     void renderMainLayout();
     void renderControlPanel();
     void renderVisualizationPanel();
+    void renderStatusPanelSplitter(float layout_avail_height);
     void renderStatusPanel();
     void renderAboutDialog();
 
@@ -43,7 +44,8 @@ private:
     int m_gridDensity;
 
     // Height of the resizable status/log panel, shared with sibling panels so they can
-    // reserve the correct remaining space; updated each frame from the panel's actual size.
+    // reserve the correct remaining space; adjusted by dragging the splitter above it.
+    static constexpr float kMinStatusPanelHeight = 50.0f;
     float m_statusPanelHeight{150.0f};
 
     // Cached per-frame live progress (read once in renderMainLayout)
