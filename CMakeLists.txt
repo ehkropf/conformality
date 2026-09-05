@@ -12,6 +12,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 # spdlog logging library (added early so object libraries can use it)
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
+if(NOT EXISTS ${CMAKE_SOURCE_DIR}/external/spdlog/CMakeLists.txt)
+    message(FATAL_ERROR "external/spdlog is empty. Run: git submodule update --init --recursive")
+endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/external/spdlog)
 
 #####
