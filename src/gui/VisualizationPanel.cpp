@@ -24,18 +24,7 @@ VisualizationPanel::~VisualizationPanel()
 
 bool VisualizationPanel::initialize()
 {
-    // Generate default unit circle as placeholder source boundary
-    BoundaryCurve unitCircle;
-    unitCircle.label = "Unit Circle";
-    int numPoints = 200;
-    for (int i = 0; i <= numPoints; ++i)
-    {
-        double angle = 2.0 * M_PI * i / numPoints;
-        unitCircle.x.push_back(cos(angle));
-        unitCircle.y.push_back(sin(angle));
-    }
-    m_sourceBoundaries.clear();
-    m_sourceBoundaries.push_back(std::move(unitCircle));
+    resetToDefaultState();
 
     return true;
 }
@@ -69,6 +58,7 @@ void VisualizationPanel::updateMap(std::shared_ptr<ConformalMap> map)
 
     if (!mp_currentMap)
     {
+        resetToDefaultState();
         return;
     }
 
@@ -661,6 +651,26 @@ void VisualizationPanel::clearGridData()
 {
     m_sourceGridLines.clear();
     m_targetGridLines.clear();
+}
+
+void VisualizationPanel::resetToDefaultState()
+{
+    clearGridData();
+    m_targetBoundaries.clear();
+
+    // Generate default unit circle as placeholder source boundary, matching the
+    // freshly launched app state (GH-153).
+    BoundaryCurve unitCircle;
+    unitCircle.label = "Unit Circle";
+    int numPoints = 200;
+    for (int i = 0; i <= numPoints; ++i)
+    {
+        double angle = 2.0 * M_PI * i / numPoints;
+        unitCircle.x.push_back(cos(angle));
+        unitCircle.y.push_back(sin(angle));
+    }
+    m_sourceBoundaries.clear();
+    m_sourceBoundaries.push_back(std::move(unitCircle));
 }
 
 void VisualizationPanel::plotGridLines(const std::vector<GridLine>& gridLines)
