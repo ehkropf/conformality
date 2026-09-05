@@ -326,6 +326,6 @@ void GuiController::updateVisualization()
 {
     if (mp_visualizationPanel && mp_currentMap)
     {
-        mp_visualizationPanel->updateMap(mp_currentMap);
+        mp_visualizationPanel->updateMap(mp_currentMap, m_lastComputationSuccessful);
     }
 }
