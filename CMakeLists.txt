@@ -9,14 +9,10 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wformat")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 #####
-# spdlog logging library (fetched early so object libraries can use it)
-include(FetchContent)
-FetchContent_Declare(
-  spdlog
-  URL https://github.com/gabime/spdlog/archive/refs/tags/v1.15.1.zip
-  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-)
-FetchContent_MakeAvailable(spdlog)
+# spdlog logging library (added early so object libraries can use it)
+set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(${CMAKE_SOURCE_DIR}/external/spdlog)
 
 #####
 # Libraries, etc.
@@ -174,6 +170,7 @@ target_link_libraries(conformality_cli
 
 #####
 # Testing section
+include(FetchContent)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/90a41521142c978131f38c6da07b4eb96a9f1ff6.zip
