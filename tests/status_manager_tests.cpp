@@ -473,7 +473,7 @@ TEST_F(StatusManagerTest, ThreadSafety_ConcurrentWrites)
     std::vector<std::thread> threads;
     for (int t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back([this, t, messages_per_thread]() {
+        threads.emplace_back([this, t]() {
             for (int i = 0; i < messages_per_thread; ++i)
             {
                 p_statusManager->reportInfo("Thread" + std::to_string(t),
@@ -595,7 +595,7 @@ TEST_F(StatusManagerTest, Callback_InvokedConcurrentlyFromMultipleWriters)
     std::vector<std::thread> threads;
     for (int t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back([this, t, messages_per_thread]() {
+        threads.emplace_back([this, t]() {
             for (int i = 0; i < messages_per_thread; ++i)
             {
                 p_statusManager->reportInfo("Thread" + std::to_string(t),

@@ -618,14 +618,14 @@ void PMatrixBuilder::validateParameters() const
     }
 }
 
-int PMatrixBuilder::getPositiveFrequencyCount(int nu) const
+int PMatrixBuilder::getPositiveFrequencyCount(int /*nu*/) const
 {
     // Number of positive frequencies to zero for component nu
     // Typically this is N/2 - 1 (excluding zero frequency)
     return m_N/2 - 1;
 }
 
-int PMatrixBuilder::getNegativeFrequencyCount(int nu) const
+int PMatrixBuilder::getNegativeFrequencyCount(int /*nu*/) const
 {
     // Number of negative frequencies to keep for component nu
     // Typically this is N/2 for the Laurent series representation
