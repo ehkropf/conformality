@@ -19,6 +19,7 @@
 #pragma once
 
 #include <complex>
+#include <numbers>
 
 // Type aliases for common types used throughout the codebase
 
@@ -27,6 +28,9 @@ using Complex = std::complex<double>;
 // Constants used everywhere
 
 constexpr double BOUNDARY_TOLERANCE = 1e-12;
+
+/// Full turn in radians, shared by any code working with angles around a circle.
+constexpr double TWO_PI = 2.0 * std::numbers::pi;
 
 // Other
 
