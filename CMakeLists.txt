@@ -101,6 +101,7 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflection.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflectionIntegrand.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/MCSCUnboundedObjectiveFunction.cpp
 )
 target_link_libraries(map_objects PUBLIC spdlog::spdlog_header_only)
 
@@ -109,6 +110,7 @@ add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/numerics/RootFinder.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/CGSolver.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/GaussJacobiQuadrature.cpp
+    ${CMAKE_SOURCE_DIR}/src/numerics/MCSCContinuationSolver.cpp
     ${CMAKE_SOURCE_DIR}/src/core/StatusManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
 )
@@ -223,6 +225,8 @@ add_executable(test_exec
     tests/mcsc_reflection_tests.cpp
     tests/mcsc_reflection_integrand_tests.cpp
     tests/gauss_jacobi_quadrature_tests.cpp
+    tests/mcsc_continuation_solver_tests.cpp
+    tests/mcsc_unbounded_objective_function_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
