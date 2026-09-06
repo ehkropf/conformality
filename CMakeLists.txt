@@ -99,6 +99,8 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/methods/FornbergMC.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/FornbergMCConfiguration.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflection.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflectionIntegrand.cpp
 )
 target_link_libraries(map_objects PUBLIC spdlog::spdlog_header_only)
 
@@ -217,6 +219,8 @@ add_executable(test_exec
     tests/mcsc_polygonal_domain_tests.cpp
     tests/mcsc_unconstrained_angles_tests.cpp
     tests/mcsc_circle_domain_tests.cpp
+    tests/mcsc_reflection_tests.cpp
+    tests/mcsc_reflection_integrand_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
