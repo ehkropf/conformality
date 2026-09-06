@@ -67,6 +67,13 @@ public:
 
     /**
      * @brief Evaluate f'(z) (dissertation eq. 2.13; port of fpextrefl.eval_fprime).
+     *
+     * z coinciding exactly with a prevertex or one of its reflected images produces a
+     * divide-by-zero (inf/nan result), matching the MATLAB reference's identical behavior --
+     * not guarded here because the vertex-singularity quadrature (#164) is expected to
+     * deliberately evaluate arbitrarily close to (though never exactly at) these points by
+     * design, so a hard throw would work against its intended use rather than catch a bug.
+     *
      * @param z Evaluation point (should not coincide with a prevertex or its reflected images).
      * @return f'(z).
      */
@@ -85,7 +92,6 @@ public:
     Complex evalFkj(const Complex& z, int k, int j) const;
 
 private:
-    int m_N{0};
     std::vector<std::vector<double>> m_beta;                       // beta[j][k]
     std::vector<std::vector<mcsc::ReflectedCircle>> m_reflections;  // m_reflections[j][nu]
 

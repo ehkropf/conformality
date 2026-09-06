@@ -86,7 +86,6 @@ void MCSCReflectionIntegrand::rebuild(const MCSCPolygonalDomain& polygon, const 
 
     m_beta = std::move(beta);
     m_reflections = mcsc::reflectCircleSequence(centers, radii, prevertices, outerCenters, N);
-    m_N = N;
 }
 
 Complex MCSCReflectionIntegrand::evalFPrime(const Complex& z) const
@@ -104,7 +103,12 @@ Complex MCSCReflectionIntegrand::evalFPrime(const Complex& z) const
             {
                 logzprod2 += m_beta[j][k] * std::log(1.0 - (refl.prevertices[k] - refl.center) / zs);
             }
-            zprod1 *= std::pow(zs / (z - refl.outerImage), 2);
+            // std::pow(complex, 2) goes through exp(2*log(z)), which is measurably less precise
+            // than a direct square (e.g. introduces a spurious ~1e-15 imaginary part on a purely
+            // real input) -- squaring directly avoids that avoidable error, accumulated over
+            // every reflection node in the product.
+            const Complex ratio = zs / (z - refl.outerImage);
+            zprod1 *= ratio * ratio;
         }
     }
 

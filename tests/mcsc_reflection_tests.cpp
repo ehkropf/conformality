@@ -76,6 +76,19 @@ TEST(MCSCReflectionTest, ReflectCircleThrowsOnNonPositiveRadius)
     EXPECT_THROW(reflectCircle(Complex(0.0, 0.0), 1.0, Complex(3.0, 0.0), 0.0), std::invalid_argument);
 }
 
+TEST(MCSCReflectionTest, ReflectCircleHandlesCircleContainingReflectingCircle)
+{
+    // (ci, ri) properly containing (c, r) -- |ci - c| < ri -- makes denom = |ci-c|^2 - ri^2
+    // negative, a legitimate configuration the abs(denom) in the radius formula must still
+    // handle correctly (as opposed to only ever exercising denom > 0, the more common case
+    // above where (ci, ri) is exterior to (c, r)).
+    // co = 0 + 1*(1-0)/(1-4) = -1/3; ro = 1*2/3 = 2/3.
+    auto [co, ro] = reflectCircle(Complex(0.0, 0.0), 1.0, Complex(1.0, 0.0), 2.0);
+    EXPECT_NEAR(std::real(co), -1.0 / 3.0, 1e-12);
+    EXPECT_NEAR(std::imag(co), 0.0, 1e-12);
+    EXPECT_NEAR(ro, 2.0 / 3.0, 1e-12);
+}
+
 TEST(MCSCReflectionTest, SequenceLevelZeroIsOriginalCircles)
 {
     std::vector<Complex> centers = {Complex(0.0, 0.0), Complex(3.0, 0.0), Complex(-3.0, 0.0)};
@@ -158,6 +171,15 @@ TEST(MCSCReflectionTest, SequenceThrowsOnFewerThanTwoCircles)
     std::vector<Complex> outerCenters = centers;
 
     EXPECT_THROW(reflectCircleSequence(centers, radii, prevertices, outerCenters, 0), std::invalid_argument);
+}
+
+TEST(MCSCReflectionTest, SequenceThrowsOnEmptyCircleList)
+{
+    EXPECT_THROW(
+        reflectCircleSequence(
+            std::vector<Complex>{}, std::vector<double>{}, std::vector<std::vector<Complex>>{},
+            std::vector<Complex>{}, 0),
+        std::invalid_argument);
 }
 
 TEST(MCSCReflectionTest, SequenceThrowsOnNegativeN)
