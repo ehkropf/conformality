@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <cmath>
+#include <limits>
 
 namespace
 {
@@ -53,7 +54,7 @@ MCSCCircleDomain makeExampleDriverInitialGuess()
 
 } // namespace
 
-TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateReturnsVectorOfExpectedLength)
+TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateReturnsFiniteVectorOfExpectedLength)
 {
     auto polygon = makeExampleDriverTargetPolygon();
     auto circle = makeExampleDriverInitialGuess();
@@ -63,6 +64,69 @@ TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateReturnsVectorOfExpectedLength)
     Eigen::VectorXd F = objective.evaluate(Xu);
 
     EXPECT_EQ(F.size(), Xu.size());
+    EXPECT_TRUE(F.allFinite());
+}
+
+TEST(MCSCUnboundedObjectiveFunctionTest, ConstructorPropagatesConnectivityMismatch)
+{
+    auto circle = makeExampleDriverInitialGuess();  // connectivity 3
+    MCSCPolygonalDomain twoComponentPolygon(
+        {{Complex(0.0, 0.0), Complex(1.0, 0.0), Complex(0.5, 1.0)},
+         {Complex(5.0, 0.0), Complex(6.0, 0.0), Complex(5.5, 1.0)}},
+        /*isUnboundedDomain=*/true);
+
+    EXPECT_THROW(MCSCUnboundedObjectiveFunction(twoComponentPolygon, circle), std::invalid_argument);
+}
+
+TEST(MCSCUnboundedObjectiveFunctionTest, ConstructorPropagatesVertexCountMismatch)
+{
+    auto circle = makeExampleDriverInitialGuess();  // 3 prevertices per circle
+    std::vector<Complex> squareA = {
+        Complex(0.0, 0.0), Complex(1.0, 0.0), Complex(1.0, 1.0), Complex(0.0, 1.0)};
+    std::vector<Complex> triangleB = {Complex(5.0, 0.0), Complex(6.0, 0.0), Complex(5.5, 1.0)};
+    std::vector<Complex> triangleC = {Complex(-5.0, 0.0), Complex(-6.0, 0.0), Complex(-5.5, 1.0)};
+    MCSCPolygonalDomain mismatched({squareA, triangleB, triangleC}, /*isUnboundedDomain=*/true);
+
+    EXPECT_THROW(MCSCUnboundedObjectiveFunction(mismatched, circle), std::invalid_argument);
+}
+
+TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateThrowsOnWrongLengthXu)
+{
+    auto polygon = makeExampleDriverTargetPolygon();
+    auto circle = makeExampleDriverInitialGuess();
+    MCSCUnboundedObjectiveFunction objective(polygon, circle);
+
+    Eigen::VectorXd tooShort(1);
+    tooShort << 0.0;
+
+    EXPECT_THROW(objective.evaluate(tooShort), std::invalid_argument);
+}
+
+TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateThrowsOnNonFiniteXu)
+{
+    auto polygon = makeExampleDriverTargetPolygon();
+    auto circle = makeExampleDriverInitialGuess();
+    MCSCUnboundedObjectiveFunction objective(polygon, circle);
+
+    Eigen::VectorXd Xu = circle.toUnconstrained();
+    Xu[0] = std::numeric_limits<double>::quiet_NaN();
+
+    EXPECT_THROW(objective.evaluate(Xu), std::invalid_argument);
+}
+
+TEST(MCSCUnboundedObjectiveFunctionTest, SingleCircleConnectivityIsRejectedByReflectionMachinery)
+{
+    // m == 1 is not a supported configuration: the reflection method (mcsc::
+    // reflectCircleSequence, landed in #163) needs at least one other circle to reflect through,
+    // and throws accordingly. Not a defect introduced by this PR -- documenting the boundary
+    // behavior here rather than asserting m==1 "works", since it structurally cannot.
+    std::vector<Complex> triangle = {Complex(0.0, 0.0), Complex(1.0, 0.0), Complex(0.5, 1.0)};
+    MCSCPolygonalDomain polygon({triangle}, /*isUnboundedDomain=*/true);
+    MCSCCircleDomain circle(std::vector<MCSCCircleDomain::CircleData>{
+        {Complex(0.0, 0.0), 1.0, {0.0, 2.0 * M_PI / 3.0, 4.0 * M_PI / 3.0}},
+    });
+
+    EXPECT_THROW(MCSCUnboundedObjectiveFunction(polygon, circle), std::invalid_argument);
 }
 
 TEST(MCSCUnboundedObjectiveFunctionTest, EvaluateIsDeterministic)

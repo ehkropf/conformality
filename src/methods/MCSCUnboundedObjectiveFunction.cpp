@@ -18,7 +18,10 @@
 
 #include "MCSCUnboundedObjectiveFunction.h"
 
+#include "../core/Types.h"
+
 #include <cmath>
+#include <stdexcept>
 
 namespace
 {
@@ -104,9 +107,11 @@ Eigen::VectorXd MCSCUnboundedObjectiveFunction::evaluate(const Eigen::VectorXd& 
     for (int j = 1; j < m; ++j)
     {
         const Complex z0j = m_circle.getPrevertices(j)[0];
-        // Deviation from extobjfun.m: the correct right-endpoint flat vertex index for this
-        // integral is vertex 0 of component j (componentOffset[j]), not the stale-loop-variable
-        // value the MATLAB reference actually computes (see class doc comment).
+        // Right-endpoint flat vertex index: vertex 0 of component j (extobjfun.m computes this
+        // same value via `1 + cumsum(vc(1:j-1))'` with j left at m after the preceding
+        // side-length loop -- that cumsum is a full (m-1)-vector, so despite the stale scalar j
+        // it still lands on the correct per-position index; componentOffset[j] is the direct
+        // 0-based equivalent).
         T[j - 1] = A * m_quadrature.integrateLine(z00, 0, z0j, componentOffset[j], fprime, {});
     }
 
@@ -143,6 +148,18 @@ Eigen::VectorXd MCSCUnboundedObjectiveFunction::evaluate(const Eigen::VectorXd& 
             F[idx++] = std::abs(SL[j][k]) - std::abs(w[k + 1] - w[k]);
         }
         F[idx++] = std::abs(SL[j][Kj - 1]) - std::abs(w[0] - w[Kj - 1]);
+    }
+
+    // A degenerate circle configuration (e.g. Q12 collapsing toward zero during an exploratory
+    // continuation step) can silently turn the scaling constant A -- and therefore every entry of
+    // F -- into Inf/NaN with no exception raised along the way (GaussJacobiQuadrature's own
+    // finiteness guard only covers its internal per-node arithmetic, not this function's
+    // subsequent division by Q12). Surface that explicitly rather than returning a non-finite
+    // residual that would otherwise defeat MCSCContinuationSolver's own tolerance checks.
+    if (!F.allFinite())
+    {
+        throw std::runtime_error(
+            "MCSCUnboundedObjectiveFunction::evaluate: non-finite residual (degenerate circle configuration)");
     }
 
     return F;

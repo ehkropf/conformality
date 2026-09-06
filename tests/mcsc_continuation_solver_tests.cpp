@@ -107,5 +107,91 @@ TEST(MCSCContinuationSolverTest, ThrowsWhenMaxStepsExceeded)
     opts.maxSteps = 2;
     MCSCContinuationSolver solver(F, opts);
 
+    try
+    {
+        solver.solve(x0);
+        FAIL() << "expected ConvergenceError";
+    }
+    catch (const MCSCContinuationSolver::ConvergenceError& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("maximum number of continuation steps"), std::string::npos);
+    }
+}
+
+TEST(MCSCContinuationSolverTest, ThrowsOnHminUnderflowBeforeReachingTolerance)
+{
+    // An oscillatory homotopy (like ThrowsWhenMaxStepsExceeded's) repeatedly fails the
+    // angle/contraction checks and halves h every time, but with maxSteps left generous the step
+    // count never triggers first -- h itself underflows hmin, exercising a distinct throw path.
+    auto F = [](const Eigen::VectorXd& X) -> Eigen::VectorXd
+    {
+        Eigen::VectorXd result(1);
+        result[0] = std::sin(1000.0 * X[0]);
+        return result;
+    };
+
+    Eigen::VectorXd x0(1);
+    x0 << 0.6;
+
+    MCSCContinuationSolver::Options opts;
+    opts.maxSteps = 100000;
+    MCSCContinuationSolver solver(F, opts);
+
+    try
+    {
+        solver.solve(x0);
+        FAIL() << "expected ConvergenceError";
+    }
+    catch (const MCSCContinuationSolver::ConvergenceError& e)
+    {
+        EXPECT_NE(std::string(e.what()).find("step size underflowed hmin"), std::string::npos);
+    }
+}
+
+TEST(MCSCContinuationSolverTest, ThrowsOnNonFiniteResidual)
+{
+    // F blows up away from x=0, so continuation stepping past that point produces a non-finite
+    // residual -- verifies the explicit isfinite guard rather than relying on IEEE 754 comparison
+    // semantics (NaN > tolerance is false) to silently exit as "converged".
+    auto F = [](const Eigen::VectorXd& X) -> Eigen::VectorXd
+    {
+        Eigen::VectorXd result(1);
+        result[0] = 1.0 / X[0];
+        return result;
+    };
+
+    Eigen::VectorXd x0(1);
+    x0 << 1.0;
+
+    MCSCContinuationSolver::Options opts;
+    opts.hmax = 100.0;
+    opts.initialStep = 50.0;
+    MCSCContinuationSolver solver(F, opts);
+
     EXPECT_THROW(solver.solve(x0), MCSCContinuationSolver::ConvergenceError);
+}
+
+TEST(MCSCContinuationSolverTest, ConstructorThrowsOnInvalidOptions)
+{
+    auto F = [](const Eigen::VectorXd& X) -> Eigen::VectorXd { return X; };
+
+    MCSCContinuationSolver::Options negativeTolerance;
+    negativeTolerance.tolerance = -1e-10;
+    EXPECT_THROW(MCSCContinuationSolver(F, negativeTolerance), std::invalid_argument);
+
+    MCSCContinuationSolver::Options zeroHmin;
+    zeroHmin.hmin = 0.0;
+    EXPECT_THROW(MCSCContinuationSolver(F, zeroHmin), std::invalid_argument);
+
+    MCSCContinuationSolver::Options hmaxNotGreaterThanHmin;
+    hmaxNotGreaterThanHmin.hmax = hmaxNotGreaterThanHmin.hmin;
+    EXPECT_THROW(MCSCContinuationSolver(F, hmaxNotGreaterThanHmin), std::invalid_argument);
+
+    MCSCContinuationSolver::Options zeroFiniteDifferenceStep;
+    zeroFiniteDifferenceStep.finiteDifferenceStep = 0.0;
+    EXPECT_THROW(MCSCContinuationSolver(F, zeroFiniteDifferenceStep), std::invalid_argument);
+
+    MCSCContinuationSolver::Options zeroMaxSteps;
+    zeroMaxSteps.maxSteps = 0;
+    EXPECT_THROW(MCSCContinuationSolver(F, zeroMaxSteps), std::invalid_argument);
 }

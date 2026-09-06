@@ -96,6 +96,10 @@ public:
         }
     };
 
+    /**
+     * @throws std::invalid_argument if any Options field is out of its valid range (see
+     *         validateOptions()).
+     */
     explicit MCSCContinuationSolver(ResidualFunction F);
     MCSCContinuationSolver(ResidualFunction F, Options options);
 
@@ -104,13 +108,21 @@ public:
      * @param x0 Initial guess (F(x0) need not be near zero).
      * @return Solution and diagnostic information.
      * @throws ConvergenceError if the solve does not reach Options::tolerance before the step
-     *         size underflows Options::hmin or Options::maxSteps steps are exhausted.
+     *         size underflows Options::hmin or Options::maxSteps steps are exhausted, if the
+     *         homotopy residual or Jacobian becomes non-finite at any step (e.g. F evaluated a
+     *         degenerate input), or if the continuation Jacobian becomes rank-deficient (a
+     *         near-zero diagonal entry in its QR factorization) so no reliable tangent direction
+     *         exists.
      */
     Result solve(const Eigen::VectorXd& x0) const;
 
 private:
     ResidualFunction m_F;
     Options m_options;
+
+    /// @throws std::invalid_argument if any field of options is out of its valid range (a
+    /// non-positive tolerance/step-size/count, or hmax <= hmin).
+    static void validateOptions(const Options& options);
 
     /// Homotopy H([lambda; X]) = F(X) + (lambda - 1)*F0, matching numcontin.m's curvefun.
     Eigen::VectorXd curveFunction(const Eigen::VectorXd& extendedState, const Eigen::VectorXd& F0) const;

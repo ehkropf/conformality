@@ -47,12 +47,6 @@
  *   3. Remaining side-length conditions (magnitude only, 1 real equation each), for every circle
  *      including circle 0, skipping each circle's first side (already covered by step 1 for
  *      j >= 1, or fixed by A for j = 0).
- *
- * Deviation from extobjfun.m: the MATLAB reference's position-condition loop reuses a stale loop
- * variable ('j', left over at value m from the preceding side-length loop) when computing the
- * flat prevertex index passed to lineq's rpvn argument, so every position-condition integral is
- * (except when m == 2) evaluated with the wrong right-endpoint vertex index. This port computes
- * the correct per-j flat index instead -- see MCSCUnboundedObjectiveFunction.cpp for detail.
  */
 class MCSCUnboundedObjectiveFunction
 {
@@ -89,8 +83,11 @@ public:
      * @param Xu Unconstrained parameter vector (see MCSCCircleDomain::toUnconstrained()).
      * @return Residual vector, same length as Xu.
      * @throws std::invalid_argument if Xu's length doesn't match the working circle domain's
-     *         expected unconstrained-vector length (propagated from
-     *         MCSCCircleDomain::setFromUnconstrained).
+     *         expected unconstrained-vector length, or if Xu contains a non-finite value
+     *         (propagated from MCSCCircleDomain::setFromUnconstrained).
+     * @throws std::runtime_error if the resulting residual is non-finite (a degenerate circle
+     *         configuration, e.g. Q12 collapsing toward zero, that setFromUnconstrained's own
+     *         validation does not catch).
      */
     Eigen::VectorXd evaluate(const Eigen::VectorXd& Xu);
 
