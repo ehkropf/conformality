@@ -73,3 +73,12 @@ constexpr double GRID_GEOMETRY_EPS = 1e-10;
 /// Step size for central/forward finite-difference derivatives and normals
 /// (a deliberate ~sqrt(machine epsilon) choice).
 constexpr double FINITE_DIFFERENCE_STEP = 1e-6;
+
+/// A tracked MCSC quadrature singularity coincident with the current one-half-rule walking
+/// position is excluded from the "nearest singularity" distance check (that position's own
+/// singularity, if any, is already handled by the Gauss-Jacobi weight at that endpoint -- it is
+/// not a *nearby* singularity threatening a different sub-interval). Intentionally RELATIVE
+/// (matches SPLINE_CLOSURE_EPS): singularity/prevertex positions are not normalized to the unit
+/// disk the way FornbergMC's domains are, since MCSC target polygons are user-supplied vertex
+/// coordinates of arbitrary scale.
+constexpr double QUADRATURE_SINGULARITY_COINCIDENCE_EPS = 100.0 * std::numeric_limits<double>::epsilon();

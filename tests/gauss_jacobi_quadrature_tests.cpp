@@ -209,3 +209,112 @@ TEST(GaussJacobiQuadratureTest, DisablingHalfRuleStillIntegratesSmoothFunctions)
         Complex(-1.0, 0.0), -1, Complex(1.0, 0.0), -1, [](const Complex& z) { return std::pow(z, 6); }, {});
     EXPECT_NEAR(std::real(result), 2.0 / 7.0, 1e-8);
 }
+
+TEST(GaussJacobiQuadratureTest, DisablingHalfRuleStillHandlesEndpointSingularity)
+{
+    // useHalfRule only gates the step-length computation, not vertex-table selection -- a
+    // genuine endpoint singularity should still be handled correctly with the one-half rule
+    // off, in a single Gauss-Jacobi step.
+    GaussJacobiQuadrature quad(std::vector<double>{-0.5}, 12, /*useHalfRule=*/false);
+    Complex result = quad.integrateLine(
+        Complex(0.0, 0.0), 0, Complex(1.0, 0.0), -1, [](const Complex& z) { return std::pow(z, -0.5); }, {});
+    EXPECT_NEAR(std::real(result), 2.0, 1e-6);
+    EXPECT_NEAR(std::imag(result), 0.0, 1e-6);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegratesWithBothEndpointsSingularSimultaneously)
+{
+    // integral_0^1 x^(-0.5) * (1-x)^(-0.5) dx = B(0.5, 0.5) = Gamma(0.5)^2 / Gamma(1) = pi -- a
+    // symmetric Beta-function integral with a genuine algebraic singularity at *both*
+    // endpoints simultaneously, exercising integrateWithHalfRule's only recursive path (the
+    // midpoint-split-and-subtract triggered by rightVertex >= 0), which the earlier
+    // single-endpoint tests above never reach.
+    GaussJacobiQuadrature quad(std::vector<double>{-0.5, -0.5});
+    Complex result = quad.integrateLine(
+        Complex(0.0, 0.0), 0, Complex(1.0, 0.0), 1,
+        [](const Complex& z) { return std::pow(z, -0.5) * std::pow(1.0 - z, -0.5); }, {});
+    EXPECT_NEAR(std::real(result), M_PI, 1e-6);
+    EXPECT_NEAR(std::imag(result), 0.0, 1e-6);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegrateArcOfConstantFunctionWithNonUnitRadius)
+{
+    // Same structural integral as IntegrateArcOfConstantFunctionGivesComplexArcIntegral but at
+    // r=2.5 instead of r=1 -- exercises the arcLengthScale unification with a non-trivial
+    // scale factor, since at r=1 a transposed r/(1/r) bug would be invisible.
+    // integral over the arc (center 0, radius r) from angle 0 to pi/2 of f(z)=1 dz
+    // = integral_0^{pi/2} i*r*exp(i*theta) dtheta = r*(exp(i*pi/2) - 1) = r*(-1+i).
+    const double r = 2.5;
+    GaussJacobiQuadrature quad(std::vector<double>{});
+    Complex result = quad.integrateArc(
+        0.0, -1, M_PI / 2.0, -1, Complex(0.0, 0.0), r, [](const Complex&) { return Complex(1.0, 0.0); }, {});
+    EXPECT_NEAR(std::real(result), r * -1.0, 1e-7);
+    EXPECT_NEAR(std::imag(result), r * 1.0, 1e-7);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegrateArcThrowsOnInvalidVertexIndex)
+{
+    // integrateArc delegates vertex validation to the same shared helper as integrateLine;
+    // exercise it through this entry point too so a future divergence (e.g. a fast path added
+    // only to integrateArc) would be caught.
+    GaussJacobiQuadrature quad(std::vector<double>{0.5});
+    EXPECT_THROW(
+        quad.integrateArc(0.0, 5, M_PI / 2.0, -1, Complex(0.0, 0.0), 1.0, constantOne, {}), std::invalid_argument);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegrateArcThrowsWhenVertexBetaIsAtOrBelowMinusOne)
+{
+    GaussJacobiQuadrature quad(std::vector<double>{-1.0});
+    EXPECT_THROW(
+        quad.integrateArc(0.0, 0, M_PI / 2.0, -1, Complex(0.0, 0.0), 1.0, constantOne, {}), std::invalid_argument);
+}
+
+TEST(GaussJacobiQuadratureTest, ThrowsConvergenceErrorWhenSubdivisionCapExceeded)
+{
+    // A dense, evenly-spaced cluster of tracked singularities spanning the segment forces every
+    // step to be capped at roughly 2x the (small, roughly constant) spacing -- since the
+    // one-half rule only ever allows a step up to 2x the distance to the *nearest* singularity,
+    // the walk can never take a step larger than about 2x the cluster spacing, requiring far
+    // more than 100 steps to cross a unit-length segment with a spacing this fine.
+    std::vector<Complex> singularities;
+    for (int i = 1; i <= 300; ++i)
+    {
+        singularities.emplace_back(i * 0.003, 0.0);
+    }
+    GaussJacobiQuadrature quad(std::vector<double>{});
+    EXPECT_THROW(
+        quad.integrateLine(Complex(0.0, 0.0), -1, Complex(1.0, 0.0), -1, constantOne, singularities),
+        GaussJacobiQuadrature::ConvergenceError);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegratesCorrectlyWhenSingularityListIncludesTheStartingPrevertex)
+{
+    // Regression test: MCSC's real usage integrates a path starting exactly at a prevertex
+    // while passing the *entire* prevertex list (including that same starting prevertex) as
+    // the tracked singularity set (see fpextrefl.m's I.sing, populated with every prevertex).
+    // A singularity exactly coincident with the current walking position must not be treated as
+    // "nearby" -- otherwise the reported distance is 0, collapsing every candidate step length
+    // to 0 and spinning the subdivision loop to its cap instead of ever making progress.
+    GaussJacobiQuadrature quad(std::vector<double>{-0.5});
+    Complex result;
+    EXPECT_NO_THROW(
+        result = quad.integrateLine(
+            Complex(0.0, 0.0), 0, Complex(1.0, 0.0), -1, [](const Complex& z) { return std::pow(z, -0.5); },
+            {Complex(0.0, 0.0)}));
+    EXPECT_NEAR(std::real(result), 2.0, 1e-6);
+    EXPECT_NEAR(std::imag(result), 0.0, 1e-6);
+}
+
+TEST(GaussJacobiQuadratureTest, IntegratesArcCorrectlyWhenSingularityListIncludesTheStartingPrevertex)
+{
+    // Same regression as above, for integrateArc: starting at angle 0 on the unit circle (point
+    // 1+0i) with that same point included in the tracked singularity list.
+    GaussJacobiQuadrature quad(std::vector<double>{});
+    Complex result;
+    EXPECT_NO_THROW(
+        result = quad.integrateArc(
+            0.0, -1, M_PI / 2.0, -1, Complex(0.0, 0.0), 1.0, [](const Complex&) { return Complex(1.0, 0.0); },
+            {Complex(1.0, 0.0)}));
+    EXPECT_NEAR(std::real(result), -1.0, 1e-8);
+    EXPECT_NEAR(std::imag(result), 1.0, 1e-8);
+}

@@ -18,6 +18,8 @@
 
 #include "GaussJacobiQuadrature.h"
 
+#include "../core/Tolerances.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -26,12 +28,25 @@ namespace
 {
 constexpr int MAX_SUBDIVISIONS = 100;
 
-double distanceToNearestSingularity(const Complex& point, const std::vector<Complex>& singularities)
+// Excludes any singularity coincident with the current one-half-rule walking position, matching
+// gjquad.m's arcq/lineq (`sng = sing(abs(sing - a) > tol)`). Production MCSC usage integrates
+// paths that start exactly at a prevertex while passing the full prevertex list as
+// `singularities` (see fpextrefl.m's I.sing) -- without this exclusion, the walking position's
+// own singularity would report distance 0, collapsing every step length to 0 and spinning the
+// subdivision loop to its cap.
+double distanceToNearestSingularity(
+    const Complex& point, const std::vector<Complex>& singularities, double coincidenceTolerance
+)
 {
     double minDist = std::numeric_limits<double>::infinity();
     for (const Complex& s : singularities)
     {
-        minDist = std::min(minDist, std::abs(point - s));
+        const double d = std::abs(point - s);
+        if (d <= coincidenceTolerance)
+        {
+            continue;
+        }
+        minDist = std::min(minDist, d);
     }
     return minDist;
 }
@@ -201,7 +216,9 @@ Complex GaussJacobiQuadrature::integrateWithHalfRule(
         if (m_useHalfRule)
         {
             const double distToFarEnd = arcLengthScale * std::abs(a - rightParam);
-            const double distToSingularity = distanceToNearestSingularity(pointAt(a), singularities);
+            const double coincidenceTolerance = QUADRATURE_SINGULARITY_COINCIDENCE_EPS * std::max(arcLengthScale, 1.0);
+            const double distToSingularity =
+                distanceToNearestSingularity(pointAt(a), singularities, coincidenceTolerance);
             const double len = std::min(distToFarEnd, 2.0 * distToSingularity);
             b = a + dir * (len / arcLengthScale);
         }
@@ -232,8 +249,18 @@ Complex GaussJacobiQuadrature::integrateWithHalfRule(
                 // Gauss-Jacobi weight already accounts for the (1+x)^beta singularity factor at
                 // the left endpoint (x = -1); the integrand's own (z - z_vertex)^beta factor
                 // must be divided out to avoid double-counting it (matches arcq/lineq's
-                // division by (1+x)^betav(lpn)).
-                stepValue += w * (0.5 * (b - a) * fz * jac) / std::pow(1.0 + x, beta);
+                // division by (1+x)^betav(lpn)). Gauss-Jacobi nodes are strict interior roots of
+                // (-1, 1) (they are eigenvalues of a tridiagonal matrix with strictly positive
+                // off-diagonal entries -- a classical property of Jacobi matrices), so 1+x is
+                // always strictly positive here and this division is safe; the isfinite check
+                // below is a cheap belt-and-suspenders guard rather than an expected path.
+                const Complex term = w * (0.5 * (b - a) * fz * jac) / std::pow(1.0 + x, beta);
+                if (!std::isfinite(std::real(term)) || !std::isfinite(std::imag(term)))
+                {
+                    throw std::runtime_error(
+                        "GaussJacobiQuadrature: non-finite value in Gauss-Jacobi vertex-weighted step");
+                }
+                stepValue += term;
             }
             else
             {

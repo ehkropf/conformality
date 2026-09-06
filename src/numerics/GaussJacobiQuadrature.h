@@ -125,7 +125,12 @@ public:
      * @param r Arc radius (r > 0).
      * @param f Integrand callable.
      * @param singularities Points (original or reflected prevertices) tracked by the one-half
-     *        rule when subdividing -- does not need to include the endpoints themselves.
+     *        rule when subdividing. May freely include a point coincident with either endpoint
+     *        (e.g. the full prevertex list, matching MCSC's typical usage of integrating from a
+     *        prevertex while passing every prevertex as the tracked singularity set) -- a
+     *        singularity coincident with the current walking position is excluded from the
+     *        "nearest singularity" distance check, since that position's own singularity (if
+     *        any) is already accounted for by the Gauss-Jacobi weight at that endpoint.
      * @return The integral's value.
      * @throws std::invalid_argument if r <= 0, or leftVertex/rightVertex references a vertex
      *         with no valid node/weight column (beta <= -1).
@@ -179,10 +184,11 @@ private:
      * The one-half rule's step-length bookkeeping needs true Euclidean (arc-length) distances,
      * not raw parameter differences -- for integrateArc, a parameter difference of dtheta
      * corresponds to an arc length of r*dtheta, so arcLengthScale = r converts between them
-     * (integrateLine's parameter *is* already the point itself, so arcLengthScale = 1).
+     * (integrateLine parametrizes directly by arc-length position along the segment, in
+     * [0, |right-left|], so arcLengthScale = 1 there).
      *
-     * @param leftParam Parameter value (angle for arc, the point itself -- as a real multiple
-     *        of (right-left) -- is not used; see pointAt) at the left endpoint.
+     * @param leftParam Parameter value at the left endpoint (angle for an arc, arc-length
+     *        position along the segment for a line).
      * @param rightParam Parameter value at the right endpoint.
      * @param leftVertex/rightVertex As in integrateArc/integrateLine.
      * @param arcLengthScale Converts a parameter-space distance into a true Euclidean distance
