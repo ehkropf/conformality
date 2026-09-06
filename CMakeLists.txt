@@ -118,6 +118,7 @@ add_library(domain_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/domains/FornbergCanonicalDomain.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/InvertedEllipseComponent.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/SplineBoundaryComponent.cpp
+    ${CMAKE_SOURCE_DIR}/src/domains/MCSCPolygonalDomain.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/MCSCUnconstrainedAngles.cpp
     ${CMAKE_SOURCE_DIR}/src/domains/MCSCCircleDomain.cpp
 )
@@ -213,6 +214,7 @@ add_executable(test_exec
     tests/thesis_examples_tests.cpp
     tests/spline_boundary_tests.cpp
     tests/method_info_tests.cpp
+    tests/mcsc_polygonal_domain_tests.cpp
     tests/mcsc_unconstrained_angles_tests.cpp
     tests/mcsc_circle_domain_tests.cpp
 )
