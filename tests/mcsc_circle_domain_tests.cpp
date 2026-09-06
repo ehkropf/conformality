@@ -20,6 +20,7 @@
 
 #include <gtest/gtest.h>
 #include <cmath>
+#include <limits>
 
 namespace
 {
@@ -127,8 +128,18 @@ TEST(MCSCCircleDomainTest, SettersUpdateState)
 TEST(MCSCCircleDomainTest, SetRadiusThrowsOnNonPositive)
 {
     MCSCCircleDomain domain(makeThreeConnectedExample());
-    EXPECT_THROW(domain.setRadius(0, 0.0), std::invalid_argument);
-    EXPECT_THROW(domain.setRadius(0, -1.0), std::invalid_argument);
+    EXPECT_THROW(domain.setRadius(1, 0.0), std::invalid_argument);
+    EXPECT_THROW(domain.setRadius(1, -1.0), std::invalid_argument);
+}
+
+TEST(MCSCCircleDomainTest, SetCenterAndSetRadiusThrowOnCircleZero)
+{
+    // Circle 0's center/radius are fixed by convention (c_0 = 0, r_0 = 1) -- this convention is
+    // relied on by toUnconstrained()/setFromUnconstrained(), which never pack/restore circle 0's
+    // center or radius, so mutating them would otherwise be silently undone on the next round trip.
+    MCSCCircleDomain domain(makeThreeConnectedExample());
+    EXPECT_THROW(domain.setCenter(0, Complex(0.1, 0.1)), std::invalid_argument);
+    EXPECT_THROW(domain.setRadius(0, 0.5), std::invalid_argument);
 }
 
 TEST(MCSCCircleDomainTest, SetPrevertexAnglesThrowsOnCountMismatch)
@@ -167,6 +178,14 @@ TEST(MCSCCircleDomainTest, ContainsInsideOuterOutsideHoles)
 
     // Outside the outer circle entirely.
     EXPECT_FALSE(domain.contains(Complex(2.0, 0.0)));
+}
+
+TEST(MCSCCircleDomainTest, ContainsIsFalseExactlyOnBoundary)
+{
+    // Open-domain semantics, no boundary tolerance: a point exactly on the outer circle is not
+    // contained (see contains()'s docstring).
+    MCSCCircleDomain domain(makeThreeConnectedExample());
+    EXPECT_FALSE(domain.contains(Complex(1.0, 0.0)));
 }
 
 TEST(MCSCCircleDomainTest, UnconstrainedRoundTrip)
@@ -250,6 +269,117 @@ TEST(MCSCCircleDomainTest, TransformBoundaryScalesRadii)
     EXPECT_NEAR(domain.getRadius(1), 0.6, 1e-12);
     EXPECT_NEAR(domain.getCenter(1).real(), 0.4, 1e-12);
     EXPECT_NEAR(domain.getCenter(1).imag(), 0.2, 1e-12);
+}
+
+TEST(MCSCCircleDomainTest, ConstructionThrowsWhenPrevertexSpanIsExactlyTwoPi)
+{
+    // A span of exactly 2*pi is rejected; only strictly less than 2*pi is valid (see
+    // validateCircleData()'s t.back() >= t.front() + 2*pi check).
+    std::vector<MCSCCircleDomain::CircleData> circles = {
+        {Complex(0.0, 0.0), 1.0, {0.0, M_PI, 2.0 * M_PI}},
+    };
+    EXPECT_THROW(MCSCCircleDomain{circles}, std::invalid_argument);
+}
+
+TEST(MCSCCircleDomainTest, SimplyConnectedSingleCircle)
+{
+    // m = 1 is the smallest legal circle count per the class's own docstring ("size m >= 1"); the
+    // unconstrained vector then contains only circle 0's angle block (no radii/center blocks).
+    std::vector<MCSCCircleDomain::CircleData> circles = {
+        {Complex(0.0, 0.0), 1.0, {0.0, 1.0, 2.5, 4.0}},
+    };
+    MCSCCircleDomain domain(circles);
+    MCSCCircleDomain reference(circles);
+
+    EXPECT_EQ(domain.circleCount(), 1);
+
+    auto Xu = domain.toUnconstrained();
+    ASSERT_EQ(Xu.size(), 4 - 1); // K0 - 1 unconstrained angle variables, no radii/center blocks.
+
+    reference.setFromUnconstrained(Xu);
+    auto expectedAngles = domain.getPrevertexAngles(0);
+    auto actualAngles = reference.getPrevertexAngles(0);
+    ASSERT_EQ(actualAngles.size(), expectedAngles.size());
+    for (std::size_t k = 0; k < expectedAngles.size(); ++k)
+    {
+        EXPECT_NEAR(actualAngles[k], expectedAngles[k], 1e-12);
+    }
+}
+
+TEST(MCSCCircleDomainTest, FourConnectedRoundTrip)
+{
+    // Connectivity 4 exercises the center-block index arithmetic (base = (m-1) + 2*(j-1)) beyond
+    // the smallest cases, per CLAUDE.md's guidance to test loop-based initialization at higher
+    // connectivity, not just 2 or 3.
+    std::vector<MCSCCircleDomain::CircleData> circles = {
+        {Complex(0.0, 0.0), 1.0, {0.0, 1.0, 2.5, 4.0}},
+        {Complex(0.3, 0.1), 0.2, {0.5, 2.0, 3.5}},
+        {Complex(-0.3, 0.2), 0.15, {1.0, 3.0}},
+        {Complex(0.1, -0.4), 0.1, {0.2, 1.8, 3.1, 4.5}},
+    };
+    MCSCCircleDomain domain(circles);
+    MCSCCircleDomain reference(circles);
+
+    auto Xu = domain.toUnconstrained();
+    ASSERT_EQ(Xu.size(), 3 * 4 - 4 + 4 + 3 + 2 + 4);
+
+    reference.setFromUnconstrained(Xu);
+    for (int j = 0; j < domain.circleCount(); ++j)
+    {
+        EXPECT_NEAR(reference.getCenter(j).real(), domain.getCenter(j).real(), 1e-12);
+        EXPECT_NEAR(reference.getCenter(j).imag(), domain.getCenter(j).imag(), 1e-12);
+        EXPECT_NEAR(reference.getRadius(j), domain.getRadius(j), 1e-12);
+
+        auto expectedAngles = domain.getPrevertexAngles(j);
+        auto actualAngles = reference.getPrevertexAngles(j);
+        ASSERT_EQ(actualAngles.size(), expectedAngles.size());
+        for (std::size_t k = 0; k < expectedAngles.size(); ++k)
+        {
+            EXPECT_NEAR(actualAngles[k], expectedAngles[k], 1e-12);
+        }
+    }
+}
+
+TEST(MCSCCircleDomainTest, UnconstrainedLayoutMatchesDocumentedPackingOrder)
+{
+    // Pins the raw Xu layout against the packing order documented on toUnconstrained(), so a
+    // block reordering that happens to still round-trip internally (pack and unpack agreeing with
+    // each other, but not with the documented/MATLAB-matching contract) would be caught here.
+    std::vector<MCSCCircleDomain::CircleData> circles = {
+        {Complex(0.0, 0.0), 1.0, {0.0, M_PI}},           // circle 0: K0 = 2, so 1 psi value.
+        {Complex(0.5, -0.25), 2.0, {0.25 * M_PI, M_PI}}, // circle 1: K1 = 2, so 1 psi value.
+    };
+    MCSCCircleDomain domain(circles);
+
+    auto Xu = domain.toUnconstrained();
+    ASSERT_EQ(Xu.size(), 6); // 3*2-4 + K0 + K1 = 2 + 2 + 2 = 6.
+
+    // Block 1 (1 entry, m-1=1): log(r_1).
+    EXPECT_NEAR(Xu[0], std::log(2.0), 1e-12);
+    // Block 2 (2 entries, 2*(m-1)=2): Re(c_1), Im(c_1).
+    EXPECT_NEAR(Xu[1], 0.5, 1e-12);
+    EXPECT_NEAR(Xu[2], -0.25, 1e-12);
+    // Block 3 (K0-1=1 entry): psi for circle 0 (K0 = 2 -> phi_1 = pi, phi_2 = pi,
+    // psi_1 = log(phi_2/phi_1) = 0).
+    EXPECT_NEAR(Xu[3], 0.0, 1e-12);
+    // Block 4 (K1=2 entries): t(1,1), then psi for circle 1 (K1 = 2 -> phi_1 = 0.75*pi,
+    // phi_2 = 1.25*pi, psi_1 = log(phi_2/phi_1)).
+    EXPECT_NEAR(Xu[4], 0.25 * M_PI, 1e-12);
+    EXPECT_NEAR(Xu[5], std::log(1.25 / 0.75), 1e-12);
+}
+
+TEST(MCSCCircleDomainTest, SetFromUnconstrainedThrowsOnNonFiniteInput)
+{
+    MCSCCircleDomain domain(makeThreeConnectedExample());
+    auto Xu = domain.toUnconstrained();
+
+    Eigen::VectorXd badXu = Xu;
+    badXu[0] = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_THROW(domain.setFromUnconstrained(badXu), std::invalid_argument);
+
+    Eigen::VectorXd infXu = Xu;
+    infXu[1] = std::numeric_limits<double>::infinity();
+    EXPECT_THROW(domain.setFromUnconstrained(infXu), std::invalid_argument);
 }
 
 TEST(MCSCCircleDomainTest, TwoConnectedMinimalCase)

@@ -114,6 +114,13 @@ TEST(MCSCUnconstrainedAnglesTest, ThrowsOnTooFewAngles)
     EXPECT_THROW(anglesToUnconstrained(theta), std::invalid_argument);
 }
 
+TEST(MCSCUnconstrainedAnglesTest, FromUnconstrainedThrowsOnEmptyPsi)
+{
+    // psi must have at least 1 entry (a circle needs at least 2 prevertices, i.e. K-1 >= 1
+    // unconstrained variables). An empty psi previously caused an out-of-bounds write.
+    EXPECT_THROW(anglesFromUnconstrained(0.0, {}), std::invalid_argument);
+}
+
 TEST(MCSCUnconstrainedAnglesTest, ThrowsOnNonIncreasingAngles)
 {
     std::vector<double> theta = {0.0, 2.0, 1.0, 4.0};

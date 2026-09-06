@@ -17,15 +17,10 @@
  */
 
 #include "MCSCUnconstrainedAngles.h"
+#include "../core/Types.h"
 
 #include <cmath>
-#include <numeric>
 #include <stdexcept>
-
-namespace
-{
-constexpr double TWO_PI = 2.0 * M_PI;
-}
 
 namespace mcsc
 {
@@ -67,6 +62,11 @@ std::vector<double> anglesToUnconstrained(const std::vector<double>& theta)
 
 std::vector<double> anglesFromUnconstrained(double theta1, const std::vector<double>& psi)
 {
+    if (psi.empty())
+    {
+        throw std::invalid_argument("anglesFromUnconstrained: at least 1 unconstrained variable is required");
+    }
+
     const std::size_t K = psi.size() + 1;
 
     // sk(0) = 1, sk(k) = 1 + sum_{j=1}^{k} exp(psi_j), so sk(K-1) = 1 + sum(exp(psi)).
@@ -77,7 +77,7 @@ std::vector<double> anglesFromUnconstrained(double theta1, const std::vector<dou
     {
         sk[j + 1] = sk[j] + std::exp(psi[j]);
     }
-    const double total = (K == 1) ? 1.0 : sk.back() + std::exp(psi.back());
+    const double total = sk.back() + std::exp(psi.back());
 
     std::vector<double> theta(K);
     theta[0] = theta1;

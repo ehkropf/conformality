@@ -56,8 +56,10 @@ std::vector<double> anglesToUnconstrained(const std::vector<double>& theta);
 /**
  * @brief Inverse of anglesToUnconstrained(): recover ordered angles from theta_1 and psi.
  * @param theta1 First prevertex angle theta_1 (fixed / known).
- * @param psi Unconstrained log-ratio variables (size K-1).
+ * @param psi Unconstrained log-ratio variables (size K-1 >= 1).
  * @return Ordered prevertex angles theta_1, ..., theta_K (size K).
+ * @throws std::invalid_argument if psi is empty (a circle needs at least 2 prevertices, i.e.
+ *         at least 1 unconstrained variable).
  */
 std::vector<double> anglesFromUnconstrained(double theta1, const std::vector<double>& psi);
 

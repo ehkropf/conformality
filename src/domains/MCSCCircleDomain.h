@@ -112,13 +112,16 @@ public:
     std::vector<Complex> getPrevertices(int j) const;
 
     /**
-     * @brief Update the center of circle j.
+     * @brief Update the center of circle j (j >= 1 only -- circle 0's center is fixed at 0 by
+     *        convention, see toUnconstrained()).
+     * @throws std::invalid_argument if j == 0.
      */
     void setCenter(int j, const Complex& center);
 
     /**
-     * @brief Update the radius of circle j.
-     * @throws std::invalid_argument if radius <= 0.
+     * @brief Update the radius of circle j (j >= 1 only -- circle 0's radius is fixed at 1 by
+     *        convention, see toUnconstrained()).
+     * @throws std::invalid_argument if j == 0, or if radius <= 0.
      */
     void setRadius(int j, double radius);
 
@@ -152,14 +155,35 @@ public:
     /**
      * @brief Unpack a flat unconstrained parameter vector Xu, updating radii, centers, and
      *        prevertex angles in place (mirrors circdomain.m's set.Xu()). See toUnconstrained()
-     *        for the required packing order.
+     *        for the required packing order. Each circle's first prevertex angle t(1,j), j >= 1,
+     *        is wrapped to [0, 2*pi) before use, matching circdomain.m's mod(Xu(b), 2*pi) -- this
+     *        angle is a free Newton parameter that can otherwise drift outside its principal range
+     *        during a solve. Reconstructed angles are validated before being committed, so a
+     *        pathological (e.g. diverging-Newton-iterate) Xu that would produce an invalid circle
+     *        leaves this domain unchanged rather than silently corrupting it.
      * @throws std::invalid_argument if Xu's length doesn't match the expected size for the
-     *         current circle count and prevertex counts.
+     *         current circle count and prevertex counts, if Xu contains any non-finite value, or
+     *         if a reconstructed circle would violate MCSCCircleDomain's invariants.
      */
     void setFromUnconstrained(const Eigen::VectorXd& Xu);
 
+    /**
+     * @brief Check whether z is strictly inside the outer circle and strictly outside every hole
+     *        circle. Points exactly on a circle boundary return false (open-domain semantics, no
+     *        boundary tolerance is applied).
+     */
     bool contains(const Complex& z) const override;
 
+    /**
+     * @brief Map every circle's center and radius through transform.
+     *
+     * The new radius is inferred from a single probe point (the image of one point on the old
+     * circle), so this is only exact for transforms that map circles to circles centered at the
+     * image of the old center -- similarity transforms (translation, rotation, uniform scaling).
+     * A more general transform (shear, non-uniform scaling, a general Mobius map) will still map
+     * the four circle parameters to *some* new circle, but not necessarily one that matches the
+     * transform's true image of the original circle.
+     */
     void transformBoundary(std::function<Complex(const Complex&)> transform) override;
 
 private:

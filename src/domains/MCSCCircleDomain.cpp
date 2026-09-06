@@ -18,13 +18,23 @@
 
 #include "MCSCCircleDomain.h"
 #include "MCSCUnconstrainedAngles.h"
+#include "../core/Types.h"
 
 #include <cmath>
 #include <stdexcept>
 
 namespace
 {
-constexpr double TWO_PI = 2.0 * M_PI;
+/// Reduce an angle to [0, 2*pi), matching circdomain.m's set.Xu() (mod(Xu(b), 2*pi)).
+double wrapToTwoPi(double angle)
+{
+    double wrapped = std::fmod(angle, TWO_PI);
+    if (wrapped < 0.0)
+    {
+        wrapped += TWO_PI;
+    }
+    return wrapped;
+}
 }
 
 MCSCCircleDomain::MCSCCircleDomain(std::vector<CircleData> circles)
@@ -139,12 +149,22 @@ std::vector<Complex> MCSCCircleDomain::getPrevertices(int j) const
 void MCSCCircleDomain::setCenter(int j, const Complex& center)
 {
     validateIndex(j);
+    if (j == 0)
+    {
+        throw std::invalid_argument(
+            "MCSCCircleDomain: circle 0's center is fixed at 0 by convention and cannot be changed");
+    }
     m_circles[j].center = center;
 }
 
 void MCSCCircleDomain::setRadius(int j, double radius)
 {
     validateIndex(j);
+    if (j == 0)
+    {
+        throw std::invalid_argument(
+            "MCSCCircleDomain: circle 0's radius is fixed at 1 by convention and cannot be changed");
+    }
     if (radius <= 0.0)
     {
         throw std::invalid_argument("MCSCCircleDomain: circle radius must be positive");
@@ -231,19 +251,28 @@ void MCSCCircleDomain::setFromUnconstrained(const Eigen::VectorXd& Xu)
     {
         throw std::invalid_argument("MCSCCircleDomain: unconstrained parameter vector has wrong length");
     }
+    if (!Xu.allFinite())
+    {
+        throw std::invalid_argument("MCSCCircleDomain: unconstrained parameter vector contains non-finite values");
+    }
+
+    // Build and validate a full set of candidate circles before committing any of them, so a
+    // pathological Xu (e.g. from a diverging Newton iterate) leaves this domain unchanged rather
+    // than partially mutated.
+    std::vector<CircleData> candidates = m_circles;
 
     // 1. Radii of circles 1..m-1 (circle 0's radius stays fixed at its current value, 1 by
     //    convention).
     for (int j = 1; j < m; ++j)
     {
-        m_circles[j].radius = std::exp(Xu[j - 1]);
+        candidates[j].radius = std::exp(Xu[j - 1]);
     }
 
     // 2. Centers of circles 1..m-1 (circle 0's center stays fixed by convention).
     for (int j = 1; j < m; ++j)
     {
         const int base = (m - 1) + 2 * (j - 1);
-        m_circles[j].center = Complex(Xu[base], Xu[base + 1]);
+        candidates[j].center = Complex(Xu[base], Xu[base + 1]);
     }
 
     // 3. Prevertex angles for circle 0.
@@ -255,23 +284,32 @@ void MCSCCircleDomain::setFromUnconstrained(const Eigen::VectorXd& Xu)
         {
             psi[k] = Xu[b + static_cast<int>(k)];
         }
-        m_circles[0].prevertexAngles = mcsc::anglesFromUnconstrained(m_circles[0].prevertexAngles.front(), psi);
+        candidates[0].prevertexAngles = mcsc::anglesFromUnconstrained(m_circles[0].prevertexAngles.front(), psi);
         b += static_cast<int>(psi.size());
     }
 
-    // 4. Prevertex angles for circles 1..m-1.
+    // 4. Prevertex angles for circles 1..m-1. theta1 is wrapped to [0, 2*pi) to match
+    //    circdomain.m's set.Xu() (mod(Xu(b), 2*pi)); theta1 is a free Newton parameter that can
+    //    otherwise drift outside its principal range during a solve.
     for (int j = 1; j < m; ++j)
     {
-        const double theta1 = Xu[b];
+        const double theta1 = wrapToTwoPi(Xu[b]);
         const std::size_t Kj = m_circles[j].prevertexAngles.size();
         std::vector<double> psi(Kj - 1);
         for (std::size_t k = 0; k < psi.size(); ++k)
         {
             psi[k] = Xu[b + 1 + static_cast<int>(k)];
         }
-        m_circles[j].prevertexAngles = mcsc::anglesFromUnconstrained(theta1, psi);
+        candidates[j].prevertexAngles = mcsc::anglesFromUnconstrained(theta1, psi);
         b += 1 + static_cast<int>(psi.size());
     }
+
+    for (const auto& candidate : candidates)
+    {
+        validateCircleData(candidate);
+    }
+
+    m_circles = std::move(candidates);
 }
 
 bool MCSCCircleDomain::contains(const Complex& z) const
