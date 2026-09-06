@@ -108,6 +108,7 @@ add_library(util_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/numerics/Grid.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/RootFinder.cpp
     ${CMAKE_SOURCE_DIR}/src/numerics/CGSolver.cpp
+    ${CMAKE_SOURCE_DIR}/src/numerics/GaussJacobiQuadrature.cpp
     ${CMAKE_SOURCE_DIR}/src/core/StatusManager.cpp
     ${CMAKE_SOURCE_DIR}/src/core/Types.cpp
 )
@@ -221,6 +222,7 @@ add_executable(test_exec
     tests/mcsc_circle_domain_tests.cpp
     tests/mcsc_reflection_tests.cpp
     tests/mcsc_reflection_integrand_tests.cpp
+    tests/gauss_jacobi_quadrature_tests.cpp
 )
 target_link_libraries(test_exec
     GTest::gtest_main
