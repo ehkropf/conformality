@@ -37,17 +37,27 @@
  * parametrization or FFT/dense-sampling step. No unknowns/mutable Newton-solve
  * state live here; the Newton solve's unknowns are entirely circle-side
  * (`MCSCCircleDomain`). This class is pure data plus validation.
+ *
+ * Orientation convention: each component's vertex list is independently checked and
+ * (if needed) re-oriented to be counterclockwise as a standalone simple closed curve
+ * (mirrors `polygon.m`'s per-polygon `calc_angles`, applied identically to the outer
+ * boundary and every hole). This class does not apply the additional outer/inner sign
+ * asymmetry the MATLAB reference layers on top in `intpolys.m`/`extpolys.m` (negating
+ * `beta` for the outer component only) -- that is a mapping-formulation concern for a
+ * later issue, not a property of the vertex/angle data stored here.
  */
 class MCSCPolygonalDomain : public Domain
 {
 private:
-    std::vector<std::vector<Complex>> m_vertices;  // Per-component vertex lists (domain on the left)
+    std::vector<std::vector<Complex>> m_vertices;  // Per-component vertex lists (each CCW; see above)
     std::vector<std::vector<double>> m_alpha;      // Per-component interior angles (as multiples of pi)
 
 public:
     /**
      * @brief Construct a target polygonal domain from per-component vertex lists
-     * @param vertices Per-boundary-component ordered vertex lists (domain on the left of each polygon)
+     * @param vertices Per-boundary-component ordered vertex lists, each independently a
+     *        simple closed curve (orientation is normalized to counterclockwise; see
+     *        class-level orientation convention notes)
      * @param isUnboundedDomain Whether this is an unbounded (exterior) target domain
      *
      * Interior angles are computed and validated for each component (mirrors
@@ -107,12 +117,15 @@ public:
     /**
      * @brief Transform all vertices using a function, recomputing angles afterward
      * @param transform Function mapping complex points to complex points
+     * @throws std::invalid_argument if any transformed component fails polygon validation
      *
      * Applies transform to every vertex in every component, then recomputes and
-     * validates interior angles from the transformed vertex lists (does not
-     * re-orient; a transform that reverses the polygon's orientation will cause
-     * validation to throw, matching the invariant that this class always holds
-     * consistently-oriented data).
+     * validates interior angles from the transformed vertex lists, re-orienting any
+     * component whose transformed vertex list is wound clockwise (e.g. an
+     * orientation-reversing transform like conjugation) -- the same per-component
+     * normalization applied at construction time. This method is atomic: if any
+     * component fails validation, the domain is left completely unmodified (as if
+     * the call had not been made) rather than partially transformed.
      */
     void transformBoundary(std::function<Complex(const Complex&)> transform) override;
 

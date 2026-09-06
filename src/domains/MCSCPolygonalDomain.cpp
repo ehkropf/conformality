@@ -73,21 +73,39 @@ int MCSCPolygonalDomain::vertexCount(int componentIndex) const
 
 bool MCSCPolygonalDomain::contains(const Complex& z) const
 {
-    // Use the outer boundary (component 0) for the primary containment test, following
-    // MultiplyConnectedDomain's convention: inside the outer boundary and outside all
-    // inner (hole) boundaries for bounded domains; the reverse for unbounded domains.
     const double boundaryTolerance = BOUNDARY_TOLERANCE;
 
+    if (isUnbounded())
+    {
+        // Unbounded target domain: the region is the exterior of all m disjoint
+        // polygons (no enclosing outer boundary), so z is inside the domain if and
+        // only if it is outside every one of them.
+        for (const auto& component : m_vertices)
+        {
+            int winding = Domain::calculateWindingNumber(z, component, boundaryTolerance);
+            if (winding == std::numeric_limits<int>::max())
+            {
+                return false;
+            }
+            if (winding != 0)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Bounded target domain: component 0 is the enclosing outer boundary, and every
+    // remaining component is a hole. z is inside the domain iff it is inside the
+    // outer boundary and outside every hole.
     int outerWinding = Domain::calculateWindingNumber(z, m_vertices[0], boundaryTolerance);
     if (outerWinding == std::numeric_limits<int>::max())
     {
-        return !isUnbounded();
+        return true;
     }
-
-    bool insideOuter = (outerWinding != 0);
-    if (!insideOuter)
+    if (outerWinding == 0)
     {
-        return isUnbounded();
+        return false;
     }
 
     for (size_t i = 1; i < m_vertices.size(); ++i)
@@ -95,21 +113,23 @@ bool MCSCPolygonalDomain::contains(const Complex& z) const
         int winding = Domain::calculateWindingNumber(z, m_vertices[i], boundaryTolerance);
         if (winding == std::numeric_limits<int>::max())
         {
-            return isUnbounded();
+            return false;
         }
         if (winding != 0)
         {
-            // Inside a hole: outside the (bounded) domain, inside the (unbounded) domain.
-            return isUnbounded();
+            return false;
         }
     }
 
-    return !isUnbounded();
+    return true;
 }
 
 void MCSCPolygonalDomain::transformBoundary(std::function<Complex(const Complex&)> transform)
 {
-    for (auto& component : m_vertices)
+    // Compute into local copies and validate before committing, so a failure partway
+    // through leaves this domain completely unmodified (strong exception safety).
+    std::vector<std::vector<Complex>> newVertices = m_vertices;
+    for (auto& component : newVertices)
     {
         for (auto& vertex : component)
         {
@@ -117,10 +137,14 @@ void MCSCPolygonalDomain::transformBoundary(std::function<Complex(const Complex&
         }
     }
 
-    for (size_t i = 0; i < m_vertices.size(); ++i)
+    std::vector<std::vector<double>> newAlpha(newVertices.size());
+    for (size_t i = 0; i < newVertices.size(); ++i)
     {
-        m_alpha[i] = calcAngles(m_vertices[i]);
+        newAlpha[i] = calcAngles(newVertices[i]);
     }
+
+    m_vertices = std::move(newVertices);
+    m_alpha = std::move(newAlpha);
 }
 
 std::vector<double> MCSCPolygonalDomain::calcAngles(std::vector<Complex>& vertices)
