@@ -247,14 +247,14 @@ bool CircularDomain::contains(const Complex& z) const
     }
 }
 
-// PolygonalDomain implementation
-void PolygonalDomain::setVertices(const std::vector<Complex>& newVertices)
+// SimplePolygonalDomain implementation
+void SimplePolygonalDomain::setVertices(const std::vector<Complex>& newVertices)
 {
     vertices = newVertices;
     boundary = createBoundary(vertices);
 }
 
-std::shared_ptr<Boundary> PolygonalDomain::createBoundary(
+std::shared_ptr<Boundary> SimplePolygonalDomain::createBoundary(
     const std::vector<Complex>& vertices
 )
 {

@@ -310,20 +310,20 @@ public:
 };
 
 /**
- * @brief Polygonal domain (domain bounded by a polygon)
+ * @brief Simply connected polygonal domain (domain bounded by a single polygon)
  */
-class PolygonalDomain : public SimplyConnectedDomain
+class SimplePolygonalDomain : public SimplyConnectedDomain
 {
 private:
     std::vector<Complex> vertices;
 
 public:
     /**
-     * @brief Construct a new Polygonal Domain
+     * @brief Construct a new Simple Polygonal Domain
      * @param domainVertices Vertices of the polygon
      * @param isUnboundedDomain Whether this is an unbounded domain
      */
-    PolygonalDomain(
+    SimplePolygonalDomain(
         const std::vector<Complex>& domainVertices,
         bool isUnboundedDomain = false
     )
