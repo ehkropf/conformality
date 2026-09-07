@@ -101,6 +101,7 @@ add_library(map_objects OBJECT
     ${CMAKE_SOURCE_DIR}/src/methods/PMatrixBuilder.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflection.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCReflectionIntegrand.cpp
+    ${CMAKE_SOURCE_DIR}/src/methods/MCSCBoundedReflectionIntegrand.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCUnboundedObjectiveFunction.cpp
     ${CMAKE_SOURCE_DIR}/src/methods/MCSCUnbounded.cpp
 )
@@ -225,6 +226,7 @@ add_executable(test_exec
     tests/mcsc_circle_domain_tests.cpp
     tests/mcsc_reflection_tests.cpp
     tests/mcsc_reflection_integrand_tests.cpp
+    tests/mcsc_bounded_reflection_integrand_tests.cpp
     tests/gauss_jacobi_quadrature_tests.cpp
     tests/mcsc_continuation_solver_tests.cpp
     tests/mcsc_unbounded_objective_function_tests.cpp
