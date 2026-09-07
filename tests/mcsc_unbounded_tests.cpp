@@ -159,3 +159,107 @@ TEST(MCSCUnboundedTest, MapAtGeneralExteriorPointIsFinite)
     EXPECT_TRUE(std::isfinite(w.real()));
     EXPECT_TRUE(std::isfinite(w.imag()));
 }
+
+TEST(MCSCUnboundedTest, ValidateTargetDomainRejectsBoundedPolygon)
+{
+    MCSCUnbounded method;
+    std::vector<Complex> triangle = {Complex(0.0, 0.0), Complex(1.0, 0.0), Complex(0.5, 1.0)};
+    std::vector<Complex> hole = {Complex(0.4, 0.3), Complex(0.6, 0.3), Complex(0.5, 0.4)};
+    auto boundedPolygon = std::make_shared<MCSCPolygonalDomain>(
+        std::vector<std::vector<Complex>>{triangle, hole}, /*isUnboundedDomain=*/false);
+
+    EXPECT_THROW(
+        method.validateDomain(boundedPolygon, 2, ConformalMapMethod::DomainRole::Target), std::invalid_argument);
+}
+
+TEST(MCSCUnboundedTest, MapContinuousAcrossCircleBoundary)
+{
+    auto map = makeExampleDriverMap();
+    map->compute();
+
+    auto method = std::dynamic_pointer_cast<MCSCUnbounded>(map->getMethod());
+    ASSERT_NE(method, nullptr);
+    const MCSCCircleDomain& solved = method->solvedCircleDomain();
+
+    // A point midway (in angle) between two prevertices on circle 0, bracketed just inside and
+    // just outside the circle -- map() should agree closely on both sides (no discontinuity at
+    // the integpath line-skip threshold).
+    const auto& t = solved.getPrevertexAngles(0);
+    const double midAngle = 0.5 * (t[0] + t[1]);
+    const Complex direction = std::exp(Complex(0.0, 1.0) * midAngle);
+    const Complex center = solved.getCenter(0);
+    const double r = solved.getRadius(0);
+
+    const Complex zInside = center + (r - 1e-6) * direction;
+    const Complex zOn = center + r * direction;
+    const Complex zOutside = center + (r + 1e-6) * direction;
+
+    const Complex wInside = map->map(zInside);
+    const Complex wOn = map->map(zOn);
+    const Complex wOutside = map->map(zOutside);
+
+    EXPECT_NEAR(std::abs(wInside - wOn), 0.0, 1e-4);
+    EXPECT_NEAR(std::abs(wOutside - wOn), 0.0, 1e-4);
+}
+
+TEST(MCSCUnboundedTest, NearestCircleFindsContainingCircle)
+{
+    auto map = makeExampleDriverMap();
+    map->compute();
+
+    auto method = std::dynamic_pointer_cast<MCSCUnbounded>(map->getMethod());
+    ASSERT_NE(method, nullptr);
+    const MCSCCircleDomain& solved = method->solvedCircleDomain();
+
+    // Points near circle 1 and circle 2 (radius 0.37, off-origin) should each select their own
+    // circle, not circle 0 (radius 1, at the origin) -- exercises the multi-circle branch of the
+    // nearest-distance loop.
+    for (int j = 1; j < solved.circleCount(); ++j)
+    {
+        const Complex nearJ = solved.getCenter(j) + (solved.getRadius(j) + 0.01) * Complex(1.0, 0.0);
+        const auto [foundCircle, angle] = method->nearestCircle(nearJ);
+        EXPECT_EQ(foundCircle, j);
+        EXPECT_GE(angle, 0.0);
+        EXPECT_LT(angle, TWO_PI);
+    }
+}
+
+TEST(MCSCUnboundedTest, IntegPathSkipsArcAtPrevertex)
+{
+    auto map = makeExampleDriverMap();
+    map->compute();
+
+    auto method = std::dynamic_pointer_cast<MCSCUnbounded>(map->getMethod());
+    ASSERT_NE(method, nullptr);
+    const MCSCCircleDomain& solved = method->solvedCircleDomain();
+
+    // z exactly on a prevertex (on the circle, at the prevertex angle): both arc and line should
+    // be skipped -- the result is exactly the stored vertex image with no quadrature call.
+    const Complex prevertex = solved.getPrevertices(0)[1];
+    const auto path = method->integPath(prevertex);
+
+    EXPECT_EQ(path.circleIndex, 0);
+    EXPECT_EQ(path.nearestVertexFlat, 1);
+    EXPECT_FALSE(path.arc.has_value());
+    EXPECT_FALSE(path.line.has_value());
+}
+
+TEST(MCSCUnboundedTest, IntegPathSkipsLineOnBoundary)
+{
+    auto map = makeExampleDriverMap();
+    map->compute();
+
+    auto method = std::dynamic_pointer_cast<MCSCUnbounded>(map->getMethod());
+    ASSERT_NE(method, nullptr);
+    const MCSCCircleDomain& solved = method->solvedCircleDomain();
+
+    // z on the circle boundary but not at a prevertex angle: arc present, line skipped.
+    const auto& t = solved.getPrevertexAngles(0);
+    const double midAngle = 0.5 * (t[0] + t[1]);
+    const Complex z = solved.getCenter(0) + solved.getRadius(0) * std::exp(Complex(0.0, 1.0) * midAngle);
+    const auto path = method->integPath(z);
+
+    EXPECT_EQ(path.circleIndex, 0);
+    EXPECT_TRUE(path.arc.has_value());
+    EXPECT_FALSE(path.line.has_value());
+}

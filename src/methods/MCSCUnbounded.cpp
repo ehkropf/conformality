@@ -53,6 +53,13 @@ void MCSCUnbounded::compute(ConformalMap& map_instance, double /*target_accuracy
     MCSCUnboundedObjectiveFunction objective(*m_polygon, *sourceDomain, m_N, m_ngj);
     m_circle.emplace(objective.solve(m_continuationOptions));
 
+    // objective.solve() doesn't surface the continuation solver's own residual, so recompute it
+    // here at the solved point (cheap: one more evaluate() call) to report a real achieved
+    // accuracy rather than a misleading hardcoded value.
+    const Eigen::VectorXd finalResidual = objective.evaluate(m_circle->toUnconstrained());
+    m_achieved_accuracy = finalResidual.lpNorm<Eigen::Infinity>();
+    m_iteration_count = 0;  // MCSCContinuationSolver doesn't report a Newton-style iteration count.
+
     m_integrand.emplace(*m_polygon, *m_circle, m_N);
 
     std::vector<double> betaValues;
@@ -80,11 +87,16 @@ void MCSCUnbounded::compute(ConformalMap& map_instance, double /*target_accuracy
     const Complex Q12 = m_quadrature->integrateArc(
         t0[0], 0, wrapForward(t0[0], t0[1]), 1, m_circle->getCenter(0), m_circle->getRadius(0), fprime,
         m_singularities);
+    if (!std::isfinite(std::abs(Q12)) || std::abs(Q12) < std::numeric_limits<double>::epsilon())
+    {
+        throw std::runtime_error(
+            "MCSCUnbounded: normalization integral Q12 is degenerate (near zero or non-finite) -- "
+            "target polygon vertices 0 and 1 on component 0 may be too close, or the parameter-problem "
+            "solve did not converge to a valid circle configuration");
+    }
+
     const auto& w0 = m_polygon->getVertices(0);
     m_A = (w0[1] - w0[0]) / Q12;
-
-    m_achieved_accuracy = 0.0;
-    m_iteration_count = 0;
 }
 
 void MCSCUnbounded::ensureComputed() const
