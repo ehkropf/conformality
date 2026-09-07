@@ -20,6 +20,7 @@
 
 #include "../src/domains/MCSCCircleDomain.h"
 #include "../src/domains/MCSCPolygonalDomain.h"
+#include "../src/methods/MCSCReflection.h"
 
 #include <gtest/gtest.h>
 #include <cmath>
@@ -48,6 +49,107 @@ MCSCPolygonalDomain makeTwoComponentPolygon()
     std::vector<Complex> outerTriangle = {Complex(0.0, 0.0), Complex(5.0, 0.0), Complex(2.5, 5.0)};
     std::vector<Complex> innerTriangle = {Complex(2.0, 2.0), Complex(3.0, 2.0), Complex(2.5, 3.0)};
     return MCSCPolygonalDomain({outerTriangle, innerTriangle}, /*isUnboundedDomain=*/false);
+}
+
+// Three-circle bounded configuration (outer circle 0 plus two interior circles) so that
+// reflectCircleSequence's (m-1)-way branching actually branches: at m=2, every level has exactly
+// one entry per circle, so evalFPrime's nu1 positional-pairing walk into m_reflections[0] is
+// indistinguishable from a trivial per-iteration counter. At m=3, level 2 has (m-1)^2=4 entries
+// per circle, giving nu1 a genuine multi-entry sequence to walk correctly.
+MCSCCircleDomain makeThreeCircleDomain()
+{
+    return MCSCCircleDomain(std::vector<MCSCCircleDomain::CircleData>{
+        {Complex(0.0, 0.0), 1.0, {0.0, 2.0 * M_PI / 3.0, 4.0 * M_PI / 3.0}},
+        {Complex(0.3, 0.2), 0.15, {0.0, 2.0 * M_PI / 3.0, 4.0 * M_PI / 3.0}},
+        {Complex(-0.2, -0.3), 0.1, {0.0, 2.0 * M_PI / 3.0, 4.0 * M_PI / 3.0}},
+    });
+}
+
+MCSCPolygonalDomain makeThreeComponentPolygon()
+{
+    std::vector<Complex> outerTriangle = {Complex(0.0, 0.0), Complex(5.0, 0.0), Complex(2.5, 5.0)};
+    std::vector<Complex> innerTriangleA = {Complex(2.0, 2.0), Complex(3.0, 2.0), Complex(2.5, 3.0)};
+    std::vector<Complex> innerTriangleB = {Complex(0.5, 0.5), Complex(1.0, 0.5), Complex(0.75, 1.0)};
+    return MCSCPolygonalDomain({outerTriangle, innerTriangleA, innerTriangleB}, /*isUnboundedDomain=*/false);
+}
+
+// Independent re-derivation of evalFPrime(z, N=2) for the three-circle fixture, replaying
+// build_reflections' pre-reflection step and mcsc::reflectCircleSequence directly (not calling
+// MCSCBoundedReflectionIntegrand at all) and then walking the (level, j, nu)/nu1 pairing by hand
+// against the raw ReflectedCircle data. This is deliberately independent of
+// MCSCBoundedReflectionIntegrand::evalFPrime's own loop structure -- a regression in that loop
+// (wrong nu1 stride, wrong level offset, wrong pairing) would change evalFPrime's result without
+// changing this function, so comparing the two is a genuine cross-check, not a tautology.
+Complex handComputedFPrimeAtN2(const MCSCCircleDomain& circle, const MCSCPolygonalDomain& polygon, const Complex& z)
+{
+    constexpr int N = 2;
+    const int m = circle.circleCount();
+
+    std::vector<std::vector<double>> beta(m);
+    for (int j = 0; j < m; ++j)
+    {
+        const auto& alpha = polygon.getAlpha(j);
+        beta[j].resize(alpha.size());
+        for (std::size_t k = 0; k < alpha.size(); ++k)
+        {
+            beta[j][k] = (j == 0) ? -(1.0 - alpha[k]) : (1.0 - alpha[k]);
+        }
+    }
+
+    std::vector<Complex> centers = circle.getCenters();
+    std::vector<double> radii = circle.getRadii();
+    std::vector<std::vector<Complex>> prevertices(m);
+    for (int j = 0; j < m; ++j)
+    {
+        prevertices[j] = circle.getPrevertices(j);
+    }
+    for (int j = 1; j < m; ++j)
+    {
+        const auto [co, ro] = mcsc::reflectCircle(centers[0], radii[0], centers[j], radii[j]);
+        centers[j] = co;
+        radii[j] = ro;
+        for (Complex& p : prevertices[j])
+        {
+            p = mcsc::reflectPoint(centers[0], radii[0], p);
+        }
+    }
+
+    auto reflections = mcsc::reflectCircleSequence(centers, radii, prevertices, centers, N);
+
+    Complex logsum{0.0, 0.0};
+    const auto& c1Level0 = reflections[0][0];
+    for (std::size_t k = 0; k < c1Level0.prevertices.size(); ++k)
+    {
+        logsum += beta[0][k] * std::log(1.0 - (c1Level0.prevertices[k] - c1Level0.center) / (z - c1Level0.center));
+    }
+
+    // Hand-walk the (level, j, nu)/nu1 pairing using explicit level bounds (1 at level 0, (m-1)^n
+    // new entries at level n), rather than reusing MCSCBoundedReflectionIntegrand's own loop code.
+    const std::vector<std::size_t> levelBounds = {0, 1, 1 + static_cast<std::size_t>(m - 1)};
+    std::size_t nu1 = 0;
+    for (int level = 0; level < N; ++level)
+    {
+        for (int j = 1; j < m; ++j)
+        {
+            for (std::size_t nu = levelBounds[level]; nu < levelBounds[level + 1]; ++nu)
+            {
+                const auto& refl = reflections[j][nu];
+                for (std::size_t k = 0; k < refl.prevertices.size(); ++k)
+                {
+                    logsum += beta[j][k] * std::log(1.0 - (refl.prevertices[k] - refl.center) / (z - refl.center));
+                }
+                ++nu1;
+                const auto& c1AtPosition = reflections[0][nu1];
+                for (std::size_t k = 0; k < c1AtPosition.prevertices.size(); ++k)
+                {
+                    logsum += beta[0][k]
+                        * std::log(1.0 - (c1AtPosition.prevertices[k] - refl.center) / (z - refl.center));
+                }
+            }
+        }
+    }
+
+    return std::exp(logsum);
 }
 
 } // namespace
@@ -229,4 +331,27 @@ TEST(MCSCBoundedReflectionIntegrandTest, RebuildMatchesFreshConstructionOnUpdate
     Complex fresh = freshOnMovedDomain.evalFPrime(z);
     EXPECT_NEAR(std::real(after), std::real(fresh), 1e-12);
     EXPECT_NEAR(std::imag(after), std::imag(fresh), 1e-12);
+}
+
+TEST(MCSCBoundedReflectionIntegrandTest, EvalFPrimeMatchesHandComputedValueWithBranchingReflectionTree)
+{
+    // Every other test in this file uses a 2-circle fixture, where reflectCircleSequence's
+    // (m-1)-way branching degenerates to exactly one entry per level per circle -- evalFPrime's
+    // nu1 positional-pairing walk into m_reflections[0] is then indistinguishable from a trivial
+    // per-iteration counter, so a regression in the pairing arithmetic (wrong stride, wrong level
+    // offset, wrong array) could pass every other test here. This test uses 3 circles at N=2, so
+    // level 2 has (m-1)^2=4 entries per circle -- a genuine multi-entry level -- and compares
+    // against handComputedFPrimeAtN2, an independent re-derivation that does not call
+    // MCSCBoundedReflectionIntegrand::evalFPrime's own loop code at all.
+    auto circle = makeThreeCircleDomain();
+    auto polygon = makeThreeComponentPolygon();
+    MCSCBoundedReflectionIntegrand integrand(polygon, circle, 2);
+
+    Complex z(0.4, 0.1);  // inside circle 0, away from circles 1/2 and their nearby reflections
+
+    Complex actual = integrand.evalFPrime(z);
+    Complex expected = handComputedFPrimeAtN2(circle, polygon, z);
+
+    EXPECT_NEAR(std::real(actual), std::real(expected), 1e-10);
+    EXPECT_NEAR(std::imag(actual), std::imag(expected), 1e-10);
 }

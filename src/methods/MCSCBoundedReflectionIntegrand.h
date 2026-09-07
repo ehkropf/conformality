@@ -55,7 +55,8 @@ public:
      * @param N Reflection truncation level (N >= 0).
      * @throws std::invalid_argument if polygon and circle have different connectivity, if any
      *         circle's prevertex count doesn't match its corresponding polygon's vertex count,
-     *         or if there are fewer than 2 circles.
+     *         if there are fewer than 2 circles, or if N is negative (propagated from
+     *         mcsc::reflectCircleSequence).
      */
     MCSCBoundedReflectionIntegrand(const MCSCPolygonalDomain& polygon, const MCSCCircleDomain& circle, int N);
 
@@ -66,7 +67,9 @@ public:
      * MCSCCircleDomain::setFromUnconstrained during a Newton step) -- reflection data is not
      * automatically kept in sync.
      *
-     * @throws std::invalid_argument under the same conditions as the constructor.
+     * @throws std::invalid_argument under the same conditions as the constructor. On throw, this
+     *         object is left unchanged (strong exception guarantee) -- m_beta, m_reflections, and
+     *         m_N are only overwritten together, after the throwing steps have succeeded.
      */
     void rebuild(const MCSCPolygonalDomain& polygon, const MCSCCircleDomain& circle, int N);
 
@@ -87,6 +90,11 @@ public:
 private:
     std::vector<std::vector<double>> m_beta;                       // beta[j][k]
     std::vector<std::vector<mcsc::ReflectedCircle>> m_reflections;  // m_reflections[j][nu]
+
+    // Truncation level bounding evalFPrime's level loop -- NOT redundant with m_reflections'
+    // size: m_reflections is built one construction level deeper than evalFPrime ever reads (see
+    // evalFPrime's comment), so this is load-bearing, separate state. Set together with
+    // m_reflections in rebuild() only; must never be modified independently.
     int m_N{0};
 
     static void validateDomains(const MCSCPolygonalDomain& polygon, const MCSCCircleDomain& circle);

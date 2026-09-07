@@ -21,6 +21,7 @@
 #include "../domains/MCSCCircleDomain.h"
 #include "../domains/MCSCPolygonalDomain.h"
 
+#include <cassert>
 #include <cmath>
 #include <complex>
 #include <stdexcept>
@@ -103,10 +104,19 @@ void MCSCBoundedReflectionIntegrand::rebuild(const MCSCPolygonalDomain& polygon,
 
     // outerCenters mirrors the (post-pre-reflection) centers, matching the unbounded case's
     // outerImage = center convention -- there is no separate "s" quantity in the bounded case.
+    // Note evalFPrime below never reads .outerImage on any ReflectedCircle: this is computed
+    // purely to satisfy reflectCircleSequence's shared signature (used by both this class and the
+    // unbounded MCSCReflectionIntegrand, which does need it) and is otherwise wasted per-node work
+    // in the bounded case -- worth revisiting if reflection cost becomes a bottleneck.
     std::vector<Complex> outerCenters = centers;
 
+    // reflectCircleSequence throws on invalid N/geometry -- built into a local first and moved in
+    // only after it succeeds, alongside m_beta and m_N, so a throw here leaves this object
+    // unchanged rather than with m_beta already overwritten but m_reflections/m_N stale (strong
+    // exception guarantee; see rebuild()'s @throws doc).
+    auto reflections = mcsc::reflectCircleSequence(centers, radii, prevertices, outerCenters, N);
     m_beta = std::move(beta);
-    m_reflections = mcsc::reflectCircleSequence(centers, radii, prevertices, outerCenters, N);
+    m_reflections = std::move(reflections);
     m_N = N;
 }
 
@@ -126,17 +136,26 @@ Complex MCSCBoundedReflectionIntegrand::evalFPrime(const Complex& z) const
     // construction levels: its level=1 revisits construction-level-0 (each interior circle's own
     // pre-reflected-to-exterior copy, m_reflections[j][0] -- an ordinary-term contributor here,
     // unlike the initial draft of this class), level=2 covers construction-level-1's new entries,
-    // and so on through construction-level (N-1). reflectCircleSequence's outermost,
-    // construction-level-N entries are therefore built but never read -- a faithful port of
-    // fpintrefl.m's own asymmetry between build_reflections's reflectzsmi(...,N) call and
-    // eval_fprime's `for level=1:N`, not a bug to silently narrow away.
+    // and so on through construction-level (N-1). This asymmetry is NOT the same for every
+    // circle's array, though:
+    //   - reflJ = m_reflections[j] for j >= 1 (the ordinary term, below) is only ever read through
+    //     construction-level (N-1) -- its outermost, construction-level-N entries are built (by
+    //     rebuild()'s reflectCircleSequence(...,N) call) but never read here. A faithful port of
+    //     fpintrefl.m's own asymmetry between build_reflections's reflectzsmi(...,N) call and
+    //     eval_fprime's `for level=1:N` -- not a bug to silently narrow away, and NOT an
+    //     optimization opportunity to prune from reflJ specifically.
+    //   - reflC1 = m_reflections[0] (the "extra" term, via nu1 below), by contrast, is walked
+    //     positionally end to end: nu1 always advances to exactly reflC1.size() - 1, i.e. every
+    //     entry of reflC1 -- including its own construction-level-N entries -- is read exactly
+    //     once. Do not assume reflC1 is wasted the same way reflJ is.
     //
-    // nu1 is a single running counter walking C1's own reflection array (m_reflections[0]) by raw
-    // sequential position -- NOT a matching reflection path -- one increment per (level, j, nu)
-    // triple visited. Verified index-for-index against a direct simulation of reflectzsmi/
-    // eval_fprime's index arithmetic for m=3,4,5 and N=1,2,3, and against the dissertation (Sec
-    // 6.1 confirms the reflection method -- unlike the unresolved fast/Laurent-series method of
-    // Ch. 4 -- was completed and validated for the bounded case).
+    // nu1 is a single running counter walking reflC1 by raw sequential position -- NOT a matching
+    // reflection path -- one increment per (level, j, nu) triple visited. Verified index-for-index
+    // against a direct simulation of reflectzsmi/eval_fprime's index arithmetic for m=3,4,5 and
+    // N=1,2,3 (a spot check, not a proof -- the assert below catches a future generalization, e.g.
+    // a different branching factor in reflectCircleSequence, that would invalidate it), and
+    // against the dissertation (Sec 6.1 confirms the reflection method -- unlike the unresolved
+    // fast/Laurent-series method of Ch. 4 -- was completed and validated for the bounded case).
     const int m = static_cast<int>(m_reflections.size());
     const auto& reflC1 = m_reflections[0];
 
@@ -171,6 +190,7 @@ Complex MCSCBoundedReflectionIntegrand::evalFPrime(const Complex& z) const
         levelStart = levelEnd;
         levelSize *= static_cast<std::size_t>(m - 1);
     }
+    assert(nu1 == reflC1.size() - 1);
 
     return std::exp(logsum);
 }
